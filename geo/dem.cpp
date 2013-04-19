@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <tuple>
 
 #include <gdal_priv.h>
 
@@ -6,6 +7,8 @@
 #include "imgproc/rastermask.hpp"
 
 #include "dem.hpp"
+
+namespace geo {
 
 namespace {
 
@@ -128,9 +131,36 @@ math::Point2 demCorner(GDALDataset *dataset, double x, double y)
     return {x, y};
 }
 
-} // namespace
+std::tuple<math::Extents2, math::Extents2i>
+demRegions(const math::Extents2 &extents, const math::Size2f &px
+           , const math::Extents2 &dextents, const cv::Mat &dem)
+{
+    // compute region of interest (throws when no intersection is found)
+    auto region(intersect(extents, dextents));
+    LOG(info1) << "region: " << std::setprecision(15) << region;
+    // normalize inside DEM extents
+    math::Extents2 nregion(region.ll - dextents.ll, region.ur - dextents.ll);
+    LOG(info1) << "nregion: " << std::setprecision(15) << nregion;
 
-math::Points3 loadDem(const fs::path &path, const math::Extents2 &extents)
+    // compute extents in pixels and clip by dem dimensions
+    return std::tuple<math::Extents2, math::Extents2i>
+        (region
+         , intersect(math::Extents2i(std::floor(nregion.ll(0) / px.width)
+                                     , std::floor(nregion.ll(1) / px.height)
+                                     , std::ceil(nregion.ur(0) / px.width)
+                                     , std::ceil(nregion.ur(1) / px.height))
+                     , math::Extents2i(0, 0, dem.cols, dem.rows)));
+}
+
+std::tuple<math::Extents2, math::Extents2i>
+demRegions(const math::Extents2 &dextents, const cv::Mat &dem)
+{
+    return std::tuple<math::Extents2, math::Extents2i>
+        (dextents, math::Extents2i(0, 0, dem.cols, dem.rows));
+}
+
+math::Points3 loadDemImpl(const fs::path &path
+                          , const math::Extents2 *extents = nullptr)
 {
     GdalInit gdal;
 
@@ -164,20 +194,11 @@ math::Points3 loadDem(const fs::path &path, const math::Extents2 &extents)
 
     LOG(info1) << "px: " << std::setprecision(15) << px;
 
-    // compute region of interest (throws when no intersection is found)
-    auto region(intersect(extents, dextents));
-    LOG(info1) << "region: " << std::setprecision(15) << region;
-    // normalize inside DEM extents
-    math::Extents2 nregion(region.ll - dextents.ll, region.ur - dextents.ll);
-    LOG(info1) << "nregion: " << std::setprecision(15) << nregion;
-
-    // compute extents in pixels and clip by dem dimensions
-    auto pregion(intersect
-                 (math::Extents2i(std::floor(nregion.ll(0) / px.width)
-                                  , std::floor(nregion.ll(1) / px.height)
-                                  , std::ceil(nregion.ur(0) / px.width)
-                                  , std::ceil(nregion.ur(1) / px.height))
-                  , math::Extents2i(0, 0, dem.cols, dem.rows)));
+    math::Extents2 region;
+    math::Extents2i pregion;
+    std::tie(region, pregion) = (extents
+                                 ? demRegions(*extents, px, dextents, dem)
+                                 : demRegions(dextents, dem));
 
     LOG(info1) << "pregion: " << pregion;
 
@@ -198,3 +219,17 @@ math::Points3 loadDem(const fs::path &path, const math::Extents2 &extents)
 
     return pc;
 }
+
+} // namespace
+
+math::Points3 loadDem(const fs::path &path)
+{
+    return loadDemImpl(path);
+}
+
+math::Points3 loadDem(const fs::path &path, const math::Extents2 &extents)
+{
+    return loadDemImpl(path, &extents);
+}
+
+} // namespace geo
