@@ -2,6 +2,7 @@
 #include <tuple>
 
 #include <gdal_priv.h>
+#include <ogr_spatialref.h>
 
 #include "dbglog/dbglog.hpp"
 #include "imgproc/rastermask.hpp"
@@ -100,6 +101,8 @@ Out processBand(GDALRasterBand *band)
                   ? (size.width % bsize.width) : bsize.width)
                  , (((by + 1) == bcount.height)
                     ? (size.height % bsize.height) : bsize.height));
+            if (!range.width) { range.width = bsize.width; }
+            if (!range.height) { range.height = bsize.height; }
 
             LOG(info2) << "processing block: " << range
                        << " at " << x << ", " << y;
@@ -159,8 +162,17 @@ demRegions(const math::Extents2 &dextents, const cv::Mat &dem)
         (dextents, math::Extents2i(0, 0, dem.cols, dem.rows));
 }
 
-math::Points3 loadDemImpl(const fs::path &path
-                          , const math::Extents2 *extents = nullptr)
+std::string projectionReference(GDALDataset *ds)
+{
+    char *pr;
+    OGRSpatialReference(ds->GetProjectionRef()).exportToProj4(&pr);
+    std::string res(pr);
+    CPLFree(pr);
+    return res;
+}
+
+DemCloud loadDemImpl(const fs::path &path
+                     , const math::Extents2 *extents = nullptr)
 {
     GdalInit gdal;
 
@@ -184,7 +196,9 @@ math::Points3 loadDemImpl(const fs::path &path
          , demCorner(dataset, GDALGetRasterXSize(dataset), .0));
 
 
-    LOG(info1) << "extents: " << std::setprecision(15) << extents;
+    if (extents) {
+        LOG(info1) << "extents: " << std::setprecision(15) << *extents;
+    }
     LOG(info1) << "dextents: " << std::setprecision(15) << dextents;
 
     // compute pixel size
@@ -217,17 +231,17 @@ math::Points3 loadDemImpl(const fs::path &path
         }
     }
 
-    return pc;
+    return { pc, projectionReference(dataset) };
 }
 
 } // namespace
 
-math::Points3 loadDem(const fs::path &path)
+DemCloud loadDem(const fs::path &path)
 {
     return loadDemImpl(path);
 }
 
-math::Points3 loadDem(const fs::path &path, const math::Extents2 &extents)
+DemCloud loadDem(const fs::path &path, const math::Extents2 &extents)
 {
     return loadDemImpl(path, &extents);
 }

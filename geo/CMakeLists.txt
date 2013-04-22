@@ -1,8 +1,9 @@
 define_module(LIBRARY geo DEPENDS cvision imgproc math dbglog
-  Boost_FILESYSTEM GDAL)
+  Boost_FILESYSTEM PROJ GDAL)
 
 set(geo_SOURCES
     dem.hpp dem.cpp
+    project.hpp project.cpp
 )
 
 add_library(geo STATIC ${geo_SOURCES})

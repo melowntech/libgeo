@@ -1,5 +1,7 @@
-#ifndef scene_init_dem_hpp_included_
-#define scene_init_dem_hpp_included_
+#ifndef geo_dem_hpp_included_
+#define geo_dem_hpp_included_
+
+#include <string>
 
 #include <boost/filesystem/path.hpp>
 
@@ -7,12 +9,19 @@
 
 namespace geo {
 
-math::Points3 loadDem(const boost::filesystem::path &path);
+struct DemCloud {
+    math::Points3 pc;
+    std::string projectionReference;
 
-math::Points3 loadDem(const boost::filesystem::path &path
-                      , const math::Extents2 &extents);
+    operator math::Points3&() { return pc; }
+    operator const math::Points3&() const { return pc; }
+};
+
+DemCloud loadDem(const boost::filesystem::path &path);
+
+DemCloud loadDem(const boost::filesystem::path &path
+                 , const math::Extents2 &extents);
 
 } // namespace geo
 
-#endif // scene_init_dem_hpp_included_
-
+#endif // geo_dem_hpp_included_
