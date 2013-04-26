@@ -30,4 +30,10 @@ math::Point2 Projection::operator()(const math::Point2 &p) const
     return { res.u, res.v };
 }
 
+math::Point3 Projection::operator()(const math::Point3 &p) const
+{
+    auto xy(operator()(math::Point2(p(0), p(1))));
+    return { xy(0), xy(1), p(2) };
+}
+
 } // namespace geo

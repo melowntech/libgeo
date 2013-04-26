@@ -14,6 +14,8 @@ public:
 
     math::Point2 operator()(const math::Point2 &p) const;
 
+    math::Point3 operator()(const math::Point3 &p) const;
+
     Projection rev() const { return { proj_, !inverse_ }; };
 
 private:
