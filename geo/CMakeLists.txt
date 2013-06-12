@@ -7,7 +7,6 @@ set(geo_SOURCES
 )
 
 add_library(geo STATIC ${geo_SOURCES})
-set_target_properties(geo PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
-  ${CMAKE_SOURCE_DIR}/lib)
+buildsys_library(geo)
 
 target_link_libraries(geo ${MODULE_LIBRARIES})
