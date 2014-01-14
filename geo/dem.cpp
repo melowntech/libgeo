@@ -40,7 +40,7 @@ template<> struct DemOutput<cv::Mat> {
 
         // copy data (apply scale and offset)
         std::transform(irow, erow, orow
-                       , [scale, offset] (float v) {
+                       , [this] (float v) {
                            return (v * scale) + offset;
                        });
     }
