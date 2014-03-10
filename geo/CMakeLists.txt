@@ -1,11 +1,12 @@
 define_module(LIBRARY geo DEPENDS cvision imgproc math dbglog
-  Boost_FILESYSTEM PROJ GDAL)
+  Boost_FILESYSTEM PROJ GDAL GEOGRAPHICLIB)
 
 set(geo_SOURCES
     dem.hpp dem.cpp
     srsdef.hpp srsdef.cpp
     project.hpp project.cpp
-    csconvert.hpp csconvert.cpp
+    csconvertor.hpp csconvertor.cpp
+    heightconvertor.hpp heightconvertor.cpp
 
     detail/srs.hpp
 )
