@@ -1,72 +1,32 @@
 #include <stdexcept>
-#include <vector>
 
 #include <proj_api.h>
-#include <ogr_spatialref.h>
-#include <cpl_conv.h>
 
 #include "dbglog/dbglog.hpp"
 
-#include "project.hpp"
+#include "./project.hpp"
 
 namespace geo {
 
 namespace {
 
-std::string wkt2Proj(const std::string &def)
+std::shared_ptr<void> initProj(const SrsDefinition &def)
 {
-    OGRSpatialReference sr;
-
-    {
-        // convert NUL-terminated string to char vector
-        std::vector<char> tmp(def.c_str(), def.c_str() + def.size() + 1);
-        char *data(tmp.data());
-        auto err(sr.importFromWkt(&data));
-        if (err != OGRERR_NONE) {
-            LOGTHROW(err1, std::runtime_error)
-                << "Error parsing wkt definition: <" << err << ">.";
-        }
-    }
-
-    char *out(nullptr);
-
-    auto err(sr.exportToProj4(&out));
-    if (err != OGRERR_NONE) {
-        ::CPLFree(out);
-        LOGTHROW(err1, std::runtime_error)
-            << "Error converting wkt to proj definition: <"
-            << err << ">.";
-    }
-    std::string projDef(out);
-    ::CPLFree(out);
-
-    // TODO: implement me
-    return projDef;
-}
-
-std::shared_ptr<void> initProj(const Projection::Definition &def)
-{
-    std::string projDef;
-    switch (def.type) {
-    case Projection::Definition::Type::proj:
-        projDef = def.def;
-        break;
-
-    case Projection::Definition::Type::wkt:
-        projDef = wkt2Proj(def.def);
-        break;
-    }
-
-    return { pj_init_plus(projDef.c_str())
+    return { pj_init_plus(def.as(SrsDefinition::Type::proj4).srs.c_str())
             , [](void *ptr) { if (ptr) pj_free(ptr); } };
 }
 
 } // namespace
 
-Projection::Projection(const Definition &def, bool inverse)
+Projection::Projection(const SrsDefinition &def, bool inverse)
     : proj_(initProj(def)), inverse_(inverse)
 {
-    LOG(info1) << "Projection(" << def.def << ")";
+    if (!proj_) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Cannot initialize projection for (" << def.srs << ")";
+    }
+
+    LOG(info1) << "Projection(" << def.srs << ")";
 }
 
 namespace {

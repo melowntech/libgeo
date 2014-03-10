@@ -6,21 +6,13 @@
 
 #include "math/geometry_core.hpp"
 
+#include "./srsdef.hpp"
+
 namespace geo {
 
 class Projection {
 public:
-    struct Definition {
-        enum class Type { proj, wkt };
-
-        std::string def;
-        Type type;
-        Definition(const std::string &def, Type type = Type::proj)
-            : def(def), type(type)
-        {}
-    };
-
-    Projection(const Definition &def, bool inverse = false);
+    Projection(const SrsDefinition &def, bool inverse = false);
 
     math::Point2 operator()(const math::Point2 &p) const;
 

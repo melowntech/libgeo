@@ -3,7 +3,11 @@ define_module(LIBRARY geo DEPENDS cvision imgproc math dbglog
 
 set(geo_SOURCES
     dem.hpp dem.cpp
+    srsdef.hpp srsdef.cpp
     project.hpp project.cpp
+    csconvert.hpp csconvert.cpp
+
+    detail/srs.hpp
 )
 
 add_library(geo STATIC ${geo_SOURCES})
