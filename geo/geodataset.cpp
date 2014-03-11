@@ -294,10 +294,10 @@ void GeoDataset::warpInto( GeoDataset & dst, Resampling alg ) const {
     }
 
     switch( alg ) {
-
+#if 0
         case average:
             warpOptions->eResampleAlg = GRA_Average; break;
-
+#endif
         case lanczos:
         default:
             warpOptions->eResampleAlg = GRA_Lanczos; break;
@@ -330,13 +330,16 @@ void GeoDataset::warpInto( GeoDataset & dst, Resampling alg ) const {
     GDALDestroyGenImgProjTransformer( warpOptions->pTransformerArg );
     GDALDestroyWarpOptions( warpOptions );
 
+    // invalidate local copies of target dataset content
+    dst.data_ = boost::none; dst.mask_ = boost::none;
+
     // done
 }
 
 void GeoDataset::assertData() const {
 
     #pragma omp critical
-    if ( ! mask_ && ! data_ ) {
+    if ( ! mask_ || ! data_ ) {
         loadData();
     }
 }
@@ -392,8 +395,6 @@ void GeoDataset::loadData() const {
 
     for ( int i = 1; i <= numChannels; i++ ) {
 
-        (void) valueSize;
-
         int bandMap( i );
 
         /* NOTE: we reverse the order of channels in the dataset,
@@ -425,10 +426,12 @@ void GeoDataset::loadData() const {
 
     if ( noDataValue_ ) {
 
+        double * curpos = reinterpret_cast<double *>( data_->data );
+
         for ( int i = 0; i < size_.height; i++ )
             for ( int j = 0; j < size_.width; j++ )
                 for ( int k = 0; k < numChannels_; k++ )
-                    if ( data_->at<double>(i,j) == *noDataValue_ )
+                    if ( *curpos++ == noDataValue_.get() )
                         mask_->set(j,i,false);
     }
 
@@ -611,7 +614,7 @@ void GeoDataset::textureMesh(
 
         if ( ! validf( row, col ) ) continue;
 
-        // normalized coords are in (-1,1) range -> transform to (-0.5,0.5)
+        // normalized coords are in (-1.0,1.0) range -> transform to (0.0,1.0)
         math::Point3 tcoord3 = transform( il2dn, vertex ) * 0.5
             + math::Point3( 0.5, 0.5, 0.0 );
 
