@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include <boost/utility/in_place_factory.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <gdalwarper.h>
 
@@ -45,6 +46,7 @@ void GDALErrorHandler( CPLErr eErrClass, int err_no, const char *msg)
 namespace geo {
 
 namespace ut = utility;
+namespace fs = boost::filesystem;
 
 typedef imgproc::quadtree::RasterMask RasterMask;
 
@@ -129,13 +131,15 @@ void GeoDataset::initialize() {
 }
 
 
-GeoDataset GeoDataset::createFromFS( const std::string & path ) {
+GeoDataset GeoDataset::createFromFS(const fs::path & path)
+{
 
     if ( ! initialized_ ) initialize();
 
-    GDALDataset * dset = (GDALDataset *) GDALOpen( path.c_str(), GA_ReadOnly );
+    GDALDataset * dset = static_cast<GDALDataset*>
+        (GDALOpen( path.string().c_str(), GA_ReadOnly));
 
-    if ( dset == NULL ) {
+    if ( dset == nullptr ) {
         LOGTHROW( err2, std::runtime_error )
             << "Failed to open dataset " << path << ".";
     }
@@ -203,7 +207,7 @@ GeoDataset GeoDataset::deriveInMemory(
         "MEM", //"MEM.tif",
         size->width,
         size->height,
-        sdset->GetRasterCount(), dstDataType, NULL );
+        sdset->GetRasterCount(), dstDataType, nullptr );
 
     ut::expect( tdset, "Failed to create in memory dataset.\n" );
 
@@ -548,6 +552,35 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh ) const {
     // all done
 }
 
+math::Points3 GeoDataset::exportPointCloud() const
+{
+    // expect a single gray channel
+    expectGray();
+
+    // obtain heightfield data
+    assertData();
+
+    // dump vertices
+    math::Matrix4 localTrafo = geo2local( extents_ );
+
+    math::Points3 pc;
+    for ( int i = 0; i < size_.height; i++ ) {
+        for ( int j = 0; j < size_.width; j++ ) {
+            if ( ! valid( i, j ) ) continue;
+
+            // vertex coordinates
+            math::Point3 pvertex;
+
+            pvertex = transform(
+                localTrafo,
+                rowcol2geo( i, j, data_->at<double>( i, j ) ) );
+
+            pc.push_back(pvertex);
+        }
+    }
+    // all done
+    return pc;
+}
 
 void GeoDataset::textureMesh(
     const geometry::Mesh & imesh, const math::Extents2 & extents,
@@ -618,7 +651,7 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
         GDALCreateGenImgProjTransformer(
             dset_.get(),
             srsWkt_.c_str(),
-            NULL,
+            nullptr,
             proj4ToWkt( srsProj4 ).c_str(),
             false, 0, 1 );
 

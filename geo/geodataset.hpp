@@ -25,12 +25,10 @@
 
 namespace geo {
 
-namespace fs = boost::filesystem;
-
 class GeoDataset {
 public:
 
-    static GeoDataset createFromFS( const std::string & path );
+    static GeoDataset createFromFS(const boost::filesystem::path &path);
 
     /** Derive in-memory data set from existing data set.
      *  Only metadata from source are used.
@@ -60,6 +58,8 @@ public:
      * @brief export geometry from a dsm dataset (in local coordinates)
      */
     void exportMesh( geometry::Mesh & mesh ) const;
+
+    math::Points3 exportPointCloud() const;
 
     /**
      * @brief texture a mesh using a texture dataset
