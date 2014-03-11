@@ -7,6 +7,8 @@ set(geo_SOURCES
     project.hpp project.cpp
     csconvertor.hpp csconvertor.cpp
     heightconvertor.hpp heightconvertor.cpp
+    geodataset.hpp geodataset.cpp
+    coordinates.hpp
 
     detail/srs.hpp
 )
