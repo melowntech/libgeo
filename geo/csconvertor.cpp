@@ -1,6 +1,7 @@
 #include <stdexcept>
 
 #include <ogr_spatialref.h>
+#include <cpl_error.h>
 
 #include "dbglog/dbglog.hpp"
 
@@ -21,20 +22,21 @@ std::shared_ptr<void> initTrans(const SrsDefinition &from
     OGRSpatialReference srTo;
     detail::import(srTo, to);
 
-    std::shared_ptr<OGRCoordinateTransformation> trans;
-        (OGRCreateCoordinateTransformation(&srFrom, &srTo));
+    std::shared_ptr< ::OGRCoordinateTransformation>
+        trans(::OGRCreateCoordinateTransformation(&srFrom, &srTo));
 
     if (!trans) {
         LOGTHROW(err1, std::runtime_error)
             << "Cannot initialize coordinate system transformation ("
-            << from.srs <<  " ->" << to.srs << ")";
+            << from.srs <<  " ->" << to.srs << "): <"
+            << ::CPLGetLastErrorMsg() << ">.";
     }
     return trans;
 }
 
 inline OGRCoordinateTransformation& trans(const std::shared_ptr<void> &t)
 {
-    return *std::static_pointer_cast<OGRCoordinateTransformation>(t);
+    return *std::static_pointer_cast< ::OGRCoordinateTransformation>(t);
 }
 
 } // namespace
@@ -55,7 +57,8 @@ math::Point2 CsConvertor::operator()(const math::Point2 &p) const
     double x(p(0)), y(p(1));
     if (!(trans(trans_).Transform(1, &x, &y))) {
         LOGTHROW(err1, std::runtime_error)
-            << "Cannot convert point between coordinate systems.";
+            << "Cannot convert point between coordinate systems: <"
+            << ::CPLGetLastErrorMsg() << ">.";
     }
     return { x, y };
 }
