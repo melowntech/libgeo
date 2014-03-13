@@ -41,9 +41,12 @@ DemCloud loadDem(const fs::path &path
     if (adjustVertical) {
         // create CS convertor
         CsConvertor conv(source.srsProj4(), gd.srsProj4());
+
+        auto dilation(conv.dilation(center(source.extents())));
+
         for (auto &p : dc.pc) {
             // update height
-            p = conv.adjustVertical(p);
+            p(2) *= dilation;
         }
     }
 
