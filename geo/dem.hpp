@@ -22,7 +22,8 @@ struct DemCloud {
 
 DemCloud loadDem(const boost::filesystem::path &path
                  , boost::optional<math::Extents2> extents = boost::none
-                 , boost::optional<SrsDefinition> dstSrs = boost::none);
+                 , boost::optional<SrsDefinition> dstSrs = boost::none
+                 , bool adjustVertical = false);
 
 } // namespace geo
 

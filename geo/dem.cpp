@@ -9,6 +9,7 @@
 
 #include "./geodataset.hpp"
 #include "./dem.hpp"
+#include "./csconvertor.hpp"
 
 namespace geo {
 
@@ -16,7 +17,8 @@ namespace fs = boost::filesystem;
 
 DemCloud loadDem(const fs::path &path
                  , boost::optional<math::Extents2> extents
-                 , boost::optional<SrsDefinition> dstSrs)
+                 , boost::optional<SrsDefinition> dstSrs
+                 , bool adjustVertical)
 {
     auto source(GeoDataset::createFromFS(path));
 
@@ -34,7 +36,18 @@ DemCloud loadDem(const fs::path &path
 
     source.warpInto(gd);
 
-    return { gd.exportPointCloud(), *dstSrs };
+    DemCloud dc{gd.exportPointCloud(), *dstSrs};
+
+    if (adjustVertical) {
+        // create CS convertor
+        CsConvertor conv(source.srsProj4(), gd.srsProj4());
+        for (auto &p : dc.pc) {
+            // update height
+            p = conv.adjustVertical(p);
+        }
+    }
+
+    return dc;
 }
 
 } // namespace geo

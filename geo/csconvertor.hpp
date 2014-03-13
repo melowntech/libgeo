@@ -15,16 +15,44 @@ public:
     CsConvertor(const SrsDefinition &from, const SrsDefinition &to);
 
     math::Point2 operator()(const math::Point2 &p) const;
-
     math::Point3 operator()(const math::Point3 &p) const;
 
     CsConvertor inverse() const;
+
+    double dilation(const math::Point2 &point) const;
+    double dilation(const math::Point3 &point) const;
+
+    /** Adjust vertical coordinate by lenght dilation.
+     */
+    math::Point3 adjustVertical(math::Point3 point) const;
+
+    /** Is destination SRS projected?
+     */
+    bool isProjected() const;
+
+    /** Are source and destination SRSs equal in linear units?
+     */
+    bool areSrsEqual() const;
 
 private:
     const SrsDefinition from_;
     const SrsDefinition to_;
     std::shared_ptr<void> trans_;
+    double srcMetricScale_;
+    double dstMetricScale_;
 };
+
+
+inline double CsConvertor::dilation(const math::Point3 &point) const
+{
+    return dilation(math::Point2(point(0), point(1)));
+}
+
+inline math::Point3 CsConvertor::adjustVertical(math::Point3 point) const
+{
+    point(2) *= dilation(point);
+    return point;
+}
 
 } // namespace geo
 
