@@ -564,8 +564,6 @@ math::Points3 GeoDataset::exportPointCloud() const
     assertData();
 
     // dump vertices
-    math::Matrix4 localTrafo = geo2local( extents_ );
-
     math::Points3 pc;
     for ( int i = 0; i < size_.height; i++ ) {
         for ( int j = 0; j < size_.width; j++ ) {
@@ -574,9 +572,7 @@ math::Points3 GeoDataset::exportPointCloud() const
             // vertex coordinates
             math::Point3 pvertex;
 
-            pvertex = transform(
-                localTrafo,
-                rowcol2geo( i, j, data_->at<double>( i, j ) ) );
+            pvertex = rowcol2geo( i, j, data_->at<double>( i, j ) );
 
             pc.push_back(pvertex);
         }
