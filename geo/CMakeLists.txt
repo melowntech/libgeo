@@ -1,4 +1,4 @@
-define_module(LIBRARY geo DEPENDS cvision imgproc math dbglog
+define_module(LIBRARY geo DEPENDS imgproc math dbglog
   Boost_FILESYSTEM PROJ GDAL GEOGRAPHICLIB)
 
 set(geo_SOURCES
