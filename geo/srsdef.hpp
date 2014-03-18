@@ -18,6 +18,11 @@ struct SrsDefinition {
     SrsDefinition as(Type type) const;
 };
 
+enum class SrsEquivalence { both, geographic, vertical };
+
+bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
+             , SrsEquivalence type = SrsEquivalence::both);
+
 } // namespace geo
 
 #endif // geo_srsdef_hpp_included_

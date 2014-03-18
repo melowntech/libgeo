@@ -71,4 +71,24 @@ SrsDefinition SrsDefinition::as(Type dstType) const
     return *this;
 }
 
+bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
+             , SrsEquivalence type)
+{
+    OGRSpatialReference sr1;
+    detail::import(sr1, def1);
+
+    OGRSpatialReference sr2;
+    detail::import(sr2, def2);
+
+    switch (type) {
+    case SrsEquivalence::both:
+        return sr1.IsSame(&sr2);
+    case SrsEquivalence::geographic:
+        return sr1.IsSameGeogCS(&sr2);
+    case SrsEquivalence::vertical:
+        return sr1.IsSameVertCS(&sr2);
+    }
+    return false;
+}
+
 } // namespace geo
