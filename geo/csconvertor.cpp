@@ -91,7 +91,7 @@ bool CsConvertor::areSrsEqual() const
         << "SRS Units: " << srcUnit << "/<" << srcName << "> -> "
         << dstUnit << "/<" << dstName << ">.";
 
-    return std::strcmp(srcName, dstName);
+    return !std::strcmp(srcName, dstName);
 }
 
 double CsConvertor::dilation(const math::Point2 &point) const
