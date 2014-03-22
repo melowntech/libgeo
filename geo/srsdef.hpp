@@ -2,6 +2,7 @@
 #define geo_srsdef_hpp_included_
 
 #include <string>
+#include "math/geometry.hpp"
 
 namespace geo {
 
@@ -16,6 +17,10 @@ struct SrsDefinition {
     SrsDefinition(const std::string &srs, Type type) : srs(srs), type(type) {}
 
     SrsDefinition as(Type type) const;
+    
+    static SrsDefinition longlat();
+    static SrsDefinition utm(uint zone, bool isNorth = true );
+    static SrsDefinition utmFromLonglat(const math::Point2 & longlat );
 };
 
 enum class SrsEquivalence { both, geographic, vertical };

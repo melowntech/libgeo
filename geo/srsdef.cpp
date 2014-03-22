@@ -3,6 +3,7 @@
 
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
+#include <sstream>
 
 #include "dbglog/dbglog.hpp"
 
@@ -53,6 +54,34 @@ std::string proj2Wkt(const SrsDefinition &def)
 
 } // namespace
 
+SrsDefinition SrsDefinition::longlat() {
+    
+    return SrsDefinition(
+        "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs", Type::proj4 );
+}
+
+SrsDefinition SrsDefinition::utm(uint zone, bool isNorth) {
+    
+    std::ostringstream ostr;
+    
+    ostr 
+        << "+proj=utm +zone=" << zone << " " 
+        << ( isNorth ? "+north " : "+south " ) 
+        << "+ellps=WGS84 +datum=WGS84 +no_defs";
+    
+    LOG(debug) <<  ostr.str();   
+        
+    return SrsDefinition( ostr.str(), Type::proj4 );
+}
+
+SrsDefinition SrsDefinition::utmFromLonglat(const math::Point2 & longlat ) {
+    
+    return utm( 
+        ::floor( (longlat[0] + 180) / 6) + 1,
+        longlat[1] >= 0.0 ); 
+}
+
+
 SrsDefinition SrsDefinition::as(Type dstType) const
 {
     if (type == dstType) {
@@ -90,5 +119,7 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
     }
     return false;
 }
+
+
 
 } // namespace geo

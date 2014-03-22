@@ -14,6 +14,7 @@
 
 #include "./geodataset.hpp"
 #include "./coordinates.hpp"
+#include "./csconvertor.hpp"
 
 
 extern "C" {
@@ -486,7 +487,7 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh ) const {
 
     // obtain heightfield data
     assertData();
-
+    
     // dump vertices
     int ord( 0 );
 
@@ -503,14 +504,15 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh ) const {
 
             // vertex coordinates
             math::Point3 pvertex;
+            math::Point3 geoVertex;
+            
+            geoVertex = rowcol2geo( i, j, data_->at<double>( i, j ) );
 
             pvertex = transform(
                 localTrafo,
-                rowcol2geo( i, j, data_->at<double>( i, j ) ) );
-
+                geoVertex );
+            
             mesh.vertices.push_back( pvertex );
-
-            //LOG( info1 ) << pvertex;
 
             // take note of vertex ordinal number
             vpos2ord[ std::make_pair( i, j ) ] = ord++;
@@ -678,10 +680,20 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
     }
 
     math::Extents2 retval;
+    
+    math::Point2 ll, lr, ul, ur;
+    
+    ll = applyGeoTransform( outputTransform, 0, outputSize.height );
+    lr = applyGeoTransform( outputTransform, outputSize.width, outputSize.height );
+    ul = applyGeoTransform( outputTransform, 0, 0 );
+    ur = applyGeoTransform( outputTransform, outputSize.width, 0 );
+    
 
-    retval.ll = applyGeoTransform( outputTransform, 0, outputSize.height );
-    retval.ur = applyGeoTransform( outputTransform, outputSize.width, 0 );
-
+    retval.ll[0] = std::min( { ll[0], lr[0], ul[0], ur[0] } );
+    retval.ll[1] = std::min( { ll[1], lr[1], ul[1], ur[1] } );
+    retval.ur[0] = std::max( { ll[0], lr[0], ul[0], ur[0] } );
+    retval.ur[1] = std::max( { ll[1], lr[1], ul[1], ur[1] } );
+    
     return retval;
 }
 
