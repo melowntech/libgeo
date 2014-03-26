@@ -339,7 +339,9 @@ void GeoDataset::warpInto( GeoDataset & dst, Resampling alg ) const {
 
 void GeoDataset::assertData() const {
 
-    #pragma omp critical
+#ifdef _OPENMP
+#   pragma omp critical
+#endif
     if ( ! mask_ || ! data_ ) {
         loadData();
     }

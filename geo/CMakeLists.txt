@@ -17,3 +17,8 @@ add_library(geo STATIC ${geo_SOURCES})
 buildsys_library(geo)
 
 target_link_libraries(geo ${MODULE_LIBRARIES})
+
+# test stuff
+if (COMPILE_TESTS)
+  add_subdirectory(test-hconv)
+endif()
