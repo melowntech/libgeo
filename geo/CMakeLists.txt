@@ -9,6 +9,7 @@ set(geo_SOURCES
     heightconvertor.hpp heightconvertor.cpp
     geodataset.hpp geodataset.cpp
     coordinates.hpp
+    io.hpp
 
     detail/srs.hpp
 )
