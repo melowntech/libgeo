@@ -7,6 +7,8 @@
 #include <boost/utility/in_place_factory.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include <opencv2/highgui/highgui.hpp>
+
 #include <gdalwarper.h>
 
 #include "utility/expect.hpp"
@@ -91,7 +93,7 @@ std::string GeoDataset::proj4ToWkt( const std::string & op )
 }
 
 GeoDataset::GeoDataset(const std::shared_ptr<GDALDataset> &dset)
-    : dset_( dset )
+    : dset_( dset ), changed_(false)
 {
 
     // size & extents
@@ -316,9 +318,9 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     }
 
     // set no data value
-    for (int i = 0; i < format.channels; ++i) {
-        auto band(ds->GetRasterBand(i + 1));
-        ut::expect(band, "Cannot find band %d.", (i + 1));
+    for (int i = 1; i <= format.channels; ++i) {
+        auto band(ds->GetRasterBand(i));
+        ut::expect(band, "Cannot find band %d.", (i));
         band ->SetNoDataValue(noDataValue);
     }
 
@@ -826,91 +828,86 @@ bool GeoDataset::validf( double i, double j ) const {
 
 void GeoDataset::flush()
 {
-#if 0
-    // determine matrix data type
-    GDALDataType gdalDataType = dset_->GetRasterBand(1)->GetRasterDataType();
-    int numChannels = dset_->GetRasterCount();
-    int cvDataType( 0 );
-    int valueSize( 0 );
-
-    switch( gdalDataType ) {
-
-        // determine output datatype automatically
-        case GDT_Byte :
-            cvDataType = CV_8UC( numChannels ); valueSize = 1; break;
-
-        case GDT_UInt16 :
-            cvDataType = CV_16UC( numChannels ); valueSize = 2; break;
-
-        case GDT_Int16 :
-            cvDataType = CV_16SC( numChannels ); valueSize = 2; break;
-
-        case GDT_UInt32 :
-            cvDataType = CV_32SC( numChannels ); valueSize = 4; break;
-
-        case GDT_Int32 :
-            cvDataType = CV_32SC( numChannels ); valueSize = 4; break;
-
-        case GDT_Float32 :
-            cvDataType = CV_32FC( numChannels ); valueSize = 4; break;
-
-        case GDT_Float64 :
-            cvDataType = CV_64FC( numChannels ); valueSize = 8; break;
-
-        default:
-            LOGTHROW( err2, std::logic_error ) << "Unsupported datatype "
-                << gdalDataType << "in raster.";
+    if (!changed_) {
+        return;
     }
 
-    // create matrix
-    raster.create( size_.height, size_.width, cvDataType );
-    valueSize = raster.elemSize() / raster.channels();
+    auto gdalDataType(dset_->GetRasterBand(1)->GetRasterDataType());
+    int numChannels(dset_->GetRasterCount());
+    int cvDataType(0);
 
-    // transfer data
-    CPLErr err( CE_None );
+    // determine output datatype automatically
+    switch (gdalDataType) {
+    case GDT_Byte :
+        cvDataType = CV_8UC(numChannels); break;
 
-    for ( int i = 1; i <= numChannels; i++ ) {
+    case GDT_UInt16 :
+        cvDataType = CV_16UC(numChannels); break;
 
-        int bandMap( i );
+    case GDT_Int16 :
+        cvDataType = CV_16SC(numChannels); break;
+
+    case GDT_UInt32 :
+        cvDataType = CV_32SC(numChannels); break;
+
+    case GDT_Int32 :
+        cvDataType = CV_32SC(numChannels); break;
+
+    case GDT_Float32 :
+        cvDataType = CV_32FC(numChannels); break;
+
+    case GDT_Float64 :
+        cvDataType = CV_64FC(numChannels); break;
+
+    default:
+        LOGTHROW(err2, std::logic_error)
+            << "Unsupported datatype " << gdalDataType << "in raster.";
+    }
+
+    // create tmp matrix
+    cv::Mat raster(size_.height, size_.width, cvDataType);
+    int valueSize(raster.elemSize() / raster.channels());
+
+    // apply raster mask if there is a no data value
+    if (noDataValue_) {
+        // TODO: convert to dest value
+        auto undef = cv::Scalar(*noDataValue_);
+
+        mask_->forEachQuad([&](uint xstart, uint ystart, uint xsize
+                               , uint ysize, bool)
+        {
+            cv::Point2i start(xstart, ystart);
+            cv::Point2i end((xstart + xsize), (ystart + ysize));
+
+            cv::rectangle(raster, start, end, undef, CV_FILLED, 4);
+        }, RasterMask::Filter::black); // BLACK PIXELS!
+    }
+
+    // convert data to tmp matrix
+    data_->convertTo(raster, cvDataType);
+
+    for (int i = 1; i <= numChannels; ++i) {
+        int bandMap(i);
 
         /* NOTE: we reverse the order of channels in the dataset,
          * since GDAL commonly uses RGB model while OpenCV uses BGR model.
          * This is not very robust, but will do for the moment. */
-        err = dset_->RasterIO(
-            GF_Read, // GDALRWFlag  eRWFlag,
-            0, 0, // int nXOff, int nYOff
-            size_.width, size_.height, // int nXSize, int nYSize,
-            (void *) ( raster.data
-                + ( numChannels - i ) * valueSize ),  // void * pData,
-            size_.width, size_.height, // int nBufXSize, int nBufYSize,
-            gdalDataType, // GDALDataType  eBufType,
-            1, //  int nBandCount,
-            & bandMap,  // int * panBandMap,
-            raster.elemSize(), // int nPixelSpace,
-            size_.width * raster.elemSize(), 0 ); // int nLineSpace
+        auto err = dset_->RasterIO
+            (GF_Write, // GDALRWFlag  eRWFlag,
+             0, 0, // int nXOff, int nYOff
+             size_.width, size_.height, // int nXSize, int nYSize,
+             (void *) (raster.data  + (numChannels - i) * valueSize), // void * pData,
+             size_.width, size_.height, // int nBufXSize, int nBufYSize,
+             gdalDataType, // GDALDataType  eBufType,
+             1, //  int nBandCount,
+             &bandMap,  // int * panBandMap,
+             raster.elemSize(), // int nPixelSpace,
+             size_.width * raster.elemSize(), 0); // int nLineSpace
 
+        ut::expect(err == CE_None, "Writing of raster data failed.");
     }
 
-    ut::expect( err == CE_None, "Reading of raster data failed." );
-
-    // convert
-    data_ = cv::Mat();
-    raster.convertTo( data_.get(), CV_64FC( numChannels ) );
-
-    // establish mask
-    mask_ = RasterMask( size_.width,size_.height,RasterMask::FULL );
-
-    if ( noDataValue_ ) {
-
-        double * curpos = reinterpret_cast<double *>( data_->data );
-
-        for ( int i = 0; i < size_.height; i++ )
-            for ( int j = 0; j < size_.width; j++ )
-                for ( int k = 0; k < numChannels_; k++ )
-                    if ( *curpos++ == noDataValue_.get() )
-                        mask_->set(j,i,false);
-    }
-#endif
+    changed_ = false;
 }
 
 } // namespace geo

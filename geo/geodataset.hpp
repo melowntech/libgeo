@@ -153,6 +153,34 @@ public:
 
     void flush();
 
+    /** Get data for reading/writing.
+     */
+    cv::Mat& data() {
+        // TODO: read data
+        changed_ = true; return *data_;
+    }
+
+    /** Get data for reading.
+     */
+    const cv::Mat& data() const {
+        // TODO: read data
+        return *data_;
+    }
+
+    /** Get mask for reading/writing.
+     */
+    imgproc::quadtree::RasterMask& mask() {
+        // TODO: read data
+        changed_ = true; return *mask_;
+    }
+
+    /** Get mask for reading.
+     */
+    const imgproc::quadtree::RasterMask& mask() const {
+        // TODO: read data
+        return *mask_;
+    }
+
 private:
     static bool initialized_;
     static void initialize();
@@ -180,6 +208,8 @@ private:
     boost::optional<double> noDataValue_;
     mutable boost::optional<cv::Mat> data_;
     mutable boost::optional<imgproc::quadtree::RasterMask> mask_;
+
+    bool changed_;
 };
 
 // inline method implementation
