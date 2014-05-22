@@ -243,7 +243,8 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                               , const SrsDefinition &srs
                               , const math::Extents2 &extents
                               , const math::Size2 &rasterSize
-                              , const Format &format)
+                              , const Format &format
+                              , double noDataValue)
 {
     if (!initialized_) { initialize(); }
 
@@ -312,6 +313,13 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     if (ds->SetGeoTransform(geoTrafo) != CE_None) {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to set geo transform to newly created GDAL data set.";
+    }
+
+    // set no data value
+    for (int i = 0; i < format.channels; ++i) {
+        auto band(ds->GetRasterBand(i + 1));
+        ut::expect(band, "Cannot find band %d.", (i + 1));
+        band ->SetNoDataValue(noDataValue);
     }
 
     // OK
@@ -815,5 +823,94 @@ bool GeoDataset::validf( double i, double j ) const {
     return false;
 }
 
+
+void GeoDataset::flush()
+{
+#if 0
+    // determine matrix data type
+    GDALDataType gdalDataType = dset_->GetRasterBand(1)->GetRasterDataType();
+    int numChannels = dset_->GetRasterCount();
+    int cvDataType( 0 );
+    int valueSize( 0 );
+
+    switch( gdalDataType ) {
+
+        // determine output datatype automatically
+        case GDT_Byte :
+            cvDataType = CV_8UC( numChannels ); valueSize = 1; break;
+
+        case GDT_UInt16 :
+            cvDataType = CV_16UC( numChannels ); valueSize = 2; break;
+
+        case GDT_Int16 :
+            cvDataType = CV_16SC( numChannels ); valueSize = 2; break;
+
+        case GDT_UInt32 :
+            cvDataType = CV_32SC( numChannels ); valueSize = 4; break;
+
+        case GDT_Int32 :
+            cvDataType = CV_32SC( numChannels ); valueSize = 4; break;
+
+        case GDT_Float32 :
+            cvDataType = CV_32FC( numChannels ); valueSize = 4; break;
+
+        case GDT_Float64 :
+            cvDataType = CV_64FC( numChannels ); valueSize = 8; break;
+
+        default:
+            LOGTHROW( err2, std::logic_error ) << "Unsupported datatype "
+                << gdalDataType << "in raster.";
+    }
+
+    // create matrix
+    raster.create( size_.height, size_.width, cvDataType );
+    valueSize = raster.elemSize() / raster.channels();
+
+    // transfer data
+    CPLErr err( CE_None );
+
+    for ( int i = 1; i <= numChannels; i++ ) {
+
+        int bandMap( i );
+
+        /* NOTE: we reverse the order of channels in the dataset,
+         * since GDAL commonly uses RGB model while OpenCV uses BGR model.
+         * This is not very robust, but will do for the moment. */
+        err = dset_->RasterIO(
+            GF_Read, // GDALRWFlag  eRWFlag,
+            0, 0, // int nXOff, int nYOff
+            size_.width, size_.height, // int nXSize, int nYSize,
+            (void *) ( raster.data
+                + ( numChannels - i ) * valueSize ),  // void * pData,
+            size_.width, size_.height, // int nBufXSize, int nBufYSize,
+            gdalDataType, // GDALDataType  eBufType,
+            1, //  int nBandCount,
+            & bandMap,  // int * panBandMap,
+            raster.elemSize(), // int nPixelSpace,
+            size_.width * raster.elemSize(), 0 ); // int nLineSpace
+
+    }
+
+    ut::expect( err == CE_None, "Reading of raster data failed." );
+
+    // convert
+    data_ = cv::Mat();
+    raster.convertTo( data_.get(), CV_64FC( numChannels ) );
+
+    // establish mask
+    mask_ = RasterMask( size_.width,size_.height,RasterMask::FULL );
+
+    if ( noDataValue_ ) {
+
+        double * curpos = reinterpret_cast<double *>( data_->data );
+
+        for ( int i = 0; i < size_.height; i++ )
+            for ( int j = 0; j < size_.width; j++ )
+                for ( int k = 0; k < numChannels_; k++ )
+                    if ( *curpos++ == noDataValue_.get() )
+                        mask_->set(j,i,false);
+    }
+#endif
+}
 
 } // namespace geo

@@ -84,15 +84,18 @@ public:
      *
      *  \param path path to created file
      *  \param srs spatial reference system of new data set
+     *  \param extents geo extents
      *  \param rasterSize size of raster in pixels
      *  \param format format of data (channel type, number of channels
      *                type of data).
+     *  \param noDataValue special value for no data
      */
     static GeoDataset create(const boost::filesystem::path &path
                              , const SrsDefinition &srs
                              , const math::Extents2 &extents
                              , const math::Size2 &rasterSize
-                             , const Format &format);
+                             , const Format &format
+                             , double noDataValue);
 
     enum Resampling { lanczos, average };
 
@@ -147,6 +150,8 @@ public:
 
     static std::string wktToProj4( const std::string & op );
     static std::string proj4ToWkt( const std::string & op );
+
+    void flush();
 
 private:
     static bool initialized_;
