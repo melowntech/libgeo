@@ -88,6 +88,12 @@ public:
     math::Point3 rowcol2geo( int row, int col, double value ) const;
     void geo2rowcol( const math::Point3 & gp, double & row, double & col ) const;
 
+    math::Point2 geo2rowcol( const math::Point3 & gp) const {
+        math::Point2 p;
+        geo2rowcol(gp, p(0), p(1));
+        return p;
+    }
+
     math::Extents2 deriveExtents( const SrsDefinition &srs );
 
     static std::string wktToProj4( const std::string & op );
