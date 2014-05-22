@@ -17,7 +17,10 @@ struct SrsDefinition {
     SrsDefinition(const std::string &srs, Type type) : srs(srs), type(type) {}
 
     SrsDefinition as(Type type) const;
-    
+
+    const std::string& string() const { return srs; }
+    const char* c_str() const { return srs.c_str(); }
+
     static SrsDefinition longlat();
     static SrsDefinition utm(uint zone, bool isNorth = true );
     static SrsDefinition utmFromLonglat(const math::Point2 & longlat );

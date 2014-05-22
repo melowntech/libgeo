@@ -90,7 +90,9 @@ std::string GeoDataset::proj4ToWkt( const std::string & op )
         .as(SrsDefinition::Type::wkt).srs;
 }
 
-GeoDataset::GeoDataset( GDALDataset * dset ) : dset_( dset ) {
+GeoDataset::GeoDataset(const std::shared_ptr<GDALDataset> &dset)
+    : dset_( dset )
+{
 
     // size & extents
     dset_->GetGeoTransform( geoTransform_ );
@@ -123,7 +125,6 @@ GeoDataset::GeoDataset( GDALDataset * dset ) : dset_( dset ) {
 }
 
 void GeoDataset::initialize() {
-
     CPLSetErrorHandler( GDALErrorHandler );
     GDALAllRegister();
 
@@ -132,15 +133,16 @@ void GeoDataset::initialize() {
 }
 
 
-GeoDataset GeoDataset::createFromFS(const fs::path & path)
+GeoDataset GeoDataset::open(const fs::path & path)
 {
 
     if ( ! initialized_ ) initialize();
 
-    GDALDataset * dset = static_cast<GDALDataset*>
-        (GDALOpen( path.string().c_str(), GA_ReadOnly));
+    std::shared_ptr<GDALDataset> dset
+        (static_cast<GDALDataset*>
+         (GDALOpen( path.string().c_str(), GA_ReadOnly)));
 
-    if ( dset == nullptr ) {
+    if ( !dset ) {
         LOGTHROW( err2, std::runtime_error )
             << "Failed to open dataset " << path << ".";
     }
@@ -204,13 +206,13 @@ GeoDataset GeoDataset::deriveInMemory(
     }
 
     // create dataset
-    GDALDataset * tdset = driver->Create(
+    std::shared_ptr<GDALDataset> tdset(driver->Create(
         "MEM", //"MEM.tif",
         size->width,
         size->height,
-        sdset->GetRasterCount(), dstDataType, nullptr );
+        sdset->GetRasterCount(), dstDataType, nullptr ));
 
-    ut::expect( tdset, "Failed to create in memory dataset.\n" );
+    ut::expect( tdset.get(), "Failed to create in memory dataset.\n" );
 
     for ( int i = 1; i <= tdset->GetRasterCount(); i++ ) {
 
@@ -233,7 +235,87 @@ GeoDataset GeoDataset::deriveInMemory(
     tdset->SetProjection( proj4ToWkt( srsProj4 ).c_str() );
 
     // all done
-    return GeoDataset( tdset );
+    return GeoDataset(tdset);
+}
+
+
+GeoDataset GeoDataset::create(const boost::filesystem::path &path
+                              , const SrsDefinition &srs
+                              , const math::Extents2 &extents
+                              , const math::Size2 &rasterSize
+                              , const Format &format)
+{
+    if (!initialized_) { initialize(); }
+
+    (void) srs;
+
+    std::string storageFormat;
+    switch (format.storageType) {
+    case Format::Storage::gtiff:
+        storageFormat = "GTiff";
+        break;
+
+    case Format::Storage::png:
+        storageFormat = "PNG";
+        break;
+    }
+
+    auto driver(::GetGDALDriverManager()
+                ->GetDriverByName(storageFormat.c_str()));
+    if (!driver) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Cannot find GDAL driver for <" << storageFormat
+            << "> format.";
+    }
+
+    auto metadata(driver->GetMetadata());
+    if (!CSLFetchBoolean(metadata, GDAL_DCAP_CREATE, FALSE)) {
+        LOGTHROW(err2, std::runtime_error)
+            << "GDAL driver for <" << storageFormat
+            << "> format doesn't support creation.";
+    }
+
+    char **options(nullptr);
+
+    std::shared_ptr<GDALDataset>
+        ds(driver->Create(path.string().c_str()
+                          , rasterSize.width
+                          , rasterSize.height
+                          , format.channels
+                          , format.channelType
+                          , options));
+    ut::expect(ds.get(), "Failed to create new dataset.");
+
+    // set projection
+    if (ds->SetProjection(srs.as(SrsDefinition::Type::wkt).c_str())
+        != CE_None)
+    {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to set projection to newly created GDAL data set.";
+    }
+
+    auto pxSize(math::size(extents));
+    pxSize.width /= rasterSize.width;
+    pxSize.height /= rasterSize.height;
+
+    // create geo trafor from extents and raster size
+    double geoTrafo[6] = {
+        /*   0 */ extents.ll(0)
+        , /* 1 */ pxSize.width
+        , /* 2 */ 0.0
+        , /* 3 */ extents.ur(1)
+        , /* 4 */ 0.0
+        , /* 5 */ -pxSize.height
+    };
+
+    // set geo trafo
+    if (ds->SetGeoTransform(geoTrafo) != CE_None) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to set geo transform to newly created GDAL data set.";
+    }
+
+    // OK
+    return GeoDataset(ds);
 }
 
 

@@ -28,7 +28,11 @@ namespace geo {
 class GeoDataset {
 public:
 
-    static GeoDataset createFromFS(const boost::filesystem::path &path);
+    static GeoDataset createFromFS(const boost::filesystem::path &path) {
+        return open(path);
+    }
+
+    static GeoDataset open(const boost::filesystem::path &path);
 
     /** Derive in-memory data set from existing data set.
      *  Only metadata from source are used.
@@ -44,6 +48,51 @@ public:
         const GeoDataset & source, const SrsDefinition &srs,
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents );
+
+    /** Forma descriptor
+     */
+    struct Format {
+        enum class Storage { gtiff, png };
+
+        /** Datatype (GDT_Byte, GDT_UInt16, ...)
+         */
+        GDALDataType channelType;
+
+        /** Number of channels
+         */
+        int channels;
+
+        /** Type of storage (tiff image, png image, ...)
+         */
+        Storage storageType;
+
+        static constexpr Format gtiffPhoto() {
+            return { GDT_Byte, 3, Format::Storage::gtiff };
+        }
+
+        static constexpr Format pngPhoto() {
+            return { GDT_Byte, 3, Format::Storage::png };
+        }
+
+        static constexpr Format dsm() {
+            return { GDT_Float32, 1, Format::Storage::gtiff };
+        }
+    };
+
+
+    /** Creates new dataset at given path.
+     *
+     *  \param path path to created file
+     *  \param srs spatial reference system of new data set
+     *  \param rasterSize size of raster in pixels
+     *  \param format format of data (channel type, number of channels
+     *                type of data).
+     */
+    static GeoDataset create(const boost::filesystem::path &path
+                             , const SrsDefinition &srs
+                             , const math::Extents2 &extents
+                             , const math::Size2 &rasterSize
+                             , const Format &format);
 
     enum Resampling { lanczos, average };
 
@@ -109,7 +158,7 @@ private:
         const double * trafo, const math::Point2 & gp,
         double & col, double & row );
 
-    GeoDataset( GDALDataset * dset );
+    GeoDataset(const std::shared_ptr<GDALDataset> &dset);
 
     void assertData() const;
     void loadData() const;
