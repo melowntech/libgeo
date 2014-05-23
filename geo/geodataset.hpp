@@ -10,6 +10,7 @@
 #define geo_geodataset_hpp_included
 
 #include <memory>
+#include <array>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 
@@ -27,7 +28,6 @@ namespace geo {
 
 class GeoDataset {
 public:
-
     static GeoDataset createFromFS(const boost::filesystem::path &path) {
         return open(path);
     }
@@ -52,30 +52,45 @@ public:
     /** Forma descriptor
      */
     struct Format {
-        enum class Storage { gtiff, png };
+        enum class Storage { gtiff, png, jpeg };
 
         /** Datatype (GDT_Byte, GDT_UInt16, ...)
          */
         GDALDataType channelType;
 
-        /** Number of channels
+        /** Number and color interpretation of channels.
          */
-        int channels;
+        std::vector<GDALColorInterp> channels;
 
         /** Type of storage (tiff image, png image, ...)
          */
         Storage storageType;
 
-        static constexpr Format gtiffPhoto() {
-            return { GDT_Byte, 3, Format::Storage::gtiff };
+        static Format gtiffRGBPhoto() {
+            return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand }
+                , Format::Storage::gtiff };
         }
 
-        static constexpr Format pngPhoto() {
-            return { GDT_Byte, 3, Format::Storage::png };
+        static Format pngRGBPhoto() {
+            return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand
+                                 , GCI_AlphaBand }
+                , Format::Storage::png };
         }
 
-        static constexpr Format dsm() {
-            return { GDT_Float32, 1, Format::Storage::gtiff };
+        static Format pngRGBAPhoto() {
+            return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand }
+                , Format::Storage::png };
+        }
+
+        static Format jpegRGBPhoto() {
+            return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand
+                                 , GCI_AlphaBand }
+                , Format::Storage::jpeg };
+        }
+
+        static Format dsm() {
+            return { GDT_Float32, { GCI_GrayIndex }
+                , Format::Storage::gtiff };
         }
     };
 
@@ -140,10 +155,15 @@ public:
     math::Point3 rowcol2geo( int row, int col, double value ) const;
     void geo2rowcol( const math::Point3 & gp, double & row, double & col ) const;
 
-    math::Point2 geo2rowcol( const math::Point3 & gp) const {
-        math::Point2 p;
-        geo2rowcol(gp, p(0), p(1));
-        return p;
+
+    template <typename T>
+    T geo2raster( const math::Point3 & gp) const {
+        double x, y; geo2rowcol(gp, y, x); return T(x, y);
+    }
+
+    template <typename T>
+    T geo2raster(double gx, double gy, double gz = .0) const {
+        double x, y; geo2rowcol({gx, gy, gz}, y, x); return T(x, y);
     }
 
     math::Extents2 deriveExtents( const SrsDefinition &srs );
@@ -156,42 +176,59 @@ public:
     /** Get data for reading/writing.
      */
     cv::Mat& data() {
-        // TODO: read data
-        changed_ = true; return *data_;
+        assertData();
+        changed_ = true;
+        return *data_;
     }
 
     /** Get data for reading.
      */
     const cv::Mat& data() const {
-        // TODO: read data
+        assertData();
         return *data_;
     }
 
     /** Get mask for reading/writing.
      */
     imgproc::quadtree::RasterMask& mask() {
-        // TODO: read data
-        changed_ = true; return *mask_;
+        assertData();
+        changed_ = true;
+        return *mask_;
     }
 
     /** Get mask for reading.
      */
     const imgproc::quadtree::RasterMask& mask() const {
-        // TODO: read data
+        assertData();
         return *mask_;
     }
+
+    /** Move ctor. Allows initialization from return value.
+     */
+    GeoDataset(GeoDataset &&other)
+        : size_(other.size_), extents_(other.extents_)
+        , srsWkt_(other.srsWkt_), srsProj4_(other.srsProj4_)
+        , geoTransform_(std::move(other.geoTransform_))
+        , dset_(std::move(other.dset_))
+        , numChannels_(other.numChannels_)
+        , noDataValue_(other.noDataValue_)
+        , changed_(other.changed_)
+    {
+        // we need to steal content from data and mask :)
+        std::swap(data_, other.data_);
+        std::swap(mask_, other.mask_);
+    }
+
+    ~GeoDataset();
+
+    typedef std::array<double, 6> GeoTransform;
 
 private:
     static bool initialized_;
     static void initialize();
 
-    static math::Point2 applyGeoTransform(
-        const double * trafo, double col, double row );
-    static void applyInvGeoTransform(
-        const double * trafo, const math::Point2 & gp,
-        double & col, double & row );
-
-    GeoDataset(const std::shared_ptr<GDALDataset> &dset);
+    GeoDataset(std::unique_ptr<GDALDataset> &&dset
+               , bool freshlyCreated = false);
 
     void assertData() const;
     void loadData() const;
@@ -202,8 +239,8 @@ private:
     math::Size2i size_;
     math::Extents2 extents_;
     std::string srsWkt_, srsProj4_;
-    double geoTransform_[6];
-    std::shared_ptr<GDALDataset> dset_;
+    GeoTransform geoTransform_;
+    std::unique_ptr<GDALDataset> dset_;
     int numChannels_;
     boost::optional<double> noDataValue_;
     mutable boost::optional<cv::Mat> data_;

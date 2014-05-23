@@ -53,13 +53,45 @@ namespace fs = boost::filesystem;
 
 typedef imgproc::quadtree::RasterMask RasterMask;
 
-/* class GeoDataset */
+namespace {
 
-bool GeoDataset::initialized_ = false;
+int gdal2cv(GDALDataType gdalDataType, int numChannels)
+{
+    // determine output datatype automatically
+    switch (gdalDataType) {
+    case GDT_Byte:    return CV_8UC(numChannels);
+    case GDT_UInt16:  return CV_16UC(numChannels);
+    case GDT_Int16:   return CV_16SC(numChannels);
+    case GDT_UInt32:  return CV_32SC(numChannels);
+    case GDT_Int32:   return CV_32SC(numChannels);
+    case GDT_Float32: return CV_32FC(numChannels);
+    case GDT_Float64: return CV_64FC(numChannels);
 
+    default:
+        LOGTHROW(err2, std::logic_error)
+            << "Unsupported datatype " << gdalDataType << "in raster.";
+    }
+    return 0; // never reached
+}
 
-math::Point2 GeoDataset::applyGeoTransform(
-    const double * trafo, double col, double row ) {
+GeoDataset::GeoTransform buildGeoTransform(const math::Extents2 &extents
+                                           , const math::Size2 &size)
+{
+    GeoDataset::GeoTransform geoTrafo;
+
+    geoTrafo[0] = extents.ll[0];
+    geoTrafo[1] = ( extents.ur[0] - extents.ll[0] ) / size.width;
+    geoTrafo[2] = 0.0;
+    geoTrafo[3] = extents.ur[1];
+    geoTrafo[4] = 0.0;
+    geoTrafo[5] = ( extents.ll[1] - extents.ur[1] ) / size.height;
+
+    return geoTrafo;
+}
+
+math::Point2 applyGeoTransform(const GeoDataset::GeoTransform &trafo
+                               , double col, double row )
+{
 
     math::Point2 retval;
 
@@ -69,14 +101,23 @@ math::Point2 GeoDataset::applyGeoTransform(
     return retval;
 }
 
-void GeoDataset::applyInvGeoTransform(
-    const double * trafo, const math::Point2 & gp, double & col, double & row ) {
+void applyInvGeoTransform(const GeoDataset::GeoTransform &trafo
+                          , const math::Point2 & gp
+                          , double & col, double & row )
+{
 
     double det = trafo[1] * trafo[5] - trafo[2] * trafo[4];
 
     col = ( (gp[0]-trafo[0])*trafo[5] - (gp[1]-trafo[3])*trafo[2] ) / det;
     row = ( trafo[1]*(gp[1]-trafo[3]) - trafo[4]*(gp[0]-trafo[0]) ) / det;
 }
+
+} // namespace
+
+/* class GeoDataset */
+
+bool GeoDataset::initialized_ = false;
+
 
 
 std::string GeoDataset::wktToProj4( const std::string & op )
@@ -92,12 +133,13 @@ std::string GeoDataset::proj4ToWkt( const std::string & op )
         .as(SrsDefinition::Type::wkt).srs;
 }
 
-GeoDataset::GeoDataset(const std::shared_ptr<GDALDataset> &dset)
-    : dset_( dset ), changed_(false)
+GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
+                       , bool freshlyCreated)
+    : dset_(std::move(dset)), changed_(false)
 {
 
     // size & extents
-    dset_->GetGeoTransform( geoTransform_ );
+    dset_->GetGeoTransform( geoTransform_.data() );
 
     if ( geoTransform_[2] != 0 || geoTransform_[4] != 0 )
         LOGTHROW( err3, std::runtime_error ) <<
@@ -124,6 +166,20 @@ GeoDataset::GeoDataset(const std::shared_ptr<GDALDataset> &dset)
         }
     }
 
+    if (freshlyCreated) {
+        // freshly created -> create initial data
+        data_ = cv::Mat(size_.height, size_.width, CV_64FC(numChannels_));
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
+    }
+}
+
+GeoDataset::~GeoDataset()
+{
+    // valid dataset that has not been flushed and no exception is thrown ->
+    // someone forgot to flush :)
+    if (dset_ && changed_ && !std::uncaught_exception()) {
+        LOG(warn2) << "GeoDataset was changed but not flushed!";
+    }
 }
 
 void GeoDataset::initialize() {
@@ -140,7 +196,7 @@ GeoDataset GeoDataset::open(const fs::path & path)
 
     if ( ! initialized_ ) initialize();
 
-    std::shared_ptr<GDALDataset> dset
+    std::unique_ptr<GDALDataset> dset
         (static_cast<GDALDataset*>
          (GDALOpen( path.string().c_str(), GA_ReadOnly)));
 
@@ -149,7 +205,7 @@ GeoDataset GeoDataset::open(const fs::path & path)
             << "Failed to open dataset " << path << ".";
     }
 
-    return GeoDataset( dset );
+    return GeoDataset( std::move(dset) );
 }
 
 
@@ -208,7 +264,7 @@ GeoDataset GeoDataset::deriveInMemory(
     }
 
     // create dataset
-    std::shared_ptr<GDALDataset> tdset(driver->Create(
+    std::unique_ptr<GDALDataset> tdset(driver->Create(
         "MEM", //"MEM.tif",
         size->width,
         size->height,
@@ -223,21 +279,13 @@ GeoDataset GeoDataset::deriveInMemory(
         tdset->GetRasterBand(i)->SetNoDataValue( dstNoDataValue );
     }
 
-    // set geo transform
-    double geoTrafo[6];
+    auto geoTrafo(buildGeoTransform(extents, *size));
 
-    geoTrafo[0] = extents.ll[0];
-    geoTrafo[1] = ( extents.ur[0] - extents.ll[0] ) / size->width;
-    geoTrafo[2] = 0.0;
-    geoTrafo[3] = extents.ur[1];
-    geoTrafo[4] = 0.0;
-    geoTrafo[5] = ( extents.ll[1] - extents.ur[1] ) / size->height;
-
-    tdset->SetGeoTransform( geoTrafo );
+    tdset->SetGeoTransform( geoTrafo.data() );
     tdset->SetProjection( proj4ToWkt( srsProj4 ).c_str() );
 
     // all done
-    return GeoDataset(tdset);
+    return GeoDataset(std::move(tdset));
 }
 
 
@@ -250,8 +298,6 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
 {
     if (!initialized_) { initialize(); }
 
-    (void) srs;
-
     std::string storageFormat;
     switch (format.storageType) {
     case Format::Storage::gtiff:
@@ -260,6 +306,10 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
 
     case Format::Storage::png:
         storageFormat = "PNG";
+        break;
+
+    case Format::Storage::jpeg:
+        storageFormat = "JPEG";
         break;
     }
 
@@ -280,11 +330,11 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
 
     char **options(nullptr);
 
-    std::shared_ptr<GDALDataset>
+    std::unique_ptr<GDALDataset>
         ds(driver->Create(path.string().c_str()
                           , rasterSize.width
                           , rasterSize.height
-                          , format.channels
+                          , format.channels.size()
                           , format.channelType
                           , options));
     ut::expect(ds.get(), "Failed to create new dataset.");
@@ -297,35 +347,28 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
             << "Failed to set projection to newly created GDAL data set.";
     }
 
-    auto pxSize(math::size(extents));
-    pxSize.width /= rasterSize.width;
-    pxSize.height /= rasterSize.height;
-
-    // create geo trafor from extents and raster size
-    double geoTrafo[6] = {
-        /*   0 */ extents.ll(0)
-        , /* 1 */ pxSize.width
-        , /* 2 */ 0.0
-        , /* 3 */ extents.ur(1)
-        , /* 4 */ 0.0
-        , /* 5 */ -pxSize.height
-    };
+    auto geoTrafo(buildGeoTransform(extents, rasterSize));
 
     // set geo trafo
-    if (ds->SetGeoTransform(geoTrafo) != CE_None) {
+    if (ds->SetGeoTransform(geoTrafo.data()) != CE_None) {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to set geo transform to newly created GDAL data set.";
     }
 
-    // set no data value
-    for (int i = 1; i <= format.channels; ++i) {
-        auto band(ds->GetRasterBand(i));
-        ut::expect(band, "Cannot find band %d.", (i));
-        band ->SetNoDataValue(noDataValue);
+    // set no data value and color interpretation
+    {
+        int i = 1;
+        for (auto colorInterpretation : format.channels) {
+            auto band(ds->GetRasterBand(i));
+            ut::expect(band, "Cannot find band %d.", (i));
+            band->SetNoDataValue(noDataValue);
+            band->SetColorInterpretation(colorInterpretation);
+            ++i;
+        }
     }
 
-    // OK
-    return GeoDataset(ds);
+    // OK, tell ctor that dset was freshly created
+    return GeoDataset(std::move(ds), true);
 }
 
 
@@ -449,41 +492,11 @@ void GeoDataset::loadData() const {
     // determine matrix data type
     GDALDataType gdalDataType = dset_->GetRasterBand(1)->GetRasterDataType();
     int numChannels = dset_->GetRasterCount();
-    int cvDataType( 0 );
-    int valueSize( 0 );
-
-    switch( gdalDataType ) {
-
-        // determine output datatype automatically
-        case GDT_Byte :
-            cvDataType = CV_8UC( numChannels ); valueSize = 1; break;
-
-        case GDT_UInt16 :
-            cvDataType = CV_16UC( numChannels ); valueSize = 2; break;
-
-        case GDT_Int16 :
-            cvDataType = CV_16SC( numChannels ); valueSize = 2; break;
-
-        case GDT_UInt32 :
-            cvDataType = CV_32SC( numChannels ); valueSize = 4; break;
-
-        case GDT_Int32 :
-            cvDataType = CV_32SC( numChannels ); valueSize = 4; break;
-
-        case GDT_Float32 :
-            cvDataType = CV_32FC( numChannels ); valueSize = 4; break;
-
-        case GDT_Float64 :
-            cvDataType = CV_64FC( numChannels ); valueSize = 8; break;
-
-        default:
-            LOGTHROW( err2, std::logic_error ) << "Unsupported datatype "
-                << gdalDataType << "in raster.";
-    }
+    int cvDataType(gdal2cv(gdalDataType, numChannels));
 
     // create matrix
     raster.create( size_.height, size_.width, cvDataType );
-    valueSize = raster.elemSize() / raster.channels();
+    int valueSize = raster.elemSize() / raster.channels();
 
     // transfer data
     CPLErr err( CE_None );
@@ -753,14 +766,14 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
     if ( ! transformer )
         LOGTHROW( err2, std::runtime_error ) << "Error obtaining transformer.";
 
-    double outputTransform[6];
+    GeoTransform outputTransform;
     math::Size2i outputSize;
 
     err = GDALSuggestedWarpOutput(
             dset_.get(),
             GDALGenImgProjTransform,
             transformer,
-            outputTransform,
+            outputTransform.data(),
             & outputSize.width, & outputSize.height );
 
     if ( err != CE_None )
@@ -834,35 +847,7 @@ void GeoDataset::flush()
 
     auto gdalDataType(dset_->GetRasterBand(1)->GetRasterDataType());
     int numChannels(dset_->GetRasterCount());
-    int cvDataType(0);
-
-    // determine output datatype automatically
-    switch (gdalDataType) {
-    case GDT_Byte :
-        cvDataType = CV_8UC(numChannels); break;
-
-    case GDT_UInt16 :
-        cvDataType = CV_16UC(numChannels); break;
-
-    case GDT_Int16 :
-        cvDataType = CV_16SC(numChannels); break;
-
-    case GDT_UInt32 :
-        cvDataType = CV_32SC(numChannels); break;
-
-    case GDT_Int32 :
-        cvDataType = CV_32SC(numChannels); break;
-
-    case GDT_Float32 :
-        cvDataType = CV_32FC(numChannels); break;
-
-    case GDT_Float64 :
-        cvDataType = CV_64FC(numChannels); break;
-
-    default:
-        LOGTHROW(err2, std::logic_error)
-            << "Unsupported datatype " << gdalDataType << "in raster.";
-    }
+    int cvDataType(gdal2cv(gdalDataType, numChannels));
 
     // create tmp matrix
     cv::Mat raster(size_.height, size_.width, cvDataType);
@@ -870,7 +855,6 @@ void GeoDataset::flush()
 
     // apply raster mask if there is a no data value
     if (noDataValue_) {
-        // TODO: convert to dest value
         auto undef = cv::Scalar(*noDataValue_);
 
         mask_->forEachQuad([&](uint xstart, uint ystart, uint xsize
@@ -879,7 +863,7 @@ void GeoDataset::flush()
             cv::Point2i start(xstart, ystart);
             cv::Point2i end((xstart + xsize), (ystart + ysize));
 
-            cv::rectangle(raster, start, end, undef, CV_FILLED, 4);
+            cv::rectangle(*data_, start, end, undef, CV_FILLED, 4);
         }, RasterMask::Filter::black); // BLACK PIXELS!
     }
 
