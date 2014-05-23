@@ -1,5 +1,5 @@
 #ifndef geo_io_hpp_included_
-#define	geo_io_hpp_included_
+#define geo_io_hpp_included_
 
 #include "srsdef.hpp"
 #include <fstream>
@@ -18,6 +18,7 @@ inline void writeSrs( const boost::filesystem::path &path
                         = SrsDefinition::Type::wkt )
 {
     std::ofstream f( path.native() );
+    f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
     f << srs.as(type).srs;
 
@@ -52,6 +53,8 @@ inline void writeTfw( const boost::filesystem::path &path
                     , const math::Size2f &pixelSize = math::Size2f(1.0,-1.0) )
 {
     std::ofstream tfw( path.native() );
+    tfw.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
     double a = pixelSize.width, e = pixelSize.height,
            b = 0, d = 0;
     double c = extents.ll(0) + 0.5 * pixelSize.width;
@@ -64,7 +67,31 @@ inline void writeTfw( const boost::filesystem::path &path
     tfw.close();
 }
 
+/**
+ * @brief Saves transformation from gdal geo transformation
+ */
+inline void writeTfwFromGdal(const boost::filesystem::path &path
+                             , std::array<double, 6> gdalGeoTrafo)
+{
+    std::ofstream tfw(path.native());
+    tfw.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
+    gdalGeoTrafo[0] += .5 * gdalGeoTrafo[1];
+    gdalGeoTrafo[3] -= .5 * gdalGeoTrafo[5];
+
+    tfw << std::setprecision(15)
+        << gdalGeoTrafo[1] << '\n'
+        << gdalGeoTrafo[2] << '\n'
+        << gdalGeoTrafo[4] << '\n'
+        << gdalGeoTrafo[5] << '\n'
+        << gdalGeoTrafo[0] << '\n'
+        << gdalGeoTrafo[3] << '\n'
+        ;
+
+    tfw.close();
+}
+
 } // namespace geo
 
-#endif	// geo_io_hpp_included_
+#endif // geo_io_hpp_included_
 

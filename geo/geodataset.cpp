@@ -12,11 +12,13 @@
 #include <gdalwarper.h>
 
 #include "utility/expect.hpp"
+#include "utility/path.hpp"
 #include "math/math.hpp"
 
 #include "./geodataset.hpp"
 #include "./coordinates.hpp"
 #include "./csconvertor.hpp"
+#include "./io.hpp"
 
 
 extern "C" {
@@ -299,17 +301,22 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     if (!initialized_) { initialize(); }
 
     std::string storageFormat;
+    std::string wfExt;
+
     switch (format.storageType) {
     case Format::Storage::gtiff:
         storageFormat = "GTiff";
+        wfExt = "tfw";
         break;
 
     case Format::Storage::png:
         storageFormat = "PNG";
+        wfExt = "pgw";
         break;
 
     case Format::Storage::jpeg:
         storageFormat = "JPEG";
+        wfExt = "jgw";
         break;
     }
 
@@ -366,6 +373,13 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
             ++i;
         }
     }
+
+    // write .prj file
+    geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), srs);
+
+    // write world file
+    geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
+                          , geoTrafo);
 
     // OK, tell ctor that dset was freshly created
     return GeoDataset(std::move(ds), true);
