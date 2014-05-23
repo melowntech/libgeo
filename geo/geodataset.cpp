@@ -871,6 +871,7 @@ void GeoDataset::flush()
     if (noDataValue_) {
         auto undef = cv::Scalar(*noDataValue_);
 
+        // raster all black pixels with undefined color
         mask_->forEachQuad([&](uint xstart, uint ystart, uint xsize
                                , uint ysize, bool)
         {

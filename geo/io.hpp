@@ -77,7 +77,7 @@ inline void writeTfwFromGdal(const boost::filesystem::path &path
     tfw.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
     gdalGeoTrafo[0] += .5 * gdalGeoTrafo[1];
-    gdalGeoTrafo[3] -= .5 * gdalGeoTrafo[5];
+    gdalGeoTrafo[3] += .5 * gdalGeoTrafo[5];
 
     tfw << std::setprecision(15)
         << gdalGeoTrafo[1] << '\n'
