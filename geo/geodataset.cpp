@@ -137,9 +137,8 @@ std::string GeoDataset::proj4ToWkt( const std::string & op )
 
 GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
                        , bool freshlyCreated)
-    : dset_(std::move(dset)), changed_(false)
+    : type_(Type::custom), dset_(std::move(dset)), changed_(false)
 {
-
     // size & extents
     dset_->GetGeoTransform( geoTransform_.data() );
 
@@ -165,6 +164,49 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
 
         if ( success ) {
             noDataValue_ = ndv;
+        }
+
+        // initialize read/write mapping with identity
+        channelMapping_.resize(numChannels_ + 1);
+        std::iota(channelMapping_.begin() + 1, channelMapping_.end(), 0);
+
+        if ((numChannels_ == 3) || (numChannels_ == 4)) {
+            // calculate collor mapping (cv::Mat for images has BGR or BGRA
+            // layout)
+            int red(0), green(0), blue(0), alpha(0);
+
+            for (int i(1); i <= numChannels_; ++i) {
+                switch (dset_->GetRasterBand(i)->GetColorInterpretation()) {
+                case GCI_RedBand: red = i; break;
+                case GCI_GreenBand: green = i; break;
+                case GCI_BlueBand: blue = i; break;
+                case GCI_AlphaBand: alpha = i; break;
+                default: break;
+                }
+            }
+
+            if (((numChannels_ == 3) && red && green && blue)
+                || ((numChannels_ == 4) && red && green && blue && alpha))
+            {
+                // RGB(A) image, use custom mapping
+
+                channelMapping_[blue] = 0;
+                channelMapping_[green] = 1;
+                channelMapping_[red] = 2;
+                if (alpha) {
+                    channelMapping_[alpha] = 3;
+                    type_ = Type::rgba;
+                } else {
+                    type_ = Type::rgb;
+                }
+            }
+        } else if (numChannels_ == 1) {
+            // check for grayscale
+            if (dset_->GetRasterBand(1)->GetColorInterpretation()
+                == GCI_GrayIndex)
+            {
+                type_ = Type::grayscale;
+            }
         }
     }
 
@@ -519,15 +561,12 @@ void GeoDataset::loadData() const {
 
         int bandMap( i );
 
-        /* NOTE: we reverse the order of channels in the dataset,
-         * since GDAL commonly uses RGB model while OpenCV uses BGR model.
-         * This is not very robust, but will do for the moment. */
         err = dset_->RasterIO(
             GF_Read, // GDALRWFlag  eRWFlag,
             0, 0, // int nXOff, int nYOff
             size_.width, size_.height, // int nXSize, int nYSize,
             (void *) ( raster.data
-                + ( numChannels - i ) * valueSize ),  // void * pData,
+                       + ( channelMapping_[i]  * valueSize) ),  // void * pData,
             size_.width, size_.height, // int nBufXSize, int nBufYSize,
             gdalDataType, // GDALDataType  eBufType,
             1, //  int nBandCount,
@@ -568,18 +607,13 @@ void GeoDataset::exportCvMat( cv::Mat & raster, int cvDataType ) {
 
 void GeoDataset::expectGray() const {
 
-    ut::expect( dset_->GetRasterCount() == 1
-        && dset_->GetRasterBand(1)->GetColorInterpretation() == GCI_GrayIndex,
-        "Not a single channel grayscale image." );
+    ut::expect((type_ == Type::grayscale)
+               ,  "Not a single channel grayscale image.");
 }
 
 void GeoDataset::expectRGB() const {
 
-    ut::expect( dset_->GetRasterCount() == 3
-        && dset_->GetRasterBand(1)->GetColorInterpretation() == GCI_RedBand
-        && dset_->GetRasterBand(2)->GetColorInterpretation() == GCI_GreenBand
-        && dset_->GetRasterBand(3)->GetColorInterpretation() == GCI_BlueBand,
-        "Not a 3 channel RGB image." );
+    ut::expect((type_ == Type::rgb), "Not a 3 channel RGB image." );
 }
 
 
@@ -888,14 +922,12 @@ void GeoDataset::flush()
     for (int i = 1; i <= numChannels; ++i) {
         int bandMap(i);
 
-        /* NOTE: we reverse the order of channels in the dataset,
-         * since GDAL commonly uses RGB model while OpenCV uses BGR model.
-         * This is not very robust, but will do for the moment. */
         auto err = dset_->RasterIO
             (GF_Write, // GDALRWFlag  eRWFlag,
              0, 0, // int nXOff, int nYOff
              size_.width, size_.height, // int nXSize, int nYSize,
-             (void *) (raster.data  + (numChannels - i) * valueSize), // void * pData,
+             (void *) (raster.data
+                       + (channelMapping_[i] * valueSize)), // void * pData,
              size_.width, size_.height, // int nBufXSize, int nBufYSize,
              gdalDataType, // GDALDataType  eBufType,
              1, //  int nBandCount,

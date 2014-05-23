@@ -48,15 +48,31 @@ BOOST_AUTO_TEST_CASE(geo_generate_dataset)
     // one third of extents
     auto bsize(size(extents) / 3.);
 
-    auto p1(ds.geo2raster<cv::Point>(extents.ll(0) + bsize.width
-                                     , extents.ll(1) + bsize.height));
+    cv::Scalar color[9] = {
+        {0, 0, 255} // red
+        , {0, 255, 0} // green
+        , {255, 0, 0} // blue
+        , {0, 255, 255} // yellow
+        , {255, 0, 255} // magenta
+        , {255, 255, 0} // cyan
+        , {255, 255, 255} // white
+        , {128, 128, 128} // gray
+        , {0, 0, 0} // black
+    };
 
-    auto p2(ds.geo2raster<cv::Point>(extents.ur(0) - bsize.width
-                                     , extents.ur(1) - bsize.height));
-
-
-    cv::rectangle(ds.data(), p1, p2, cv::Scalar(255, 192, 128)
-                  , CV_FILLED, 4);
+    for (int j : { 0, 1, 2 }) {
+        for (int i : { 0, 1, 2 }) {
+            cv::rectangle(ds.data()
+                          , ds.geo2raster<cv::Point>
+                          (extents.ll(0) + i * bsize.width
+                           , extents.ll(1) + j * bsize.height)
+                          , ds.geo2raster<cv::Point>
+                          (extents.ll(0) + (i + 1) * bsize.width
+                           , extents.ll(1) + (j + 1) *bsize.height)
+                          , color[(i + 3 * j)]
+                          , CV_FILLED, 4);
+        }
+    }
 
     ds.flush();
 }

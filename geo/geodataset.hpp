@@ -112,6 +112,9 @@ public:
                              , const Format &format
                              , double noDataValue);
 
+    enum class Type { custom, grayscale, rgb, rgba };
+    Type type() const { return type_; }
+
     enum Resampling { lanczos, average };
 
     void warpInto( GeoDataset & dst, Resampling alg = lanczos ) const;
@@ -211,6 +214,7 @@ public:
         , geoTransform_(std::move(other.geoTransform_))
         , dset_(std::move(other.dset_))
         , numChannels_(other.numChannels_)
+        , channelMapping_(other.channelMapping_)
         , noDataValue_(other.noDataValue_)
         , changed_(other.changed_)
     {
@@ -236,12 +240,15 @@ private:
     bool valid( int i, int j ) const;
     bool validf( double i, double j ) const;
 
+    Type type_;
     math::Size2i size_;
     math::Extents2 extents_;
     std::string srsWkt_, srsProj4_;
     GeoTransform geoTransform_;
     std::unique_ptr<GDALDataset> dset_;
     int numChannels_;
+    /** Read/write channel mapping: maps GDAL band number to opencv channel. */
+    std::vector<int> channelMapping_;
     boost::optional<double> noDataValue_;
     mutable boost::optional<cv::Mat> data_;
     mutable boost::optional<imgproc::quadtree::RasterMask> mask_;
