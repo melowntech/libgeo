@@ -50,15 +50,16 @@ inline geo::SrsDefinition readSrs( const boost::filesystem::path &path
  */
 inline void writeTfw( const boost::filesystem::path &path
                     , const math::Extents2 &extents
-                    , const math::Size2f &pixelSize = math::Size2f(1.0,-1.0) )
+                    , const math::Size2f &pixelSize = math::Size2f(1.0,-1.0)
+                    , const bool pixelReg = false)
 {
     std::ofstream tfw( path.native() );
     tfw.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
     double a = pixelSize.width, e = pixelSize.height,
            b = 0, d = 0;
-    double c = extents.ll(0) + 0.5 * pixelSize.width;
-    double f = extents.ur(1) + 0.5 * pixelSize.height;
+    double c = extents.ll(0) + pixelReg * 0.5 * pixelSize.width;
+    double f = extents.ur(1) + pixelReg * 0.5 * pixelSize.height;
 
     tfw << std::setprecision(15)
         << a << "\n" << d << "\n" << b << "\n"
