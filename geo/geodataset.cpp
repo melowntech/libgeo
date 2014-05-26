@@ -910,7 +910,7 @@ void GeoDataset::flush()
                                , uint ysize, bool)
         {
             cv::Point2i start(xstart, ystart);
-            cv::Point2i end((xstart + xsize), (ystart + ysize));
+            cv::Point2i end((xstart + xsize - 1), (ystart + ysize - 1));
 
             cv::rectangle(*data_, start, end, undef, CV_FILLED, 4);
         }, RasterMask::Filter::black); // BLACK PIXELS!
