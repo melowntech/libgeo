@@ -88,6 +88,10 @@ public:
                 , Format::Storage::jpeg };
         }
 
+        static Format coverage() {
+            return { GDT_Byte, { GCI_AlphaBand }, Format::Storage::gtiff };
+        }
+
         static Format dsm() {
             return { GDT_Float32, { GCI_GrayIndex }
                 , Format::Storage::gtiff };
