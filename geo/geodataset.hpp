@@ -119,7 +119,7 @@ public:
     enum class Type { custom, grayscale, rgb, rgba };
     Type type() const { return type_; }
 
-    enum Resampling { lanczos, average };
+    enum Resampling { lanczos, average, nearest };
 
     void warpInto( GeoDataset & dst, Resampling alg = lanczos ) const;
 
