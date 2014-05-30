@@ -18,7 +18,7 @@ add_library(geo STATIC ${geo_SOURCES})
 buildsys_library(geo)
 
 target_link_libraries(geo ${MODULE_LIBRARIES})
-target_compile_definitions(geo PRIVATE ${MODULE_DEFINITIONS})
+buildsys_target_compile_definitions(geo ${MODULE_DEFINITIONS})
 
 # test stuff
 if (COMPILE_TESTS)
