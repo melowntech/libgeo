@@ -8,6 +8,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "./srsdef.hpp"
+#include "./srs.hpp"
 #include "./detail/srs.hpp"
 
 namespace geo {
@@ -120,6 +121,11 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
     return false;
 }
 
-
+OGRSpatialReference asOgrSrs(const SrsDefinition &def)
+{
+    OGRSpatialReference sr;
+    detail::import(sr, def);
+    return sr;
+}
 
 } // namespace geo

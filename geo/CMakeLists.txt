@@ -4,6 +4,7 @@ define_module(LIBRARY geo DEPENDS imgproc math dbglog
 set(geo_SOURCES
     dem.hpp dem.cpp
     srsdef.hpp srsdef.cpp
+    srs.hpp
     project.hpp project.cpp
     csconvertor.hpp csconvertor.cpp
     heightconvertor.hpp heightconvertor.cpp
