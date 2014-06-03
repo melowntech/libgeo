@@ -9,7 +9,7 @@ namespace geo {
 
 /** Returns spatial reference as OGRSpatialReference
  */
-OGRSpatialReference asOgrSrs(const SrsDefinition &def);
+OGRSpatialReference asOgrSr(const SrsDefinition &def);
 
 } // namespace geo
 

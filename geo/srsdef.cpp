@@ -121,7 +121,7 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
     return false;
 }
 
-OGRSpatialReference asOgrSrs(const SrsDefinition &def)
+OGRSpatialReference asOgrSr(const SrsDefinition &def)
 {
     OGRSpatialReference sr;
     detail::import(sr, def);
