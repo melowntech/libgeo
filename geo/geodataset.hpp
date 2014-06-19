@@ -124,6 +124,13 @@ public:
                 (name, boost::lexical_cast<std::string>(value));
             return *this;
         }
+
+        /** Special handling for boolean -> YES/NO
+         */
+        CreateOptions operator()(const std::string &name, bool value) {
+            options.emplace_back(name, value ? "YES" : "NO");
+            return *this;
+        }
     };
 
 
