@@ -38,7 +38,10 @@ BOOST_AUTO_TEST_CASE(geo_generate_dataset)
              , extents
              , { 1024, 1536 }
              , geo::GeoDataset::Format::gtiffRGBPhoto()
-             , 0));
+             , 0
+             , geo::GeoDataset::CreateOptions
+             ("COMPRESS", "LZW")("BIGTIFF", "IF_NEEDED")
+             ));
 
     LOG(info3) << "Original extents: " << std::setprecision(15) << extents;
     LOG(info3) << "Dataset extents: " << std::setprecision(15) << ds.extents();

@@ -338,7 +338,8 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                               , const math::Extents2 &extents
                               , const math::Size2 &rasterSize
                               , const Format &format
-                              , double noDataValue)
+                              , double noDataValue
+                              , const CreateOptions &options)
 {
     if (!initialized_) { initialize(); }
 
@@ -377,7 +378,11 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
             << "> format doesn't support creation.";
     }
 
-    char **options(nullptr);
+    // fill in options (if any)
+    char **opts(nullptr);
+    for (const auto &opt : options.options) {
+        opts = ::CSLSetNameValue(opts, opt.first.c_str(), opt.second.c_str());
+    }
 
     std::unique_ptr<GDALDataset>
         ds(driver->Create(path.string().c_str()
@@ -385,7 +390,10 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                           , rasterSize.height
                           , format.channels.size()
                           , format.channelType
-                          , options));
+                          , opts));
+    // destroy options
+    ::CSLDestroy(opts);
+
     ut::expect(ds.get(), "Failed to create new dataset.");
 
     // set projection

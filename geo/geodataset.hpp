@@ -13,6 +13,7 @@
 #include <array>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "math/geometry.hpp"
 #include "geometry/mesh.hpp"
@@ -98,6 +99,33 @@ public:
         }
     };
 
+    /** Dataset create time options. Thin wrapper around string pair vector.
+     *
+     *  See:
+     *    * http://www.gdal.org/frmt_gtiff.html for gtiff options
+     *    * http://www.gdal.org/frmt_various.html#PNG for png options
+     *    * http://www.gdal.org/frmt_jpeg.html for jpeg options
+     */
+    struct CreateOptions {
+        typedef std::pair<std::string, std::string> Option;
+        typedef std::vector<Option> Options;
+        Options options;
+
+        CreateOptions() = default;
+
+        template <typename T>
+        CreateOptions(const std::string &name, const T &value) {
+            operator()(name, value);
+        }
+
+        template <typename T>
+        CreateOptions operator()(const std::string &name, const T &value) {
+            options.emplace_back
+                (name, boost::lexical_cast<std::string>(value));
+            return *this;
+        }
+    };
+
 
     /** Creates new dataset at given path.
      *
@@ -114,7 +142,8 @@ public:
                              , const math::Extents2 &extents
                              , const math::Size2 &rasterSize
                              , const Format &format
-                             , double noDataValue);
+                             , double noDataValue
+                             , const CreateOptions &options = CreateOptions());
 
     enum class Type { custom, grayscale, rgb, rgba };
     Type type() const { return type_; }
