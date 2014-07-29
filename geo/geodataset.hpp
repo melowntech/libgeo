@@ -209,6 +209,8 @@ public:
         double x, y; geo2rowcol({gx, gy, gz}, y, x); return T(x, y);
     }
 
+    double geo2height(double gx, double gy, double gz = .0) const;
+
     math::Extents2 deriveExtents( const SrsDefinition &srs );
 
     static std::string wktToProj4( const std::string & op );

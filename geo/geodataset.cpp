@@ -643,6 +643,16 @@ void GeoDataset::geo2rowcol(
    row -= 0.5, col -= 0.5;
 }
 
+double GeoDataset::geo2height(double gx, double gy, double gz) const
+{
+        double x, y; 
+        geo2rowcol({gx,gy,gz},y,x); 
+        if(!valid(x,y)){
+            LOGTHROW( err3, std::runtime_error )<<"Invalid coordinates in geodataset.";    
+        }
+        return data_->at<double>(y, x);
+}
+
 void GeoDataset::exportMesh( geometry::Mesh & mesh ) const {
 
     std::map<std::pair<int,int>, int> vpos2ord; // i,j -> vertex ordinal
