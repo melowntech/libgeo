@@ -233,6 +233,13 @@ public:
         return *data_;
     }
 
+    /** Get data for reading.
+     */
+    const cv::Mat& cdata() const {
+        assertData();
+        return *data_;
+    }
+
     /** Get mask for reading/writing.
      */
     imgproc::quadtree::RasterMask& mask() {
@@ -244,6 +251,13 @@ public:
     /** Get mask for reading.
      */
     const imgproc::quadtree::RasterMask& mask() const {
+        assertData();
+        return *mask_;
+    }
+
+    /** Get mask for reading.
+     */
+    const imgproc::quadtree::RasterMask& cmask() const {
         assertData();
         return *mask_;
     }
