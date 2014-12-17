@@ -634,6 +634,11 @@ math::Point3 GeoDataset::rowcol2geo( int row, int col, double value ) const {
     return math::Point3( p2[0], p2[1], value );
 }
 
+// pos is expected to be in pixel registration
+math::Point2 GeoDataset::pixelPos2geo(const math::Point2 & pos) const {
+    return applyGeoTransform( geoTransform_, pos(0), pos(1) );
+}
+
 void GeoDataset::geo2rowcol(
     const math::Point3 & gp, double & row, double & col ) const {
 
