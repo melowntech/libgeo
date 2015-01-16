@@ -19,7 +19,8 @@ inline void import(OGRSpatialReference &sr, const SrsDefinition &def)
         auto err(sr.importFromProj4(def.srs.c_str()));
         if (err != OGRERR_NONE) {
             LOGTHROW(err1, std::runtime_error)
-                << "Error parsing proj definition: <" << err << ">.";
+                << "Error parsing proj definition: <" << err << "> (input = "
+                << def.srs << ").";
         }
         break;
     }
@@ -32,7 +33,8 @@ inline void import(OGRSpatialReference &sr, const SrsDefinition &def)
         auto err(sr.importFromWkt(&data));
         if (err != OGRERR_NONE) {
             LOGTHROW(err1, std::runtime_error)
-                << "Error parsing wkt definition: <" << err << ">.";
+                << "Error parsing wkt definition: <" << err << "> (input = "
+                << def.srs << ").";
         }
         break;
     }
