@@ -17,6 +17,9 @@ public:
     math::Point2 operator()(const math::Point2 &p) const;
     math::Point3 operator()(const math::Point3 &p) const;
 
+    math::Extents2 operator()(const math::Extents2 &p) const;
+    math::Extents3 operator()(const math::Extents3 &p) const;
+
     CsConvertor inverse() const;
 
     double dilation(const math::Point2 &point) const;
@@ -42,6 +45,7 @@ private:
     double dstMetricScale_;
 };
 
+// inline method implementation
 
 inline double CsConvertor::dilation(const math::Point3 &point) const
 {
@@ -52,6 +56,16 @@ inline math::Point3 CsConvertor::adjustVertical(math::Point3 point) const
 {
     point(2) *= dilation(point);
     return point;
+}
+
+inline math::Extents2 CsConvertor::operator()(const math::Extents2 &e) const
+{
+    return { operator()(e.ll), operator()(e.ur) };
+}
+
+inline math::Extents3 CsConvertor::operator()(const math::Extents3 &e) const
+{
+    return { operator()(e.ll), operator()(e.ur) };
 }
 
 } // namespace geo

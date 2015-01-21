@@ -212,6 +212,11 @@ public:
         double x, y; geo2rowcol({gx, gy, gz}, y, x); return T(x, y);
     }
 
+    template <typename T>
+    T geo2raster(const math::Point2 &gp) const {
+        double x, y; geo2rowcol({gp(0), gp(1), .0}, y, x); return T(x, y);
+    }
+
     double geo2height(double gx, double gy, double gz = .0) const;
 
     math::Extents2 deriveExtents( const SrsDefinition &srs );

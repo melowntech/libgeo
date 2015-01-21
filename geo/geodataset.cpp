@@ -596,7 +596,40 @@ void GeoDataset::loadData() const {
     mask_ = RasterMask( size_.width,size_.height,RasterMask::FULL );
 
     if ( noDataValue_ ) {
+#if 1
+        // get mask band
+        auto maskBand(dset_->GetRasterBand(1)->GetMaskBand());
+        gdalDataType = maskBand->GetRasterDataType();
+        cvDataType = gdal2cv(gdalDataType, 1);
+        ut::expect((cvDataType == CV_8UC1)
+                   , "Expected band mask to be of byte type.");
+        raster.create(size_.height, size_.width, cvDataType);
+        int bandMap(1);
 
+        err = dset_->RasterIO
+            (GF_Read // GDALRWFlag  eRWFlag,
+             , 0, 0 // int nXOff, int nYOff
+             , size_.width, size_.height // int nXSize, int nYSize,
+             , (void *)(raster.data)  // void * pData,
+             , size_.width, size_.height // int nBufXSize, int nBufYSize,
+             , gdalDataType // GDALDataType  eBufType,
+             , 1 //  int nBandCount,
+             , &bandMap  // int * panBandMap,
+             , raster.elemSize() // int nPixelSpace,
+             , size_.width * raster.elemSize(), 0); // int nLineSpace
+
+        ut::expect((err == CE_None)
+                   , "Reading of mask band data failed.");
+        const auto *d(raster.data);
+        for (int i = 0; i < size_.height; ++i) {
+            for (int j = 0; j < size_.width; ++j) {
+                if (!*d++) {
+                    mask_->set(j, i, false);
+                }
+            }
+        }
+
+#else
         double * curpos = reinterpret_cast<double *>( data_->data );
 
         for ( int i = 0; i < size_.height; i++ )
@@ -604,6 +637,7 @@ void GeoDataset::loadData() const {
                 for ( int k = 0; k < numChannels_; k++ )
                     if ( *curpos++ == noDataValue_.get() )
                         mask_->set(j,i,false);
+#endif
     }
 
     // all done
