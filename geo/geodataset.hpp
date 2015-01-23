@@ -272,7 +272,7 @@ public:
 
     /** Move ctor. Allows initialization from return value.
      */
-    GeoDataset(GeoDataset &&other)
+    GeoDataset(GeoDataset &&other) noexcept
         : size_(other.size_), extents_(other.extents_)
         , srsWkt_(other.srsWkt_), srsProj4_(other.srsProj4_)
         , geoTransform_(std::move(other.geoTransform_))
@@ -287,13 +287,36 @@ public:
         std::swap(mask_, other.mask_);
     }
 
-    ~GeoDataset();
+    /** Move assignment. Allows overwrite from return value.
+     */
+    GeoDataset& operator=(GeoDataset &&other) noexcept
+    {
+        size_ = other.size_; extents_ = other.extents_;
+        srsWkt_ = other.srsWkt_; srsProj4_ = other.srsProj4_;
+        geoTransform_ = std::move(other.geoTransform_);
+        dset_ = std::move(other.dset_);
+        numChannels_ = other.numChannels_;
+        channelMapping_ = other.channelMapping_;
+        noDataValue_ = other.noDataValue_;
+        changed_ = other.changed_;
+
+        // we need to steal content from data and mask :)
+        std::swap(data_, other.data_);
+        std::swap(mask_, other.mask_);
+        return *this;
+    }
+
+    ~GeoDataset() noexcept;
 
     typedef std::array<double, 6> GeoTransform;
 
 private:
     static bool initialized_;
     static void initialize();
+
+    GeoDataset(const GeoDataset &other) = delete;
+
+    GeoDataset& operator=(const GeoDataset &other) = delete;
 
     GeoDataset(std::unique_ptr<GDALDataset> &&dset
                , bool freshlyCreated = false);

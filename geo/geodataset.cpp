@@ -217,7 +217,7 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
     }
 }
 
-GeoDataset::~GeoDataset()
+GeoDataset::~GeoDataset() noexcept
 {
     // valid dataset that has not been flushed and no exception is thrown ->
     // someone forgot to flush :)
