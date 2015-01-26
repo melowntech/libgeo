@@ -196,10 +196,7 @@ public:
     math::Point2 resolution() const;
 
     math::Point3 rowcol2geo( int row, int col, double value ) const;
-    
-    // pos is expected to be in pixel registration
-    math::Point2 pixelPos2geo(const math::Point2 & pos) const;
-    
+
     void geo2rowcol( const math::Point3 & gp, double & row, double & col ) const;
 
     template <typename T>
