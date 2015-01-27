@@ -155,9 +155,28 @@ public:
     enum class Type { custom, grayscale, rgb, rgba };
     Type type() const { return type_; }
 
-    enum Resampling { lanczos, average, nearest };
+    enum Resampling {
+        nearest, bilinear, cubic, cubicspline, lanczos, average, mode
+    };
 
-    void warpInto( GeoDataset & dst, Resampling alg = lanczos ) const;
+    /** \brief Warp data from this dataset to destination dataset.
+     *
+     * If resampling algorithm is not set (i.e. boost::none) best algorithm is
+     * selected automatically:
+     *    * lanczos by default
+     *    * cubic if this->srs() and dst.srs() are equal and we are upscaling
+     *      (dst.resolution() < this->resolution())
+     *
+     * Futhermore, if resolutions are equal and distance between this and dst
+     * extents are in whole pixels we proceed with pure pixel copy from src to
+     * dst instead of more time consuming warp.
+     *
+     * \param dst destination dataset
+     * \param alg resampling algorithm (i.e. filter to use)
+     */
+    void warpInto( GeoDataset & dst
+                   , const boost::optional<Resampling> &alg = boost::none)
+        const;
 
     void expectRGB() const;
     void expectGray() const;

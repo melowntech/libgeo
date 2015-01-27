@@ -435,13 +435,79 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     return GeoDataset(std::move(ds), true);
 }
 
+namespace {
+GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
+{
+    switch (alg) {
+    case GeoDataset::Resampling::nearest: return GRA_NearestNeighbour;
+    case GeoDataset::Resampling::bilinear: return GRA_Bilinear;
+    case GeoDataset::Resampling::cubic: return GRA_Cubic;
+    case GeoDataset::Resampling::cubicspline: return GRA_CubicSpline;
+    case GeoDataset::Resampling::lanczos: return GRA_Lanczos;
+    case GeoDataset::Resampling::average: return GRA_Average;
+    case GeoDataset::Resampling::mode: return GRA_Mode;
+    }
 
-void GeoDataset::warpInto( GeoDataset & dst, Resampling alg ) const {
+    // falback
+    return GRA_Lanczos;
+}
+
+} // namespace
+
+void GeoDataset::warpInto(GeoDataset & dst
+                          , const boost::optional<Resampling> &requestedAlg)
+    const
+{
+    LOG(info1)
+        << std::fixed << "Warping into: dst extents = "
+        << dst.extents() << ", size = " << dst.size();
 
     // sanity
     ut::expect( dset_->GetRasterCount() == dst.dset_->GetRasterCount()
                 && dset_->GetRasterCount() > 0,
             "Error in warp: both dataset need to have the same number of bands." );
+
+    Resampling alg(requestedAlg ? *requestedAlg : Resampling::lanczos);
+
+    // ---- optimization starts here ----
+    if (areSame(srs(), dst.srs(), SrsEquivalence::geographic)) {
+        // both datsets have equivalent SRS
+        bool canCopy(false);
+        math::Point2 dsOffset;
+
+        const auto res(resolution());
+        const auto dres(dst.resolution());
+        if (res == dres) {
+            // distance between upper-left corners
+            dsOffset = ul(dst.extents_) - ul(extents_);
+            dsOffset(0) /= res(0);
+            dsOffset(1) /= res(1);
+            const double tolerance(1e-4);
+            canCopy = (math::isInteger(dsOffset(0), tolerance)
+                       && math::isInteger(dsOffset(1), tolerance));
+        }
+
+        if (canCopy) {
+            LOG(info1)
+                << "Source and destination datasets match pixel to pixel -> "
+                "using nearest filter.";
+            alg = Resampling::nearest;
+        } else if (!requestedAlg
+            && (dres(0) < res(0))
+            && (dres(1) < res(1)))
+        {
+#if 0
+            // upscaling in the same SRS, no algo override
+            LOG(info1)
+                << "Upscaling in the same SRS -> using cubic filter.";
+            alg = Resampling::cubic;
+#endif
+        } else {
+            LOG(info1)
+                << "Downscaling in the same SRS -> keeping lanzcos filter.";
+        }
+    }
+    // ---- optimization ends here ----
 
     // create warp options
     GDALWarpOptions * warpOptions = GDALCreateWarpOptions();
@@ -493,18 +559,7 @@ void GeoDataset::warpInto( GeoDataset & dst, Resampling alg ) const {
         }
     }
 
-    switch( alg ) {
-#if 0
-        case average:
-            warpOptions->eResampleAlg = GRA_Average; break;
-#endif
-        case nearest:
-            warpOptions->eResampleAlg = GRA_NearestNeighbour; break;
-        case lanczos:
-        default:
-            warpOptions->eResampleAlg = GRA_Lanczos; break;
-    }
-
+    warpOptions->eResampleAlg = algoToGdal(alg);
     warpOptions->pfnProgress = GDALDummyProgress;
 
     warpOptions->papszWarpOptions = CSLSetNameValue(
@@ -527,15 +582,16 @@ void GeoDataset::warpInto( GeoDataset & dst, Resampling alg ) const {
                                   dst.dset_->GetRasterXSize(),
                                   dst.dset_->GetRasterYSize() );
 
-    ut::expect( err == CE_None, "Warp failed." );
-
     GDALDestroyGenImgProjTransformer( warpOptions->pTransformerArg );
     GDALDestroyWarpOptions( warpOptions );
+
+    ut::expect( err == CE_None, "Warp failed." );
 
     // invalidate local copies of target dataset content
     dst.data_ = boost::none; dst.mask_ = boost::none;
 
     // done
+    LOG(debug) << "Warped.";
 }
 
 void GeoDataset::assertData() const {
@@ -549,9 +605,6 @@ void GeoDataset::assertData() const {
 }
 
 void GeoDataset::loadData() const {
-
-    cv::Mat raster;
-
     // sanity
     ut::expect( dset_->GetRasterCount() > 0 );
 
@@ -561,17 +614,16 @@ void GeoDataset::loadData() const {
     int cvDataType(gdal2cv(gdalDataType, numChannels));
 
     // create matrix
-    raster.create( size_.height, size_.width, cvDataType );
+    cv::Mat raster( size_.height, size_.width, cvDataType );
     int valueSize = raster.elemSize() / raster.channels();
 
     // transfer data
-    CPLErr err( CE_None );
 
     for ( int i = 1; i <= numChannels; i++ ) {
 
         int bandMap( i );
 
-        err = dset_->RasterIO(
+        auto err = dset_->RasterIO(
             GF_Read, // GDALRWFlag  eRWFlag,
             0, 0, // int nXOff, int nYOff
             size_.width, size_.height, // int nXSize, int nYSize,
@@ -584,9 +636,8 @@ void GeoDataset::loadData() const {
             raster.elemSize(), // int nPixelSpace,
             size_.width * raster.elemSize(), 0 ); // int nLineSpace
 
+        ut::expect( err == CE_None, "Reading of raster data failed." );
     }
-
-    ut::expect( err == CE_None, "Reading of raster data failed." );
 
     // convert
     data_ = cv::Mat();
@@ -599,14 +650,14 @@ void GeoDataset::loadData() const {
 #if 1
         // get mask band
         auto maskBand(dset_->GetRasterBand(1)->GetMaskBand());
-        gdalDataType = maskBand->GetRasterDataType();
-        cvDataType = gdal2cv(gdalDataType, 1);
+        auto gdalDataType = maskBand->GetRasterDataType();
+        auto cvDataType = gdal2cv(gdalDataType, 1);
         ut::expect((cvDataType == CV_8UC1)
                    , "Expected band mask to be of byte type.");
         raster.create(size_.height, size_.width, cvDataType);
         int bandMap(1);
 
-        err = dset_->RasterIO
+        auto err = dset_->RasterIO
             (GF_Read // GDALRWFlag  eRWFlag,
              , 0, 0 // int nXOff, int nYOff
              , size_.width, size_.height // int nXSize, int nYSize,
