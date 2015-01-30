@@ -1046,4 +1046,21 @@ void GeoDataset::flush()
     changed_ = false;
 }
 
+GeoDataset::Metadata GeoDataset::getMetadata(const std::string &domain) const
+{
+    auto md(dset_->GetMetadata(domain.empty() ? 0x0 : domain.c_str()));
+    if (!md) {
+        return {};
+    }
+
+    Metadata metadata;
+    char *key;
+    for (; *md; ++md) {
+        auto value(::CPLParseNameValue(*md, &key));
+        metadata.add(key, value);
+    }
+
+    return metadata;
+}
+
 } // namespace geo

@@ -326,6 +326,33 @@ public:
 
     typedef std::array<double, 6> GeoTransform;
 
+
+    class Metadata {
+    public:
+        typedef std::map<std::string, std::string> Items;
+
+        Metadata() {}
+
+        void add(const std::string &name, const std::string &value) {
+            items_[name] = value;
+        }
+
+        template <typename T>
+        boost::optional<T> get(const std::string &name) const
+        {
+            auto fitems(items_.find(name));
+            if (fitems == items_.end()) { return boost::none; }
+            return boost::lexical_cast<T>(fitems->second);
+        }
+
+        const Items& items() const { return items_; }
+
+    private:
+        Items items_;
+    };
+
+    Metadata getMetadata(const std::string &domain = "") const;
+
 private:
     static bool initialized_;
     static void initialize();
