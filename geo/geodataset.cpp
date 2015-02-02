@@ -487,24 +487,12 @@ void GeoDataset::warpInto(GeoDataset & dst
                        && math::isInteger(dsOffset(1), tolerance));
         }
 
+
         if (canCopy) {
             LOG(info1)
                 << "Source and destination datasets match pixel to pixel -> "
                 "using nearest filter.";
             alg = Resampling::nearest;
-        } else if (!requestedAlg
-            && (dres(0) < res(0))
-            && (dres(1) < res(1)))
-        {
-#if 0
-            // upscaling in the same SRS, no algo override
-            LOG(info1)
-                << "Upscaling in the same SRS -> using cubic filter.";
-            alg = Resampling::cubic;
-#endif
-        } else {
-            LOG(info1)
-                << "Downscaling in the same SRS -> keeping lanzcos filter.";
         }
     }
     // ---- optimization ends here ----
