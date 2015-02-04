@@ -1051,4 +1051,69 @@ GeoDataset::Metadata GeoDataset::getMetadata(const std::string &domain) const
     return metadata;
 }
 
+GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset)
+    const
+{
+    auto bs(blockSize());
+    int numChannels(dset_->GetRasterCount());
+
+    ut::expect(((blockOffset(0) >= 0) && (blockOffset(1) >= 0))
+               , "Block out of raster.");
+
+    // check whether we are not outside raster
+    math::Point2 offset(blockOffset(0) * bs.width
+                        , blockOffset(1) * bs.height);
+
+    ut::expect(((offset(0) < size_.width) && (offset(1) < size_.height))
+               , "Block out of raster.");
+
+    math::Point2 end(offset(0) + bs.width, offset(1) + bs.height);
+    if (end(0) > size_.width) { end(0) = size_.width; }
+    if (end(1) > size_.height) { end(1) = size_.height; }
+
+    math::Size2 size(end(0) - offset(0), end(1) - offset(1));
+
+    Block block;
+    block.data.create(size.height, size.width, CV_64FC(numChannels_));
+    int valueSize(block.data.elemSize() / block.data.channels());
+
+    for (int i = 1; i <= numChannels; ++i) {
+        int bandMap(i);
+        auto err = dset_->RasterIO
+            (GF_Read // GDALRWFlag  eRWFlag,
+             , offset(0) // int nXOff
+             , offset(1) // int nYOff
+             , size.width, size.height // int nXSize, int nYSize,
+             , (void *) (block.data.data
+                         + (channelMapping_[i]  * valueSize))  // void * pData,
+             , size.width, size.height // int nBufXSize, int
+                                                 // nBufYSize,
+             , GDT_Float64 // GDALDataType  eBufType,
+             , 1 //  int nBandCount,
+             , &bandMap  // int * panBandMap,
+             , block.data.elemSize() // int nPixelSpace,
+             , size.width * block.data.elemSize(), 0); // int nLineSpace
+
+        ut::expect(err == CE_None, "Reading of raster data failed.");
+    }
+
+    return block;
+}
+
+math::Size2 GeoDataset::blockSize() const
+{
+    math::Size2 size;
+    dset_->GetRasterBand(1)->GetBlockSize(&size.width, &size.height);
+    return size;
+}
+
+std::tuple<math::Point2i, math::Point2i>
+GeoDataset::blockCoord(const math::Point2i &point) const
+{
+    auto size(blockSize());
+    return std::tuple<math::Point2i, math::Point2i>
+        (math::Point2i(point(0) / size.width, point(1) / size.height)
+         , math::Point2i(point(0) % size.width, point(1) % size.height));
+}
+
 } // namespace geo

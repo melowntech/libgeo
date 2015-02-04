@@ -326,7 +326,6 @@ public:
 
     typedef std::array<double, 6> GeoTransform;
 
-
     class Metadata {
     public:
         typedef std::map<std::string, std::string> Items;
@@ -352,6 +351,33 @@ public:
     };
 
     Metadata getMetadata(const std::string &domain = "") const;
+
+    // rawish data interface
+
+    /** IO block
+     */
+    struct Block {
+        /** Block data;
+         */
+        cv::Mat data;
+
+        Block() = default;
+
+        operator bool() const { return data.data; }
+    };
+
+    /** Reads block that contains given point.
+     */
+    Block readBlock(const math::Point2i &blockOffset) const;
+
+    /** Size of IO block.
+     */
+    math::Size2 blockSize() const;
+
+    /** Transforms pixel position to block offset and position inside block
+     */
+    std::tuple<math::Point2i, math::Point2i>
+    blockCoord(const math::Point2i &point) const;
 
 private:
     static bool initialized_;
