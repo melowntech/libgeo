@@ -332,8 +332,21 @@ public:
 
         Metadata() {}
 
-        void add(const std::string &name, const std::string &value) {
+        template <typename T>
+        Metadata(const std::string &name, const T &value) {
+            operator()(name, value);
+        }
+
+        template <typename T>
+        Metadata& operator()(const std::string &name, const T &value) {
+            items_[name] = boost::lexical_cast<std::string>(value);
+            return *this;
+        }
+
+        Metadata& operator()(const std::string &name, const std::string &value)
+        {
             items_[name] = value;
+            return *this;
         }
 
         template <typename T>
@@ -351,6 +364,9 @@ public:
     };
 
     Metadata getMetadata(const std::string &domain = "") const;
+
+    void setMetadata(const Metadata &metadata
+                     , const std::string &domain = "");
 
     // rawish data interface
 

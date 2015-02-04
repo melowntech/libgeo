@@ -3,6 +3,7 @@
  */
 
 #include <cassert>
+#include <sstream>
 
 #include <boost/utility/in_place_factory.hpp>
 #include <boost/filesystem/path.hpp>
@@ -1045,11 +1046,34 @@ GeoDataset::Metadata GeoDataset::getMetadata(const std::string &domain) const
     char *key;
     for (; *md; ++md) {
         auto value(::CPLParseNameValue(*md, &key));
-        metadata.add(key, value);
+        metadata(key, value);
     }
 
     return metadata;
 }
+
+void GeoDataset::setMetadata(const Metadata &metadata
+                             , const std::string &domain)
+{
+    // convert metadata into list
+    std::vector<std::string> strings;
+
+    for (const auto &item : metadata.items()) {
+        std::ostringstream os;
+        os << item.first << "=" << item.second;
+        strings.push_back(os.str());
+    }
+
+    std::vector<char*> md;
+    for (auto &string : strings) {
+        md.push_back(const_cast<char*>(string.c_str()));
+    }
+    md.push_back(nullptr);
+
+    dset_->SetMetadata(md.data(), domain.empty() ? 0x0 : domain.c_str());
+}
+
+// rawish interface
 
 GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset)
     const
