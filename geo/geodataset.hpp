@@ -50,7 +50,15 @@ public:
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents );
 
-    /** Forma descriptor
+    /** Creates an invalud placeholder that can be used to hold valid dataset.
+     *  Do not call any method on placeholder except:
+     *      * move assignent operator
+     *      * destructor
+     *      * operator bool()
+     */
+    static GeoDataset placeholder();
+
+    /** Format descriptor
      */
     struct Format {
         enum class Storage { gtiff, png, jpeg };
@@ -152,7 +160,7 @@ public:
                              , double noDataValue
                              , const CreateOptions &options = CreateOptions());
 
-    enum class Type { custom, grayscale, rgb, rgba };
+    enum class Type { custom, grayscale, rgb, rgba, alpha };
     Type type() const { return type_; }
 
     enum Resampling {
@@ -164,8 +172,6 @@ public:
      * If resampling algorithm is not set (i.e. boost::none) best algorithm is
      * selected automatically:
      *    * lanczos by default
-     *    * cubic if this->srs() and dst.srs() are equal and we are upscaling
-     *      (dst.resolution() < this->resolution())
      *
      * Futhermore, if resolutions are equal and distance between this and dst
      * extents are in whole pixels we proceed with pure pixel copy from src to
@@ -180,6 +186,11 @@ public:
 
     void expectRGB() const;
     void expectGray() const;
+    void expectAlpha() const;
+
+    /** Passes test if type is one of (grayscale, alpha)
+     */
+    void expectMask() const;
 
     void exportCvMat( cv::Mat & raster, int cvDataType );
 
@@ -239,6 +250,10 @@ public:
 
     static std::string wktToProj4( const std::string & op );
     static std::string proj4ToWkt( const std::string & op );
+
+    /** Apply mask from another dataset over this dataset.
+     */
+    void applyMask(const GeoDataset &other);
 
     void flush();
 
@@ -394,6 +409,11 @@ public:
      */
     std::tuple<math::Point2i, math::Point2i>
     blockCoord(const math::Point2i &point) const;
+
+    /** Checks whether this dataset is valid dataset (i.e. is backed by valid
+     *  GDAL dataset. Returns false for placeholder.
+     */
+    operator bool() const { return dset_.get(); }
 
 private:
     static bool initialized_;

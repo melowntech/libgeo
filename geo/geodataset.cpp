@@ -136,10 +136,18 @@ std::string GeoDataset::proj4ToWkt( const std::string & op )
         .as(SrsDefinition::Type::wkt).srs;
 }
 
+GeoDataset GeoDataset::placeholder()
+{
+    return GeoDataset({}, false);
+}
+
 GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
                        , bool freshlyCreated)
     : type_(Type::custom), dset_(std::move(dset)), changed_(false)
 {
+    // stop here if invalid
+    if (!dset_) { return; }
+
     // size & extents
     dset_->GetGeoTransform( geoTransform_.data() );
 
@@ -202,11 +210,11 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
                 }
             }
         } else if (numChannels_ == 1) {
-            // check for grayscale
-            if (dset_->GetRasterBand(1)->GetColorInterpretation()
-                == GCI_GrayIndex)
-            {
-                type_ = Type::grayscale;
+            // check for grayscale/alpha
+            switch (dset_->GetRasterBand(1)->GetColorInterpretation()) {
+            case GCI_GrayIndex: type_ = Type::grayscale; break;
+            case GCI_AlphaBand: type_ = Type::alpha; break;
+            default: break;
             }
         }
     }
@@ -700,6 +708,16 @@ void GeoDataset::expectRGB() const {
     ut::expect((type_ == Type::rgb), "Not a 3 channel RGB image." );
 }
 
+void GeoDataset::expectAlpha() const
+{
+    ut::expect((type_ == Type::alpha), "Not a single channel alpha image.");
+}
+
+void GeoDataset::expectMask() const
+{
+    ut::expect((type_ == Type::grayscale) || (type_ == Type::alpha)
+               ,  "Not a single channel grayscale or alpha image.");
+}
 
 math::Point3 GeoDataset::rowcol2geo( int row, int col, double value ) const {
 
@@ -727,7 +745,7 @@ double GeoDataset::geo2height(double gx, double gy, double gz) const
         return data_->at<double>(y, x);
 }
 
-void GeoDataset::exportMesh( geometry::Mesh & mesh ) const {
+void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
 
     std::map<std::pair<int,int>, int> vpos2ord; // i,j -> vertex ordinal
 
@@ -980,6 +998,12 @@ bool GeoDataset::validf( double i, double j ) const {
     return false;
 }
 
+
+void GeoDataset::applyMask(const GeoDataset &other)
+{
+    assertData();
+    mask_->intersect(other.cmask());
+}
 
 void GeoDataset::flush()
 {
