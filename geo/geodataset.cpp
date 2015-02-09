@@ -644,7 +644,7 @@ void GeoDataset::loadData() const {
     mask_ = RasterMask( size_.width,size_.height,RasterMask::FULL );
 
     if ( noDataValue_ ) {
-#if 1
+#if 0
         // get mask band
         auto maskBand(dset_->GetRasterBand(1)->GetMaskBand());
         auto gdalDataType = maskBand->GetRasterDataType();
