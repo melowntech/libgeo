@@ -12,6 +12,7 @@
 
 #include <gdalwarper.h>
 
+#include "utility/openmp.hpp"
 #include "utility/expect.hpp"
 #include "utility/path.hpp"
 #include "math/math.hpp"
@@ -593,9 +594,7 @@ void GeoDataset::warpInto(GeoDataset & dst
 
 void GeoDataset::assertData() const {
 
-#ifdef _OPENMP
-#   pragma omp critical
-#endif
+    UTILITY_OMP(critical)
     if ( ! mask_ || ! data_ ) {
         loadData();
     }
