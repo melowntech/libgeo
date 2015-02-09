@@ -217,7 +217,9 @@ public:
 
     std::string srsWkt() const { return srsWkt_; }
     std::string srsProj4() const { return srsProj4_; }
-    SrsDefinition srs() const { return SrsDefinition(srsProj4_); }
+    SrsDefinition srs() const {
+        return SrsDefinition(srsWkt_, SrsDefinition::Type::wkt);
+    }
 
     math::Extents2 extents() const { return extents_; };
 

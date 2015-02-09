@@ -267,7 +267,7 @@ GeoDataset GeoDataset::deriveInMemory(
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents )
 {
-    std::string srsProj4(srs.as(SrsDefinition::Type::proj4).srs);
+    std::string srsWkt(srs.as(SrsDefinition::Type::wkt).srs);
 
     if (!size) {
         auto esize(math::size(extents));
@@ -335,7 +335,7 @@ GeoDataset GeoDataset::deriveInMemory(
     auto geoTrafo(buildGeoTransform(extents, *size));
 
     tdset->SetGeoTransform( geoTrafo.data() );
-    tdset->SetProjection( proj4ToWkt( srsProj4 ).c_str() );
+    tdset->SetProjection( srsWkt.c_str() );
 
     // all done
     return GeoDataset(std::move(tdset));
@@ -911,7 +911,7 @@ void GeoDataset::textureMesh(
 
 math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
 {
-    std::string srsProj4(srs.as(SrsDefinition::Type::proj4).srs);
+    std::string srsWkt(srs.as(SrsDefinition::Type::wkt).srs);
 
     CPLErr err;
 
@@ -920,7 +920,7 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
             dset_.get(),
             srsWkt_.c_str(),
             nullptr,
-            proj4ToWkt( srsProj4 ).c_str(),
+            srsWkt.c_str(),
             false, 0, 1 );
 
     if ( ! transformer )
