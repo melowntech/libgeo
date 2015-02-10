@@ -259,6 +259,10 @@ public:
 
     void flush();
 
+    /** Returns geo extents of given pixel in raster
+     */
+    math::Extents2 pixelExtents(const math::Point2i &raster) const;
+
     /** Get data for reading/writing.
      */
     cv::Mat& data() {

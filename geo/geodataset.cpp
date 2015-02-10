@@ -1163,4 +1163,14 @@ GeoDataset::blockCoord(const math::Point2i &point) const
          , math::Point2i(point(0) % size.width, point(1) % size.height));
 }
 
+math::Extents2 GeoDataset::pixelExtents(const math::Point2i &raster) const
+{
+    const math::Point2 halfPixel(resolution() / 2.0);
+    const auto geo(rowcol2geo(raster(1), raster(0), 0));
+    return { geo(0) - halfPixel(0)
+            , geo(1) - halfPixel(1)
+            , geo(0) + halfPixel(0)
+            , geo(1) + halfPixel(1) };
+}
+
 } // namespace geo
