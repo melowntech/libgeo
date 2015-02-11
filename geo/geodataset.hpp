@@ -231,6 +231,8 @@ public:
 
     void geo2rowcol( const math::Point3 & gp, double & row, double & col ) const;
 
+    math::Point3 raster2geo( math::Point2 p, double value ) const;
+
     template <typename T>
     T geo2raster( const math::Point3 & gp) const {
         double x, y; geo2rowcol(gp, y, x); return T(x, y);

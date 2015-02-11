@@ -725,6 +725,11 @@ math::Point3 GeoDataset::rowcol2geo( int row, int col, double value ) const {
     return math::Point3( p2[0], p2[1], value );
 }
 
+math::Point3 GeoDataset::raster2geo( math::Point2 p, double value ) const{
+        math::Point2 p2 = applyGeoTransform( geoTransform_, p[0] + 0.5, p[1] + 0.5 );
+        return math::Point3( p2[0], p2[1], value );
+}
+
 void GeoDataset::geo2rowcol(
     const math::Point3 & gp, double & row, double & col ) const {
 
@@ -773,7 +778,6 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
             math::Point3 geoVertex;
 
             geoVertex = rowcol2geo( i, j, data_->at<double>( i, j ) );
-
             pvertex = transform(
                 localTrafo,
                 geoVertex );
@@ -803,21 +807,22 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
             v11 = ( ref11 = vpos2ord.find(
                 std::make_pair(i+1,j+1) ) ) != vpos2ord.end();
 
-            // lower
-            if ( v10 && v11 && v00 ) {
-
+            
+            if ( v10 && v11 && v00 && v01) {
+                //both faces are created only if all points of the quad lie on the 
+                //valid portion of the mask, otherwise untexturable triangles could occur 
+                // lower
                 mesh.addFace(
                     ref10->second, ref11->second, ref00->second,
                     ref10->second, ref11->second, ref00->second );
-            }
-
-            // upper
-            if ( v11 && v01 && v00 ) {
-
+                // upper
                 mesh.addFace(
                     ref11->second, ref01->second, ref00->second,
                     ref11->second, ref01->second, ref00->second );
             }
+
+            
+
         }
 
     // all done
@@ -853,8 +858,9 @@ void GeoDataset::textureMesh(
     const geometry::Mesh & imesh, const math::Extents2 & extents,
     geometry::Mesh & omesh ) const {
 
-    std::map<int,int> iord2oord; // i,j -> vertex ordinal
-    int ord(0);
+    std::map<  math::Points3::size_type
+             , math::Points3::size_type> iord2oord; // i,j -> vertex ordinal
+    math::Points3::size_type ord(0);
 
     // sanity
     ut::expect( omesh.vertices.size() == 0 && omesh.tCoords.size() == 0 &&
@@ -865,46 +871,71 @@ void GeoDataset::textureMesh(
         geo2normalized( extents_ ), local2geo( extents ) );
     math::Matrix4 il2geo
         = local2geo( extents );
+    math::Matrix4 igeo2l
+        = geo2local( extents );    
 
     // iterate through vertices
-    for ( uint i = 0; i < imesh.vertices.size(); i++ ) {
 
-        const math::Point3 & vertex( imesh.vertices[i] );
-
-        // skip non-texturable vertices
-        double row, col;
-
-        geo2rowcol( transform( il2geo, vertex ), row, col );
-
-        if ( ! validf( row, col ) ) continue;
-
-        // normalized coords are in (-1.0,1.0) range -> transform to (0.0,1.0)
-        math::Point3 tcoord3 = transform( il2dn, vertex ) * 0.5
-            + math::Point3( 0.5, 0.5, 0.0 );
-
-        math::Point2 tcoord( tcoord3[0], tcoord3[1] );
-
-
-        // write out vertex and tcoords
-        omesh.vertices.push_back( vertex );
-        omesh.tCoords.push_back( math::Point2( tcoord[0], tcoord[1] ) );
-        iord2oord[i] = ord++;
-    }
+    // to find out if the triangle is texturable
+    // compute intersection of each triangle with each rectange in quadtree rastermask
+    // if at least one rectange intersects the triangle, triangle is not texturable 
+    std::vector<bool> faceValid(imesh.faces.size(), true);
+    mask_->forEachQuad([&](uint xstart, uint ystart, uint xsize
+                         , uint ysize, bool)
+    {
+        double eps = 1.0/16;
+        math::Point3 ll = transform(igeo2l, raster2geo(math::Point2(xstart-0.5f+eps,ystart+ysize-0.5f-eps), 0));
+        math::Point3 ur = transform(igeo2l, raster2geo(math::Point2(xstart+xsize-0.5f-eps,ystart-0.5f+eps), 0));
+        for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
+            if ( !faceValid[fid] )
+                continue;
+            math::Point2 points[3] = {
+                 math::Point2( imesh.vertices[imesh.faces[fid].a][0]
+                             , imesh.vertices[imesh.faces[fid].a][1])
+               , math::Point2( imesh.vertices[imesh.faces[fid].b][0]
+                             , imesh.vertices[imesh.faces[fid].b][1])
+               , math::Point2( imesh.vertices[imesh.faces[fid].c][0]
+                             , imesh.vertices[imesh.faces[fid].c][1])
+            };            
+            //use rectangle coordinates with small inside margin, to prevent edge collision
+            faceValid[fid] = faceValid[fid] && !math::triangleRectangleCollision( points
+                                            , math::Point2(ll[0],ll[1])
+                                            , math::Point2(ur[0],ur[1]));
+                                            
+        }
+    }, RasterMask::Filter::black);
 
     // iterate though faces
-    for ( geometry::Face face : imesh.faces ) {
+    for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
+        if ( faceValid[fid] ) {
+            std::size_t indices[3] = {
+                  imesh.faces[fid].a
+                , imesh.faces[fid].b
+                , imesh.faces[fid].c
+             };
+            for ( uint i=0;i<3;++i ) {
+                std::size_t srcVid = indices[i];
+                auto pair = iord2oord.insert(std::make_pair(srcVid, ord));
+                if ( pair.second ) ord++;
+                indices[i]=pair.first->second;
 
-        std::map<int,int>::iterator ref0, ref1, ref2;
-        bool v0, v1, v2;
+                if ( indices[i] >= omesh.vertices.size() ) {
+                    const math::Point3 & vertex( imesh.vertices[srcVid] );
+                    // normalized coords are in (-1.0,1.0) range -> transform to (0.0,1.0)
+                    math::Point3 tcoord3 = transform( il2dn, vertex ) * 0.5
+                        + math::Point3( 0.5, 0.5, 0.0 );
 
-        v0 = ( ref0 = iord2oord.find( face.a ) ) != iord2oord.end();
-        v1 = ( ref1 = iord2oord.find( face.b ) ) != iord2oord.end();
-        v2 = ( ref2 = iord2oord.find( face.c ) ) != iord2oord.end();
+                    math::Point2 tcoord( tcoord3[0], tcoord3[1] );
 
-        if ( v0 && v1 && v2 )
-            omesh.faces.emplace_back(
-                ref0->second, ref1->second, ref2->second,
-                ref0->second, ref1->second, ref2->second );
+                    // write out vertex and tcoords
+                    omesh.vertices.push_back( vertex );
+                    omesh.tCoords.push_back( math::Point2( tcoord[0], tcoord[1] ) );
+                }
+            }
+
+            omesh.faces.emplace_back( indices[0], indices[1], indices[2]
+                                    , indices[0], indices[1], indices[2] );
+        }
     }
 }
 
