@@ -814,6 +814,7 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
                 mesh.addFace(
                     ref10->second, ref11->second, ref00->second,
                     ref10->second, ref11->second, ref00->second );
+
             }
 
             // upper
@@ -822,7 +823,22 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
                 mesh.addFace(
                     ref11->second, ref01->second, ref00->second,
                     ref11->second, ref01->second, ref00->second );
-            }      
+
+            }
+
+            //alternative face diagonal direction
+            if ( v00 && v10 && v01 && !v11) {
+
+                mesh.addFace(
+                    ref00->second, ref10->second, ref01->second,
+                    ref00->second, ref10->second, ref01->second );
+            }
+
+            if ( v10 && v11 && v01 && !v00) {
+                mesh.addFace(
+                    ref10->second, ref11->second, ref01->second,
+                    ref10->second, ref11->second, ref01->second );
+            }        
         }
 
     // all done
