@@ -835,6 +835,12 @@ void GeoDataset::filterMesh( const geometry::Mesh& mesh, const math::Extents2 & 
     ut::expect( omesh.vertices.size() == 0 && omesh.tCoords.size() == 0 &&
         omesh.faces.size() == 0, "Output mesh expected to be empty." );
 
+    bool maskFull = mask_->count() == mask_->capacity();
+    if(maskFull){
+        omesh = mesh;
+        return;
+    };
+
     std::map<int,int> iord2oord; // i,j -> vertex ordinal
     int ord(0);
 
@@ -849,6 +855,7 @@ void GeoDataset::filterMesh( const geometry::Mesh& mesh, const math::Extents2 & 
         double row, col;
 
         geo2rowcol( transform( il2geo, vertex ), row, col );
+
         if ( ! validf( row, col ) ) continue;
 
         // write out vertex and tcoords
@@ -1074,7 +1081,7 @@ bool GeoDataset::validf( double i, double j ) const {
     if ( top & right & v10 ) return true;
     if ( bottom & left & v01 ) return true;
     if ( bottom & right & v00 ) return true;
-
+    
     return false;
 }
 
