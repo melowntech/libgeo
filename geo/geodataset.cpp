@@ -808,24 +808,71 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
                 std::make_pair(i+1,j+1) ) ) != vpos2ord.end();
 
             
-            if ( v10 && v11 && v00 && v01) {
-                //both faces are created only if all points of the quad lie on the 
-                //valid portion of the mask, otherwise untexturable triangles could occur 
-                // lower
+             // lower
+            if ( v10 && v11 && v00 ) {
+
                 mesh.addFace(
                     ref10->second, ref11->second, ref00->second,
                     ref10->second, ref11->second, ref00->second );
-                // upper
+            }
+
+            // upper
+            if ( v11 && v01 && v00 ) {
+
                 mesh.addFace(
                     ref11->second, ref01->second, ref00->second,
                     ref11->second, ref01->second, ref00->second );
-            }
-
-            
-
+            }      
         }
 
     // all done
+}
+
+void GeoDataset::filterMesh( const geometry::Mesh& mesh, const math::Extents2 & extents
+                           , geometry::Mesh& omesh ) const
+{
+    // sanity
+    ut::expect( omesh.vertices.size() == 0 && omesh.tCoords.size() == 0 &&
+        omesh.faces.size() == 0, "Output mesh expected to be empty." );
+
+    std::map<int,int> iord2oord; // i,j -> vertex ordinal
+    int ord(0);
+
+    math::Matrix4 il2geo
+        = local2geo( extents );
+
+    // iterate through vertices
+    for ( uint i = 0; i < mesh.vertices.size(); i++ ) {
+        const math::Point3 & vertex( mesh.vertices[i] );
+
+        // skip non-texturable vertices
+        double row, col;
+
+        geo2rowcol( transform( il2geo, vertex ), row, col );
+        if ( ! validf( row, col ) ) continue;
+
+        // write out vertex and tcoords
+        omesh.vertices.push_back( vertex );
+        iord2oord[i] = ord++;
+    }
+
+    // iterate though faces
+    for ( geometry::Face face : mesh.faces ) {
+
+        std::map<int,int>::iterator ref0, ref1, ref2;
+        bool v0, v1, v2;
+ 
+        v0 = ( ref0 = iord2oord.find( face.a ) ) != iord2oord.end();
+        v1 = ( ref1 = iord2oord.find( face.b ) ) != iord2oord.end();
+        v2 = ( ref2 = iord2oord.find( face.c ) ) != iord2oord.end();
+
+        if ( v0 && v1 && v2 )
+            omesh.faces.emplace_back(
+                ref0->second, ref1->second, ref2->second,
+                ref0->second, ref1->second, ref2->second );
+    }
+
+
 }
 
 math::Points3 GeoDataset::exportPointCloud() const
@@ -860,7 +907,7 @@ void GeoDataset::textureMesh(
 
     std::map<  math::Points3::size_type
              , math::Points3::size_type> iord2oord; // i,j -> vertex ordinal
-    math::Points3::size_type ord(0);
+    int ord(0);
 
     // sanity
     ut::expect( omesh.vertices.size() == 0 && omesh.tCoords.size() == 0 &&
@@ -874,40 +921,43 @@ void GeoDataset::textureMesh(
     math::Matrix4 igeo2l
         = geo2local( extents );    
 
-    // iterate through vertices
 
     // to find out if the triangle is texturable
-    // compute intersection of each triangle with each rectange in quadtree rastermask
-    // if at least one rectange intersects the triangle, triangle is not texturable 
-    std::vector<bool> faceValid(imesh.faces.size(), true);
-    mask_->forEachQuad([&](uint xstart, uint ystart, uint xsize
-                         , uint ysize, bool)
-    {
-        double eps = 1.0/16;
-        math::Point3 ll = transform(igeo2l, raster2geo(math::Point2(xstart-0.5f+eps,ystart+ysize-0.5f-eps), 0));
-        math::Point3 ur = transform(igeo2l, raster2geo(math::Point2(xstart+xsize-0.5f-eps,ystart-0.5f+eps), 0));
-        for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
-            if ( !faceValid[fid] )
-                continue;
-            math::Point2 points[3] = {
-                 math::Point2( imesh.vertices[imesh.faces[fid].a][0]
-                             , imesh.vertices[imesh.faces[fid].a][1])
-               , math::Point2( imesh.vertices[imesh.faces[fid].b][0]
-                             , imesh.vertices[imesh.faces[fid].b][1])
-               , math::Point2( imesh.vertices[imesh.faces[fid].c][0]
-                             , imesh.vertices[imesh.faces[fid].c][1])
-            };            
-            //use rectangle coordinates with small inside margin, to prevent edge collision
-            faceValid[fid] = faceValid[fid] && !math::triangleRectangleCollision( points
-                                            , math::Point2(ll[0],ll[1])
-                                            , math::Point2(ur[0],ur[1]));
-                                            
-        }
-    }, RasterMask::Filter::black);
+    std::vector<bool> faceValid(imesh.faces.size(), false);
+    bool maskFull = mask_->count() == mask_->capacity();
+    if(!maskFull){
+        // compute intersection of each triangle with each white rectange in quadtree rastermask
+        // if at least one rectange intersects the triangle, triangle is texturable
+        mask_->forEachQuad([&](uint xstart, uint ystart, uint xsize
+                             , uint ysize, bool)
+        {
+            double eps = 1.0/16;
+            math::Point3 ll = transform( igeo2l, 
+                                         raster2geo(math::Point2(xstart-0.5f-eps,ystart+ysize-0.5f+eps), 0));
+            math::Point3 ur = transform( igeo2l, 
+                                         raster2geo(math::Point2(xstart+xsize-0.5f+eps,ystart-0.5f-eps), 0));
+            for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
+                if ( faceValid[fid] )
+                    continue;
+                math::Point2 points[3] = {
+                     math::Point2( imesh.vertices[imesh.faces[fid].a][0]
+                                 , imesh.vertices[imesh.faces[fid].a][1])
+                   , math::Point2( imesh.vertices[imesh.faces[fid].b][0]
+                                 , imesh.vertices[imesh.faces[fid].b][1])
+                   , math::Point2( imesh.vertices[imesh.faces[fid].c][0]
+                                 , imesh.vertices[imesh.faces[fid].c][1])
+                };            
+                //use rectangle coordinates with small inside margin, to prevent edge collision
+                faceValid[fid] = faceValid[fid] || math::triangleRectangleCollision( points
+                                                , math::Point2(ll[0],ll[1])
+                                                , math::Point2(ur[0],ur[1]));                                              
+            }
+        }, RasterMask::Filter::white);
+    }
 
     // iterate though faces
     for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
-        if ( faceValid[fid] ) {
+        if ( maskFull || faceValid[fid] ) {
             std::size_t indices[3] = {
                   imesh.faces[fid].a
                 , imesh.faces[fid].b

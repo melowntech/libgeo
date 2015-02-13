@@ -199,12 +199,23 @@ public:
      */
     void exportMesh( geometry::Mesh & mesh ) const;
 
+
+    /**
+    * @brief remove vertices and their faces where the dataset's data are missing  
+    * @details Input mesh is defined in local coordinates for given extents
+    * which may be different from the texture dataset extents.
+    * Its texture information, if any, is ignored. The mesh geometry is not altered,
+    */
+    void filterMesh( const geometry::Mesh& mesh
+                   , const math::Extents2 & extents
+                   , geometry::Mesh& omesh ) const;
+
     math::Points3 exportPointCloud() const;
 
     /**
      * @brief texture a mesh using a texture dataset
      * @details Input mesh is defined in local coordinates for given extents
-     * which may be different from the texture datset extents Its texture
+     * which may be different from the texture dataset extents Its texture
      * information, if any, is ignored. The mesh geometry is not altered,
      * but any faces which canont be textured are not copied into output.
      */
