@@ -18,6 +18,7 @@
 #include "math/geometry.hpp"
 #include "geometry/mesh.hpp"
 #include "imgproc/rastermask.hpp"
+#include "utility/enum-io.hpp"
 
 #include <gdal_priv.h>
 #include <ogr_spatialref.h>
@@ -475,6 +476,17 @@ inline math::Point2 GeoDataset::resolution() const
     return math::Point2(esize.width / size_.width
                         , esize.height / size_.height);
 }
+
+// enum i/o mapping
+UTILITY_GENERATE_ENUM_IO(GeoDataset::Resampling,
+                         ((nearest))
+                         ((bilinear))
+                         ((cubic))
+                         ((cubicspline))
+                         ((lanczos))
+                         ((average))
+                         ((mode))
+                         )
 
 } // namespace geo
 
