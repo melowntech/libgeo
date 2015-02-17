@@ -277,6 +277,10 @@ public:
      */
     math::Extents2 pixelExtents(const math::Point2i &raster) const;
 
+    /** Returns geo extents of given pixel extents in raster
+     */
+    math::Extents2 pixelExtents(const math::Extents2i &raster) const;
+
     /** Get data for reading/writing.
      */
     cv::Mat& data() {
@@ -434,6 +438,10 @@ public:
      *  GDAL dataset. Returns false for placeholder.
      */
     operator bool() const { return dset_.get(); }
+
+    double noDataValue(double defaultValue) const {
+        return noDataValue_ ? *noDataValue_ : defaultValue;
+    }
 
 private:
     static bool initialized_;

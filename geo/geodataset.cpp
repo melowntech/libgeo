@@ -1277,4 +1277,15 @@ math::Extents2 GeoDataset::pixelExtents(const math::Point2i &raster) const
             , geo(1) + halfPixel(1) };
 }
 
+math::Extents2 GeoDataset::pixelExtents(const math::Extents2i &raster) const
+{
+    const math::Point2 halfPixel(resolution() / 2.0);
+    const auto geo_ll(rowcol2geo(raster.ll(1), raster.ll(0), 0));
+    const auto geo_ur(rowcol2geo(raster.ur(1), raster.ur(0), 0));
+    return { geo_ll(0) - halfPixel(0)
+            , geo_ur(1) - halfPixel(1)
+            , geo_ur(0) + halfPixel(0)
+            , geo_ll(1) + halfPixel(1) };
+}
+
 } // namespace geo
