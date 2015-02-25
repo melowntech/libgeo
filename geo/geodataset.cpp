@@ -268,7 +268,12 @@ GeoDataset GeoDataset::deriveInMemory(
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents )
 {
-    std::string srsWkt(srs.as(SrsDefinition::Type::wkt).srs);
+    // use source's SRS if same (this prevents conversion through lat/lon if
+    // GDAL thinks that these are not the same)
+    std::string srsWkt
+        (areSame(srs, SrsDefinition(source.srsWkt_, SrsDefinition::Type::wkt))
+         ? source.srsWkt_
+         : srs.as(SrsDefinition::Type::wkt).srs);
 
     if (!size) {
         auto esize(math::size(extents));
@@ -1014,7 +1019,12 @@ void GeoDataset::textureMesh(
 
 math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
 {
-    std::string srsWkt(srs.as(SrsDefinition::Type::wkt).srs);
+    // use source's SRS if same (this prevents conversion through lat/lon if
+    // GDAL thinks that these are not the same)
+    std::string srsWkt
+        (areSame(srs, SrsDefinition(srsWkt_, SrsDefinition::Type::wkt))
+         ? srsWkt_
+         : srs.as(SrsDefinition::Type::wkt).srs);
 
     CPLErr err;
 
