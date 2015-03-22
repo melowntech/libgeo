@@ -93,6 +93,8 @@ GeoDataset::GeoTransform buildGeoTransform(const math::Extents2 &extents
     return geoTrafo;
 }
 
+
+
 math::Point2 applyGeoTransform(const GeoDataset::GeoTransform &trafo
                                , double col, double row )
 {
@@ -152,15 +154,7 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
     // size & extents
     dset_->GetGeoTransform( geoTransform_.data() );
 
-    if ( geoTransform_[2] != 0 || geoTransform_[4] != 0 )
-        LOGTHROW( err3, std::runtime_error ) <<
-            "Non-orthogonal affine transforms within datasets "
-            "are not supported.";
-
     size_ = math::Size2i( dset_->GetRasterXSize(), dset_->GetRasterYSize() );
-
-    extents_.ll = applyGeoTransform( geoTransform_, 0, size_.height );
-    extents_.ur = applyGeoTransform( geoTransform_, size_.width, 0 );
 
     // srs
     srsWkt_ = std::string( dset_->GetProjectionRef() );
@@ -264,6 +258,173 @@ GeoDataset GeoDataset::open(const fs::path & path)
 
 
 GeoDataset GeoDataset::deriveInMemory(
+        const GeoDataset & source, const SrsDefinition & srs,
+        boost::optional<math::Point2d> pixelSize,
+        boost::optional<math::Extents2> extents,
+        const math::Matrix2 & trafo ) {
+
+    // source dataset handle
+    GDALDataset * sdset( const_cast<GDALDataset *>( source.dset_.get() ) );
+
+    // obtain driver
+    GDALDriver * driver = GetGDALDriverManager()->GetDriverByName( "MEM" ); //"GTiff" );
+
+    ut::expect( driver, "Failed to initialize in memory driver." );
+
+    ut::expect( source.dset_->GetRasterCount() >= 1,
+        "No bands exist in input dataset." );
+
+    // use source's SRS if same (this prevents conversion through lat/lon if
+    // GDAL thinks that these are not the same)
+    std::string srsWkt(
+        areSame(srs, SrsDefinition(source.srsWkt_, SrsDefinition::Type::wkt))
+         ? source.srsWkt_
+         : srs.as(SrsDefinition::Type::wkt).srs );
+    
+    // establish image size and geotransform
+    GeoTransform geoTransform;
+    math::Size2i size;
+    
+    math::Point2d lpixelSize( source.resolution() );
+    if ( pixelSize ) lpixelSize = pixelSize.get();
+                                 
+    math::Extents2 lextents;
+    
+    if ( extents ) 
+        lextents = extents.get();
+    else
+        lextents = source.deriveExtents( srs );
+    
+    math::Matrix3 igtrafo = ublas::identity_matrix<double>(3);
+    subrange( igtrafo, 0, 2, 0, 2 ) = trafo;
+    
+    math::Matrix3 lt, rt;
+    lt = rt = ublas::identity_matrix<double>(3);
+    lt(0,2) = lextents.ll(0); lt(1,2) = lextents.ll(1);
+    rt(0,2) = - lextents.ll(0); rt(1,2) = - lextents.ll(1);
+    igtrafo = prod( igtrafo, rt ); igtrafo = prod( lt, igtrafo );
+    
+    //LOG(debug) << igtrafo;
+    
+    math::Point2 ll, lr, ul, ur;
+    
+    ll = subrange( prod( igtrafo,  math::Point3( 
+        lextents.ll[0], lextents.ll[1], 1 ) ), 0, 2 );
+    lr = subrange( prod( igtrafo, math::Point3( 
+        lextents.ur[0], lextents.ll[1], 1 ) ), 0, 2 ); 
+    ul = subrange( prod( igtrafo, math::Point3( 
+        lextents.ll[0], lextents.ur[1], 1 ) ), 0, 2 ); 
+    ur = subrange( prod( igtrafo,  math::Point3( 
+        lextents.ur[0], lextents.ur[1], 1 ) ), 0, 2 ); 
+    
+    math::Extents2 textents;
+    
+    textents.ll[0] = std::min( { ll[0], lr[0], ul[0], ur[0] } );
+    textents.ll[1] = std::min( { ll[1], lr[1], ul[1], ur[1] } );
+    textents.ur[0] = std::max( { ll[0], lr[0], ul[0], ur[0] } );
+    textents.ur[1] = std::max( { ll[1], lr[1], ul[1], ur[1] } );
+
+    math::Matrix3 istrafo = ublas::identity_matrix<double>(3);
+    
+    size.width = ( textents.ur[0] - textents.ll[0] ) / lpixelSize(0);
+    size.height = ( textents.ur[1] - textents.ll[1] ) / lpixelSize(1);
+    
+    istrafo(0,0) = 1.0 / lpixelSize(0); istrafo(1,1) = - 1.0 / lpixelSize(1);
+    math::Point2 offset = - subrange( prod( istrafo, 
+        math::Point2( textents.ll[0], textents.ur[1] ) ), 0 , 2 );
+    
+    istrafo(0,2) = offset(0); istrafo(1,2) = offset(1);
+    
+    //LOG( debug) << istrafo;
+    
+    igtrafo = prod( istrafo, igtrafo );
+    
+    //LOG( debug ) << igtrafo;
+    
+    math::Matrix3 gtrafo = math::matrixInvert( igtrafo );
+
+    //LOG( debug ) << gtrafo;
+    
+    geoTransform[0] = gtrafo(0,2);
+    geoTransform[1] = gtrafo(0,0);
+    geoTransform[2] = gtrafo(0,1);
+    geoTransform[3] = gtrafo(1,2);
+    geoTransform[4] = gtrafo(1,0);
+    geoTransform[5] = gtrafo(1,1);
+
+    // determine datatypes
+    GDALDataType srcDataType, dstDataType( GDT_Byte );
+    double dstNoDataValue( 0.0 );
+
+    srcDataType = sdset->GetRasterBand(1)->GetRasterDataType();
+
+    if ( source.noDataValue_ ) {
+        dstNoDataValue = source.noDataValue_.get();
+        dstDataType = srcDataType;
+    }
+
+    if ( ! source.noDataValue_ ) switch( srcDataType ) {
+
+        case GDT_Byte :
+            dstDataType = GDT_Int16; dstNoDataValue = -1; break;
+
+        case GDT_UInt16 :
+            dstDataType = GDT_Int32; dstNoDataValue = -1; break;
+
+        case GDT_Int16 :
+            dstDataType = GDT_Int32; dstNoDataValue = 1 << 16; break;
+
+        case GDT_Float32 :
+            dstDataType = GDT_Float64; dstNoDataValue = 1.0E40; break;
+
+        default :
+            LOGTHROW( err2, std::runtime_error )
+                << "A no data value is compulsory for dataset of type "
+                << srcDataType << ". Please patch your data.";
+    }
+
+    // create dataset
+    std::unique_ptr<GDALDataset> tdset(driver->Create(
+        "MEM", //"MEM.tif",
+        size.width, size.height,
+        sdset->GetRasterCount(), dstDataType, nullptr ));
+
+    ut::expect( tdset.get(), "Failed to create in memory dataset.\n" );
+
+    for ( int i = 1; i <= tdset->GetRasterCount(); i++ ) {
+
+        tdset->GetRasterBand(i)->SetColorInterpretation(
+            sdset->GetRasterBand(i)->GetColorInterpretation() );
+        tdset->GetRasterBand(i)->SetNoDataValue( dstNoDataValue );
+    }
+
+    tdset->SetGeoTransform( geoTransform.data() );
+    tdset->SetProjection( srsWkt.c_str() );
+
+    // all done
+    return GeoDataset(std::move(tdset));
+}
+
+
+GeoDataset GeoDataset::deriveInMemory(
+        const GeoDataset & source, const SrsDefinition &srs,
+        boost::optional<math::Size2i> size,
+        const math::Extents2 &extents )
+{
+    if (!size) {
+        auto esize(math::size(extents));
+        auto res(source.resolution());
+        size = boost::in_place(esize.width / res(0), esize.height / res(1));
+    }
+
+    return deriveInMemory( source, srs, 
+                           { ( extents.ur[0] - extents.ll[0] ) / size->width,
+                           ( extents.ur[1] - extents.ll[1] ) / size->height },
+                           extents );
+}
+
+/*
+GeoDataset GeoDataset::deriveInMemory(
         const GeoDataset & source, const SrsDefinition &srs,
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents )
@@ -346,9 +507,129 @@ GeoDataset GeoDataset::deriveInMemory(
     // all done
     return GeoDataset(std::move(tdset));
 }
+*/
+
+GeoDataset GeoDataset::create(const boost::filesystem::path &path
+                             , const SrsDefinition &srs
+                             , const GeoTransform & geoTransform
+                             , const math::Size2 &rasterSize
+                             , const Format &format
+                             , double noDataValue
+                             , const CreateOptions &options ) {
+    
+    if (!initialized_) { initialize(); }
+
+    std::string storageFormat;
+    std::string wfExt;
+
+    switch (format.storageType) {
+    case Format::Storage::gtiff:
+        storageFormat = "GTiff";
+        wfExt = "tfw";
+        break;
+
+    case Format::Storage::png:
+        storageFormat = "PNG";
+        wfExt = "pgw";
+        break;
+
+    case Format::Storage::jpeg:
+        storageFormat = "JPEG";
+        wfExt = "jgw";
+        break;
+    }
+
+    auto driver(::GetGDALDriverManager()
+                ->GetDriverByName(storageFormat.c_str()));
+    if (!driver) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Cannot find GDAL driver for <" << storageFormat
+            << "> format.";
+    }
+
+    auto metadata(driver->GetMetadata());
+    if (!CSLFetchBoolean(metadata, GDAL_DCAP_CREATE, FALSE)) {
+        LOGTHROW(err2, std::runtime_error)
+            << "GDAL driver for <" << storageFormat
+            << "> format doesn't support creation.";
+    }
+
+    // fill in options (if any)
+    char **opts(nullptr);
+    for (const auto &opt : options.options) {
+        opts = ::CSLSetNameValue(opts, opt.first.c_str(), opt.second.c_str());
+    }
+
+    std::unique_ptr<GDALDataset>
+        ds(driver->Create(path.string().c_str()
+                          , rasterSize.width
+                          , rasterSize.height
+                          , format.channels.size()
+                          , format.channelType
+                          , opts));
+    // destroy options
+    ::CSLDestroy(opts);
+
+    ut::expect(ds.get(), "Failed to create new dataset.");
+
+    // set projection
+    if (ds->SetProjection(srs.as(SrsDefinition::Type::wkt).c_str())
+        != CE_None)
+    {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to set projection to newly created GDAL data set.";
+    }
+
+    // set geo trafo
+    auto geoTrafo( geoTransform );
+    
+    if (ds->SetGeoTransform(geoTrafo.data()) != CE_None) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to set geo transform to newly created GDAL data set.";
+    }
+
+    // set no data value and color interpretation
+    {
+        int i = 1;
+        for (auto colorInterpretation : format.channels) {
+            auto band(ds->GetRasterBand(i));
+            ut::expect(band, "Cannot find band %d.", (i));
+            band->SetNoDataValue(noDataValue);
+            band->SetColorInterpretation(colorInterpretation);
+            ++i;
+        }
+    }
+
+    // write .prj file
+    geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), srs);
+
+    // write world file
+    geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
+                          , geoTrafo);
+
+    // OK, tell ctor that dset was freshly created
+    return GeoDataset(std::move(ds), true);
+    
+}
+
 
 
 GeoDataset GeoDataset::create(const boost::filesystem::path &path
+                              , const SrsDefinition &srs
+                              , const math::Extents2 &extents
+                              , const math::Size2 &rasterSize
+                              , const Format &format
+                              , double noDataValue
+                              , const CreateOptions &options) {
+
+    auto geoTrafo(buildGeoTransform(extents, rasterSize));
+    
+    return create( path, srs, geoTrafo, rasterSize, format, noDataValue, 
+                   options );
+    
+}
+
+/*GeoDataset GeoDataset::create(const boost::filesystem::path &path
                               , const SrsDefinition &srs
                               , const math::Extents2 &extents
                               , const math::Size2 &rasterSize
@@ -448,7 +729,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
 
     // OK, tell ctor that dset was freshly created
     return GeoDataset(std::move(ds), true);
-}
+}*/
 
 namespace {
 GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
@@ -490,11 +771,11 @@ void GeoDataset::warpInto(GeoDataset & dst
         bool canCopy(false);
         math::Point2 dsOffset;
 
-        const auto res(resolution());
+        const auto res(resolution()); // TODO: compare the entire submatrix
         const auto dres(dst.resolution());
         if (res == dres) {
-            // distance between upper-left corners
-            dsOffset = ul(dst.extents_) - ul(extents_);
+            // distance between origins
+            dsOffset = dst.origin() - origin();
             dsOffset(0) /= res(0);
             dsOffset(1) /= res(1);
             const double tolerance(1e-4);
@@ -574,7 +855,7 @@ void GeoDataset::warpInto(GeoDataset & dst
                                          dset_->GetProjectionRef(),
                                          warpOptions->hDstDS,
                                          dst.dset_->GetProjectionRef(),
-                                         true, 0, 1 );
+                                         true, 0, 1 ); 
     warpOptions->pfnTransformer = GDALGenImgProjTransform;
 
     // initialize and execute the warp operation.
@@ -594,7 +875,7 @@ void GeoDataset::warpInto(GeoDataset & dst
     dst.data_ = boost::none; dst.mask_ = boost::none;
 
     // done
-    LOG(debug) << "Warped.";
+    //LOG(debug) << "Warped.";
 }
 
 void GeoDataset::assertData() const {
@@ -767,7 +1048,7 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
     // dump vertices
     int ord( 0 );
 
-    math::Matrix4 localTrafo = geo2local( extents_ );
+    math::Matrix4 localTrafo = geo2local( extents() );
 
     for ( int i = 0; i < size_.height; i++ )
         for ( int j = 0; j < size_.width; j++ ) {
@@ -943,7 +1224,7 @@ void GeoDataset::textureMesh(
 
     // establish input local -> dset normalized
     math::Matrix4 il2dn = prod(
-        geo2normalized( extents_ ), local2geo( extents ) );
+        geo2normalized( this->extents() ), local2geo( extents ) );
     math::Matrix4 il2geo
         = local2geo( extents );
     math::Matrix4 igeo2l
@@ -1017,7 +1298,7 @@ void GeoDataset::textureMesh(
     }
 }
 
-math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
+math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs ) const
 {
     // use source's SRS if same (this prevents conversion through lat/lon if
     // GDAL thinks that these are not the same)
@@ -1052,13 +1333,6 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
     if ( err != CE_None )
         LOGTHROW( err2, std::runtime_error ) << "Error transforming extents.";
 
-
-    if ( outputTransform[2] != 0.0 || outputTransform[4] != 0.0 ) {
-
-        LOGTHROW( err2, std::runtime_error )
-            << "Output SRS leads to shear/rotation.";
-    }
-
     math::Extents2 retval;
 
     math::Point2 ll, lr, ul, ur;
@@ -1075,6 +1349,37 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs )
     retval.ur[1] = std::max( { ll[1], lr[1], ul[1], ur[1] } );
 
     return retval;
+}
+
+bool GeoDataset::isOrthogonal() const {
+    
+    double epsilon( 1.0e-6 );
+    
+    return ( fabs( geoTransform_[2] ) < epsilon 
+        && fabs( geoTransform_[4] ) < epsilon );
+}
+
+math::Extents2 GeoDataset::extents() const {
+    
+    if ( ! isOrthogonal() ) 
+        LOGTHROW( err3, std::runtime_error ) 
+            << "Non orthogonal dataset cannot be goreferenced by extents.";
+            
+    math::Extents2 retval;
+    math::Point2 ll, lr, ul, ur;
+
+    ll = applyGeoTransform( geoTransform_, 0, size_.height );
+    lr = applyGeoTransform( geoTransform_, size_.width, size_.height );
+    ul = applyGeoTransform( geoTransform_, 0, 0 );
+    ur = applyGeoTransform( geoTransform_, size_.width, 0 );
+
+
+    retval.ll[0] = std::min( { ll[0], lr[0], ul[0], ur[0] } );
+    retval.ll[1] = std::min( { ll[1], lr[1], ul[1], ur[1] } );
+    retval.ur[0] = std::max( { ll[0], lr[0], ul[0], ur[0] } );
+    retval.ur[1] = std::max( { ll[1], lr[1], ul[1], ur[1] } );
+
+    return retval;         
 }
 
 bool GeoDataset::valid( int i, int j ) const {
@@ -1117,6 +1422,7 @@ void GeoDataset::applyMask(const GeoDataset &other)
     assertData();
     mask_->intersect(other.cmask());
 }
+
 
 void GeoDataset::flush()
 {

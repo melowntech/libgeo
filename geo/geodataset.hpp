@@ -15,6 +15,7 @@
 #include <boost/optional.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "math/math.hpp"
 #include "math/geometry.hpp"
 #include "geometry/mesh.hpp"
 #include "imgproc/rastermask.hpp"
@@ -26,10 +27,13 @@
 
 #include "./srsdef.hpp"
 
+namespace ublas = boost::numeric::ublas;
+
 namespace geo {
 
 class GeoDataset {
 public:
+    
     static GeoDataset createFromFS(const boost::filesystem::path &path) {
         return open(path);
     }
@@ -51,13 +55,39 @@ public:
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents );
 
-    /** Creates an invalud placeholder that can be used to hold valid dataset.
+    /** Derive in-memory data set from an existing set, using a generic
+     * affine geographic transformation in destination source reference system.
+     * Only metadata from source are used.
+     * 
+     *  \param source reference data set
+     *  \param srs new dataset spatial reference
+     *  \param trafo affine transformation which determines how the 
+     *      reference system maps to pixel/line coordinates. This is basis 
+     *      for the new datasets geotransform, but it expresses only 
+     *      rotation and shear, not scale, hence determinant should always be 1.
+     *  \param pixelSize pixel size of the new dataset (pixel and line),
+     *      optinally calculated from the input image.
+     *  \param extents srs extents to be fully inscribed within the new dataset,
+     *      optionally calculated from the input image. If the trafo is 
+     *      nonorthogonal, resultant extents will differ.
+     */
+    
+    static GeoDataset deriveInMemory(
+        const GeoDataset & source, const SrsDefinition & srs,
+        boost::optional<math::Point2d> pixelSize,
+        boost::optional<math::Extents2> extents,
+        const math::Matrix2 & trafo = ublas::identity_matrix<double>(2) );
+    
+    /** Creates an invalid placeholder that can be used to hold valid dataset.
      *  Do not call any method on placeholder except:
      *      * move assignent operator
      *      * destructor
      *      * operator bool()
      */
     static GeoDataset placeholder();
+
+    
+    typedef std::array<double, 6> GeoTransform;
 
     /** Format descriptor
      */
@@ -142,6 +172,24 @@ public:
         }
     };
 
+
+    /** Creates new dataset at given path
+     *
+     *  \param path path to created file
+     *  \param srs spatial reference system of new data set
+     *  \param geoTransform geo (pixel to geo) transform
+     *  \param rasterSize size of raster in pixels
+     *  \param format format of data (channel type, number of channels
+     *                type of data).
+     *  \param noDataValue special value for no data
+     */
+    static GeoDataset create(const boost::filesystem::path &path
+                             , const SrsDefinition &srs
+                             , const GeoTransform & geoTransform 
+                             , const math::Size2 &rasterSize
+                             , const Format &format
+                             , double noDataValue
+                             , const CreateOptions &options = CreateOptions());
 
     /** Creates new dataset at given path.
      *
@@ -233,8 +281,16 @@ public:
         return SrsDefinition(srsWkt_, SrsDefinition::Type::wkt);
     }
 
-    math::Extents2 extents() const { return extents_; };
+    /**
+     * @brief dataset extents, defined only for orthogonal datasets.
+     */
+    math::Extents2 extents() const;
 
+    /**
+     * @brief geoTransform (pixel to geo) transform. Opaque on this level.
+     */
+    GeoTransform geoTransform() const { return geoTransform_; }
+    
     /** Data set resolution ("pixel size").
      */
     math::Point2 resolution() const;
@@ -262,7 +318,7 @@ public:
 
     double geo2height(double gx, double gy, double gz = .0) const;
 
-    math::Extents2 deriveExtents( const SrsDefinition &srs );
+    math::Extents2 deriveExtents( const SrsDefinition &srs ) const;
 
     static std::string wktToProj4( const std::string & op );
     static std::string proj4ToWkt( const std::string & op );
@@ -328,7 +384,7 @@ public:
     /** Move ctor. Allows initialization from return value.
      */
     GeoDataset(GeoDataset &&other) noexcept
-        : size_(other.size_), extents_(other.extents_)
+        : size_(other.size_)
         , srsWkt_(other.srsWkt_), srsProj4_(other.srsProj4_)
         , geoTransform_(std::move(other.geoTransform_))
         , dset_(std::move(other.dset_))
@@ -346,7 +402,7 @@ public:
      */
     GeoDataset& operator=(GeoDataset &&other) noexcept
     {
-        size_ = other.size_; extents_ = other.extents_;
+        size_ = other.size_;
         srsWkt_ = other.srsWkt_; srsProj4_ = other.srsProj4_;
         geoTransform_ = std::move(other.geoTransform_);
         dset_ = std::move(other.dset_);
@@ -362,8 +418,6 @@ public:
     }
 
     ~GeoDataset() noexcept;
-
-    typedef std::array<double, 6> GeoTransform;
 
     class Metadata {
     public:
@@ -442,6 +496,13 @@ public:
     double noDataValue(double defaultValue) const {
         return noDataValue_ ? *noDataValue_ : defaultValue;
     }
+    
+    /** returns true if dataset is orthogonal */
+    bool isOrthogonal() const;
+    
+    /** returns geographic coordinates of origin */
+    math::Point2 origin() const { 
+        return math::Point2( geoTransform_[0], geoTransform_[3] ); }
 
 private:
     static bool initialized_;
@@ -462,7 +523,6 @@ private:
 
     Type type_;
     math::Size2i size_;
-    math::Extents2 extents_;
     std::string srsWkt_, srsProj4_;
     GeoTransform geoTransform_;
     std::unique_ptr<GDALDataset> dset_;
@@ -480,9 +540,9 @@ private:
 
 inline math::Point2 GeoDataset::resolution() const
 {
-    auto esize(math::size(extents_));
-    return math::Point2(esize.width / size_.width
-                        , esize.height / size_.height);
+    return math::Point2(
+        sqrt( math::sqr( geoTransform_[1] ) + math::sqr( geoTransform_[4] ) ),                        
+        sqrt( math::sqr( geoTransform_[2] ) + math::sqr( geoTransform_[5] ) ) );
 }
 
 // enum i/o mapping
