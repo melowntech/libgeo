@@ -331,7 +331,7 @@ GeoDataset GeoDataset::deriveInMemory(
     
     istrafo(0,0) = 1.0 / lpixelSize(0); istrafo(1,1) = - 1.0 / lpixelSize(1);
     math::Point2 offset = - subrange( prod( istrafo, 
-        math::Point2( textents.ll[0], textents.ur[1] ) ), 0 , 2 );
+        math::Point3( textents.ll[0], textents.ur[1], 1.0 ) ), 0 , 2 );
     
     istrafo(0,2) = offset(0); istrafo(1,2) = offset(1);
     
@@ -417,9 +417,9 @@ GeoDataset GeoDataset::deriveInMemory(
         size = boost::in_place(esize.width / res(0), esize.height / res(1));
     }
 
-    return deriveInMemory( source, srs, 
-                           { ( extents.ur[0] - extents.ll[0] ) / size->width,
-                           ( extents.ur[1] - extents.ll[1] ) / size->height },
+    return deriveInMemory( source, srs, math::Point2( 
+                            ( extents.ur[0] - extents.ll[0] ) / size->width,
+                            ( extents.ur[1] - extents.ll[1] ) / size->height ),
                            extents );
 }
 
