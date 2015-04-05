@@ -118,6 +118,17 @@ void applyInvGeoTransform(const GeoDataset::GeoTransform &trafo
     row = ( trafo[1]*(gp[1]-trafo[3]) - trafo[4]*(gp[0]-trafo[0]) ) / det;
 }
 
+bool areIdenticalButForShift( const GeoDataset::GeoTransform & trafo1,
+                              const GeoDataset::GeoTransform & trafo2 ) {
+    
+    return(
+        trafo1[1] == trafo2[1] &&
+        trafo1[2] == trafo2[2] &&
+        trafo1[4] == trafo2[4] &&
+        trafo1[5] == trafo2[5]
+    );
+}
+
 } // namespace
 
 /* class GeoDataset */
@@ -771,10 +782,11 @@ void GeoDataset::warpInto(GeoDataset & dst
         bool canCopy(false);
         math::Point2 dsOffset;
 
-        const auto res(resolution()); // TODO: compare the entire submatrix
-        const auto dres(dst.resolution());
-        if (res == dres) {
+        if ( areIdenticalButForShift( geoTransform_, dst.geoTransform() ) ) {
+            
             // distance between origins
+            auto res(resolution());
+            
             dsOffset = dst.origin() - origin();
             dsOffset(0) /= res(0);
             dsOffset(1) /= res(1);

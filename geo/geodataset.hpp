@@ -63,7 +63,7 @@ public:
      *  \param srs new dataset spatial reference
      *  \param trafo affine transformation which determines how the 
      *      reference system maps to pixel/line coordinates. This is basis 
-     *      for the new datasets geotransform, but it expresses only 
+     *      for the new dataset's geotransform, but it expresses only 
      *      rotation and shear, not scale, hence determinant should always be 1.
      *  \param pixelSize pixel size of the new dataset (pixel and line),
      *      optinally calculated from the input image.
