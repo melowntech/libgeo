@@ -78,48 +78,10 @@ int gdal2cv(GDALDataType gdalDataType, int numChannels)
     return 0; // never reached
 }
 
-GeoDataset::GeoTransform buildGeoTransform(const math::Extents2 &extents
-                                           , const math::Size2 &size)
-{
-    GeoDataset::GeoTransform geoTrafo;
-
-    geoTrafo[0] = extents.ll[0];
-    geoTrafo[1] = ( extents.ur[0] - extents.ll[0] ) / size.width;
-    geoTrafo[2] = 0.0;
-    geoTrafo[3] = extents.ur[1];
-    geoTrafo[4] = 0.0;
-    geoTrafo[5] = ( extents.ll[1] - extents.ur[1] ) / size.height;
-
-    return geoTrafo;
-}
 
 
-
-math::Point2 applyGeoTransform(const GeoDataset::GeoTransform &trafo
-                               , double col, double row )
-{
-
-    math::Point2 retval;
-
-    retval[0] = trafo[0] + col * trafo[1] + row * trafo[2];
-    retval[1] = trafo[3] + col * trafo[4] + row * trafo[5];
-
-    return retval;
-}
-
-void applyInvGeoTransform(const GeoDataset::GeoTransform &trafo
-                          , const math::Point2 & gp
-                          , double & col, double & row )
-{
-
-    double det = trafo[1] * trafo[5] - trafo[2] * trafo[4];
-
-    col = ( (gp[0]-trafo[0])*trafo[5] - (gp[1]-trafo[3])*trafo[2] ) / det;
-    row = ( trafo[1]*(gp[1]-trafo[3]) - trafo[4]*(gp[0]-trafo[0]) ) / det;
-}
-
-bool areIdenticalButForShift( const GeoDataset::GeoTransform & trafo1,
-                              const GeoDataset::GeoTransform & trafo2 ) {
+bool areIdenticalButForShift( const GeoTransform & trafo1,
+                              const GeoTransform & trafo2 ) {
     
     return(
         trafo1[1] == trafo2[1] &&
@@ -633,7 +595,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                               , double noDataValue
                               , const CreateOptions &options) {
 
-    auto geoTrafo(buildGeoTransform(extents, rasterSize));
+    auto geoTrafo( GeoTransform::northUpFromExtents(extents, rasterSize) );
     
     return create( path, srs, geoTrafo, rasterSize, format, noDataValue, 
                    options );
@@ -1016,31 +978,11 @@ void GeoDataset::expectMask() const
                ,  "Not a single channel grayscale or alpha image.");
 }
 
-math::Point3 GeoDataset::rowcol2geo( int row, int col, double value ) const {
-
-    math::Point2 p2 = applyGeoTransform( geoTransform_, col + 0.5, row + 0.5 );
-
-    return math::Point3( p2[0], p2[1], value );
-}
-
-math::Point3 GeoDataset::raster2geo( math::Point2 p, double value ) const{
-        math::Point2 p2 = applyGeoTransform( geoTransform_, p[0] + 0.5, p[1] + 0.5 );
-        return math::Point3( p2[0], p2[1], value );
-}
-
-void GeoDataset::geo2rowcol(
-    const math::Point3 & gp, double & row, double & col ) const {
-
-   math::Point2 gp2( gp[0], gp[1] );
-
-   applyInvGeoTransform( geoTransform_, gp2, col, row );
-   row -= 0.5, col -= 0.5;
-}
 
 double GeoDataset::geo2height(double gx, double gy, double gz) const
 {
         double x, y; 
-        geo2rowcol({gx,gy,gz},y,x); 
+        geoTransform_.geo2rowcol({gx,gy,gz},y,x); 
         if(!valid(x,y)){
             LOGTHROW( err3, std::runtime_error )<<"Invalid coordinates in geodataset.";    
         }
@@ -1075,7 +1017,7 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
             math::Point3 pvertex;
             math::Point3 geoVertex;
 
-            geoVertex = rowcol2geo( i, j, data_->at<double>( i, j ) );
+            geoVertex = geoTransform_.rowcol2geo( i, j, data_->at<double>( i, j ) );
             pvertex = transform(
                 localTrafo,
                 geoVertex );
@@ -1168,7 +1110,7 @@ void GeoDataset::filterMesh( const geometry::Mesh& mesh, const math::Extents2 & 
         // skip non-texturable vertices
         double row, col;
 
-        geo2rowcol( transform( il2geo, vertex ), row, col );
+        geoTransform_.geo2rowcol( transform( il2geo, vertex ), row, col );
 
         if ( ! validf( row, col ) ) continue;
 
@@ -1213,7 +1155,7 @@ math::Points3 GeoDataset::exportPointCloud() const
             // vertex coordinates
             math::Point3 pvertex;
 
-            pvertex = rowcol2geo( i, j, data_->at<double>( i, j ) );
+            pvertex = geoTransform_.rowcol2geo( i, j, data_->at<double>( i, j ) );
 
             pc.push_back(pvertex);
         }
@@ -1349,10 +1291,10 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs ) const
 
     math::Point2 ll, lr, ul, ur;
 
-    ll = applyGeoTransform( outputTransform, 0, outputSize.height );
-    lr = applyGeoTransform( outputTransform, outputSize.width, outputSize.height );
-    ul = applyGeoTransform( outputTransform, 0, 0 );
-    ur = applyGeoTransform( outputTransform, outputSize.width, 0 );
+    ll = outputTransform.applyGeoTransform( 0, outputSize.height );
+    lr = outputTransform.applyGeoTransform( outputSize.width, outputSize.height );
+    ul = outputTransform.applyGeoTransform( 0, 0 );
+    ur = outputTransform.applyGeoTransform( outputSize.width, 0 );
 
 
     retval.ll[0] = std::min( { ll[0], lr[0], ul[0], ur[0] } );
@@ -1380,10 +1322,10 @@ math::Extents2 GeoDataset::extents() const {
     math::Extents2 retval;
     math::Point2 ll, lr, ul, ur;
 
-    ll = applyGeoTransform( geoTransform_, 0, size_.height );
-    lr = applyGeoTransform( geoTransform_, size_.width, size_.height );
-    ul = applyGeoTransform( geoTransform_, 0, 0 );
-    ur = applyGeoTransform( geoTransform_, size_.width, 0 );
+    ll = geoTransform_.applyGeoTransform( 0, size_.height );
+    lr = geoTransform_.applyGeoTransform( size_.width, size_.height );
+    ul = geoTransform_.applyGeoTransform( 0, 0 );
+    ur = geoTransform_.applyGeoTransform( size_.width, 0 );
 
 
     retval.ll[0] = std::min( { ll[0], lr[0], ul[0], ur[0] } );
@@ -1598,7 +1540,7 @@ GeoDataset::blockCoord(const math::Point2i &point) const
 math::Extents2 GeoDataset::pixelExtents(const math::Point2i &raster) const
 {
     const math::Point2 halfPixel(resolution() / 2.0);
-    const auto geo(rowcol2geo(raster(1), raster(0), 0));
+    const auto geo(geoTransform_.rowcol2geo(raster(1), raster(0), 0));
     return { geo(0) - halfPixel(0)
             , geo(1) - halfPixel(1)
             , geo(0) + halfPixel(0)
@@ -1608,8 +1550,8 @@ math::Extents2 GeoDataset::pixelExtents(const math::Point2i &raster) const
 math::Extents2 GeoDataset::pixelExtents(const math::Extents2i &raster) const
 {
     const math::Point2 halfPixel(resolution() / 2.0);
-    const auto geo_ll(rowcol2geo(raster.ll(1), raster.ll(0), 0));
-    const auto geo_ur(rowcol2geo(raster.ur(1), raster.ur(0), 0));
+    const auto geo_ll(geoTransform_.rowcol2geo(raster.ll(1), raster.ll(0), 0));
+    const auto geo_ur(geoTransform_.rowcol2geo(raster.ur(1), raster.ur(0), 0));
     return { geo_ll(0) - halfPixel(0)
             , geo_ur(1) - halfPixel(1)
             , geo_ur(0) + halfPixel(0)

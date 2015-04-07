@@ -11,7 +11,7 @@ set(geo_SOURCES
     geodataset.hpp geodataset.cpp
     coordinates.hpp
     io.hpp
-
+    geotransform.hpp geotransform.cpp	
     detail/srs.hpp
 )
 

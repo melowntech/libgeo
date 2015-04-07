@@ -38,8 +38,8 @@ public:
     bool areSrsEqual() const;
 
 private:
-    const SrsDefinition from_;
-    const SrsDefinition to_;
+    SrsDefinition from_;
+    SrsDefinition to_;
     std::shared_ptr<void> trans_;
     double srcMetricScale_;
     double dstMetricScale_;

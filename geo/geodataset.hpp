@@ -10,7 +10,6 @@
 #define geo_geodataset_hpp_included
 
 #include <memory>
-#include <array>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 #include <boost/lexical_cast.hpp>
@@ -26,6 +25,7 @@
 #include <cpl_conv.h>
 
 #include "./srsdef.hpp"
+#include "./geotransform.hpp"
 
 namespace ublas = boost::numeric::ublas;
 
@@ -87,8 +87,6 @@ public:
     static GeoDataset placeholder();
 
     
-    typedef std::array<double, 6> GeoTransform;
-
     /** Format descriptor
      */
     struct Format {
@@ -295,11 +293,17 @@ public:
      */
     math::Point2 resolution() const;
 
-    math::Point3 rowcol2geo( int row, int col, double value ) const;
+    math::Point3 rowcol2geo( int row, int col, double value ) const {
+        return geoTransform().rowcol2geo( row, col, value );
+    }
 
-    void geo2rowcol( const math::Point3 & gp, double & row, double & col ) const;
+    void geo2rowcol( const math::Point3 & gp, double & row, double & col ) const {
+        return geoTransform().geo2rowcol( gp, row, col );
+    }
 
-    math::Point3 raster2geo( math::Point2 p, double value ) const;
+    math::Point3 raster2geo( math::Point2 p, double value ) const {
+        return geoTransform().raster2geo( p, value );
+    }
 
     template <typename T>
     T geo2raster( const math::Point3 & gp) const {
@@ -315,14 +319,23 @@ public:
     T geo2raster(const math::Point2 &gp) const {
         double x, y; geo2rowcol({gp(0), gp(1), .0}, y, x); return T(x, y);
     }
-
+    /* end obsolete functions */
+    
     double geo2height(double gx, double gy, double gz = .0) const;
 
+    
     math::Extents2 deriveExtents( const SrsDefinition &srs ) const;
 
     static std::string wktToProj4( const std::string & op );
     static std::string proj4ToWkt( const std::string & op );
 
+    /** 
+     * @brief obtain a longlat geo converter for dataset. 
+     * @details converter allows conversions from pixel coordinates to
+     * WGS84. */
+    GeoConverter2 longlatConverter() const { return GeoConverter2( 
+        geoTransform_, srs(), SrsDefinition::longlat() ); }
+    
     /** Apply mask from another dataset over this dataset.
      */
     void applyMask(const GeoDataset &other);
