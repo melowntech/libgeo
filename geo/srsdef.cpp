@@ -15,7 +15,7 @@ namespace geo {
 
 namespace {
 
-std::string wkt2Proj(const SrsDefinition &def)
+std::string def2Proj(const SrsDefinition &def)
 {
     OGRSpatialReference sr;
     detail::import(sr, def);
@@ -25,7 +25,7 @@ std::string wkt2Proj(const SrsDefinition &def)
     if (err != OGRERR_NONE) {
         ::CPLFree(out);
         LOGTHROW(err1, std::runtime_error)
-            << "Error converting wkt to proj definition: <"
+            << "Error converting " << def.type << " to proj definition: <"
             << err << ">.";
     }
     std::string projDef(out);
@@ -34,7 +34,7 @@ std::string wkt2Proj(const SrsDefinition &def)
     return projDef;
 }
 
-std::string proj2Wkt(const SrsDefinition &def)
+std::string def2Wkt(const SrsDefinition &def)
 {
     OGRSpatialReference sr;
     detail::import(sr, def);
@@ -44,7 +44,7 @@ std::string proj2Wkt(const SrsDefinition &def)
     if (err != OGRERR_NONE) {
         ::CPLFree(out);
         LOGTHROW(err1, std::runtime_error)
-            << "Error converting proj to wkt definition: <"
+            << "Error converting " << def.type << " to wkt definition: <"
             << err << ">.";
     }
     std::string wktDef(out);
@@ -91,14 +91,26 @@ SrsDefinition SrsDefinition::as(Type dstType) const
 
     switch (dstType) {
     case SrsDefinition::Type::proj4:
-        return { wkt2Proj(*this), dstType };
+        return { def2Proj(*this), dstType };
 
     case SrsDefinition::Type::wkt:
-        return { proj2Wkt(*this), dstType };
+        return { def2Wkt(*this), dstType };
+
+    case SrsDefinition::Type::epsg:
+        LOGTHROW(err1, std::runtime_error)
+            << "EPSG reference cannot be constructed from "
+            << type << " representation.";
     }
 
     // never reached
     return *this;
+}
+
+::OGRSpatialReference SrsDefinition::reference() const
+{
+    ::OGRSpatialReference sr;
+    detail::import(sr, *this);
+    return sr;
 }
 
 bool areSame(const SrsDefinition &def1, const SrsDefinition &def2

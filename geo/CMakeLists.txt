@@ -1,4 +1,4 @@
-define_module(LIBRARY geo DEPENDS geometry imgproc math dbglog
+define_module(LIBRARY geo DEPENDS geometry imgproc math utility dbglog
   Boost_FILESYSTEM PROJ GDAL GEOGRAPHICLIB)
 
 set(geo_SOURCES
@@ -11,9 +11,13 @@ set(geo_SOURCES
     geodataset.hpp geodataset.cpp
     coordinates.hpp
     io.hpp
-    geotransform.hpp geotransform.cpp	
-    detail/srs.hpp
+    geotransform.hpp geotransform.cpp
+    detail/srs.hpp detail/srs.cpp
 )
+
+# gdalwrapper.h contains __unused__ attribute in newer versions
+set_source_files_properties(geodataset.cpp PROPERTIES
+  COMPILE_FLAGS -Wno-attributes)
 
 add_library(geo STATIC ${geo_SOURCES})
 buildsys_library(geo)
@@ -24,4 +28,5 @@ buildsys_target_compile_definitions(geo ${MODULE_DEFINITIONS})
 # test stuff
 if (COMPILE_TESTS)
   add_subdirectory(test-hconv)
+  add_subdirectory(test-srs)
 endif()
