@@ -47,4 +47,8 @@ UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
 
 } // namespace geo
 
+#ifdef GEO_HAS_PROGRAM_OPTIONS
+#    include "./po.hpp"
+#endif
+
 #endif // geo_srsdef_hpp_included_
