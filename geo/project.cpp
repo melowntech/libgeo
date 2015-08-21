@@ -34,20 +34,29 @@ namespace {
     constexpr double RAD2DEG(180. / M_PI);
 }
 
-math::Point2 Projection::operator()(const math::Point2 &p) const
+math::Point2 Projection::operator()(const math::Point2 &p, bool deg) const
 {
     if (inverse_) {
         auto res(pj_inv({ p(0), p(1) }, proj_.get()));
-        return { res.u * RAD2DEG, res.v * RAD2DEG };
+        if (deg) {
+            return { res.u * RAD2DEG, res.v * RAD2DEG };
+        }
+
+        return { res.u, res.v };
     }
 
-    auto res(pj_fwd({ p(0) * DEG2RAD, p(1) * DEG2RAD}, proj_.get()));
+    if (deg) {
+        auto res(pj_fwd({ p(0) * DEG2RAD, p(1) * DEG2RAD}, proj_.get()));
+        return { res.u, res.v };
+    }
+
+    auto res(pj_fwd({ p(0), p(1)}, proj_.get()));
     return { res.u, res.v };
 }
 
-math::Point3 Projection::operator()(const math::Point3 &p) const
+math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
 {
-    auto xy(operator()(math::Point2(p(0), p(1))));
+    auto xy(operator()(math::Point2(p(0), p(1)), deg));
     return { xy(0), xy(1), p(2) };
 }
 

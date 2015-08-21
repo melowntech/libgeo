@@ -23,6 +23,11 @@ set(geo_SOURCES
     io.hpp
     geotransform.hpp geotransform.cpp
     detail/srs.hpp detail/srs.cpp
+
+    srsfactorsfwd.hpp
+    srsfactors.hpp srsfactors.cpp
+
+    detail/pjfactors.h detail/pjfactors.c
 )
 
 # gdalwrapper.h contains __unused__ attribute in newer versions
@@ -40,3 +45,5 @@ if (COMPILE_TESTS)
   add_subdirectory(test-hconv)
   add_subdirectory(test-srs)
 endif()
+
+add_subdirectory(test-factors)
