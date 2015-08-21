@@ -9,7 +9,7 @@
 
 #include "./geodataset.hpp"
 #include "./dem.hpp"
-#include "./csconvertor.hpp"
+#include "./srsfactors.hpp"
 
 namespace geo {
 
@@ -39,14 +39,10 @@ DemCloud loadDem(const fs::path &path
     DemCloud dc{gd.exportPointCloud(), *dstSrs};
 
     if (adjustVertical) {
-        // create CS convertor
-        CsConvertor conv(source.srsProj4(), gd.srsProj4());
-
-        auto dilation(conv.dilation(center(source.extents())));
-
+        geo::SrsFactors sf(source.srsProj4(), gd.srsProj4());
         for (auto &p : dc.pc) {
             // update height
-            p(2) *= dilation;
+            p(2) *= sf(p).meridionalScale;
         }
     }
 
