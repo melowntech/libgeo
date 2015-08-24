@@ -16,8 +16,6 @@ int geo_detail_pj_factors(double x, double y, void *pj
         return 1;
     }
 
-    printf("%f, %f\n", fac.h, fac.k);
-
     factors->meridionalScale = fac.h;
     factors->parallelScale = fac.k;
     factors->angularDistortion = fac.omega;
