@@ -20,6 +20,7 @@ struct SrsDefinition {
     SrsDefinition() : srs(), type(Type::proj4) {}
     SrsDefinition(const std::string &srs) : srs(srs), type(Type::proj4) {}
     SrsDefinition(const std::string &srs, Type type) : srs(srs), type(type) {}
+    SrsDefinition(int epsg);
 
     SrsDefinition as(Type type) const;
 
@@ -44,6 +45,16 @@ UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((wkt))
     ((epsg))
 )
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const SrsDefinition &s)
+{
+    if (s.type == SrsDefinition::Type::epsg) {
+        os << "epsg:";
+    }
+    return os << s.srs;
+}
 
 } // namespace geo
 

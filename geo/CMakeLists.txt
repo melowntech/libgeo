@@ -26,6 +26,7 @@ set(geo_SOURCES
 
     srsfactorsfwd.hpp
     srsfactors.hpp srsfactors.cpp
+    verticaladjuster.hpp verticaladjuster.cpp
 
     detail/pjfactors.h detail/pjfactors.c
 )

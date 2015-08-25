@@ -1,6 +1,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include <boost/lexical_cast.hpp>
+
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
 #include <sstream>
@@ -54,6 +56,11 @@ std::string def2Wkt(const SrsDefinition &def)
 }
 
 } // namespace
+
+SrsDefinition::SrsDefinition(int epsg)
+    : srs(boost::lexical_cast<std::string>(epsg))
+    , type(Type::epsg)
+{}
 
 SrsDefinition SrsDefinition::longlat() {
     
