@@ -47,4 +47,6 @@ if (COMPILE_TESTS)
   add_subdirectory(test-srs)
 endif()
 
-add_subdirectory(test-factors)
+if(MODULE_service_FOUND)
+  add_subdirectory(test-factors)
+endif()
