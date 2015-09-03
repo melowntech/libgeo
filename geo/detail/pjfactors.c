@@ -1,14 +1,20 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <projects.h>
+#include <proj_api.h>
+
+#if PJ_VERSION < 480
+#  include <projects.h>
+#else
+#  include "./pjfactors-4.8.h"
+#endif
 
 #include "./pjfactors.h"
 
 int geo_detail_pj_factors(double x, double y, void *pj
                           , struct geo_detail_pj_factors *factors)
 {
-    LP lp = { x, y };
+    projLP lp = { x, y };
 
     struct FACTORS fac;
     memset(&fac, 0, sizeof(fac));
