@@ -25,7 +25,21 @@ public:
     SrsFactors(const SrsDefinition &def
                , const SrsDefinition &src);
 
-    typedef struct ::geo_detail_pj_factors Factors;
+    struct Factors {
+        double meridionalScale;
+        double parallelScale;
+        double angularDistortion;
+        double thetaPrime;
+        double convergence;
+        double arealScaleFactor;
+        double minScaleError;
+        double maxScaleError;
+
+        double lambdaDx;
+        double phiDx;
+        double lambdaDy;
+        double phiDy;
+    };
 
     Factors operator()(const math::Point2 &p) const;
 

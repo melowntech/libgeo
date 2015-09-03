@@ -28,7 +28,8 @@ set(geo_SOURCES
     srsfactors.hpp srsfactors.cpp
     verticaladjuster.hpp verticaladjuster.cpp
 
-    detail/pjfactors.h detail/pjfactors.c
+    detail/pjfactors-4.7.h
+    detail/pjfactors-4.8.h
 )
 
 # gdalwrapper.h contains __unused__ attribute in newer versions
