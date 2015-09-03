@@ -8,7 +8,6 @@
 
 #include "./srsdef.hpp"
 #include "./project.hpp"
-#include "./detail/pjfactors.h"
 
 namespace geo {
 
