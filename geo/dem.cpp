@@ -39,7 +39,7 @@ DemCloud loadDem(const fs::path &path
     DemCloud dc{gd.exportPointCloud(), *dstSrs};
 
     if (adjustVertical) {
-        geo::SrsFactors sf(source.srsProj4(), gd.srsProj4());
+        geo::SrsFactors sf(gd.srsProj4(), source.srsProj4());
         for (auto &p : dc.pc) {
             // update height
             p(2) *= sf(p).meridionalScale;
