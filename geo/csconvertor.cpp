@@ -65,8 +65,13 @@ math::Point2 CsConvertor::operator()(const math::Point2 &p) const
 
 math::Point3 CsConvertor::operator()(const math::Point3 &p) const
 {
-    auto xy(operator()(math::Point2(p(0), p(1))));
-    return { xy(0), xy(1), p(2) };
+    double x(p(0)), y(p(1)), z(p(2));
+    if (!(trans(trans_).Transform(1, &x, &y, &z))) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Cannot convert point between coordinate systems: <"
+            << ::CPLGetLastErrorMsg() << ">.";
+    }
+    return { x, y, z };
 }
 
 CsConvertor CsConvertor::inverse() const
