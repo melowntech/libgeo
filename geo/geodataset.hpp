@@ -33,7 +33,8 @@ namespace geo {
 
 class GeoDataset {
 public:
-    
+    typedef imgproc::quadtree::RasterMask Mask;
+
     static GeoDataset createFromFS(const boost::filesystem::path &path) {
         return open(path);
     }
@@ -374,7 +375,7 @@ public:
 
     /** Get mask for reading/writing.
      */
-    imgproc::quadtree::RasterMask& mask() {
+    Mask& mask() {
         assertData();
         changed_ = true;
         return *mask_;
@@ -382,14 +383,14 @@ public:
 
     /** Get mask for reading.
      */
-    const imgproc::quadtree::RasterMask& mask() const {
+    const Mask& mask() const {
         assertData();
         return *mask_;
     }
 
     /** Get mask for reading.
      */
-    const imgproc::quadtree::RasterMask& cmask() const {
+    const Mask& cmask() const {
         assertData();
         return *mask_;
     }
@@ -544,7 +545,7 @@ private:
     std::vector<int> channelMapping_;
     boost::optional<double> noDataValue_;
     mutable boost::optional<cv::Mat> data_;
-    mutable boost::optional<imgproc::quadtree::RasterMask> mask_;
+    mutable boost::optional<Mask> mask_;
 
     bool changed_;
 };
