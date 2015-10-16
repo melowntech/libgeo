@@ -8,7 +8,7 @@ namespace geo {
 
 /* class GeoTransform */
 
-math::Point3 GeoTransform::rowcol2geo( int row, int col, double value ) const {
+math::Point3 GeoTransform::rowcol2geo( double row, double col, double value ) const {
 
     math::Point2 p2 = applyGeoTransform( col + 0.5, row + 0.5 );
 

@@ -48,7 +48,7 @@ public :
      */
     static GeoTransform localFromOrigin( const math::Point2 & origin ); 
     
-    math::Point3 rowcol2geo( int row, int col, double value ) const;
+    math::Point3 rowcol2geo( double row, double col, double value ) const;
 
     void geo2rowcol( const math::Point3 & gp, double & row, double & col ) const;
 
@@ -69,30 +69,30 @@ public :
         double x, y; geo2rowcol({gp(0), gp(1), .0}, y, x); return T(x, y);
     }
     
-    template <typename T1, typename T2>
+    template <typename T1 = double, typename T2>
     math::Point2_<T1> convert( const math::Point2_<T2> & p ) const {
         auto ret( rwocol2geo( p(1),p(0),.0 ) );
         return math::Point2_<T1>( ret(0), ret(1) ); 
     }
     
-    template <typename T1, typename T2>
-    math::Point2_<T2> iconvert( const math::Point2_<T2> & gp ) const {
+    template <typename T1 = double, typename T2>
+    math::Point2_<T1> iconvert( const math::Point2_<T2> & gp ) const {
         double row, col;
         geo2rowcol( {gp(0),gp(1),.0}, row, col ); 
-        return math::Point2_<T2>( col, row );
+        return math::Point2_<T1>( col, row );
     }
 
-    template <typename T1, typename T2>
+    template <typename T1 = double, typename T2>
     math::Point3_<T1> convert( const math::Point3_<T2> & p ) const {
         auto ret( rowcol2geo( p(1), p(0), p(2) ) );
         return math::Point3_<T1>( ret(0), ret(1), ret(2) );
     }
     
-    template <typename T1, typename T2>
-    math::Point3_<T2> iconvert( const math::Point3_<T2> & gp ) const {
+    template <typename T1 = double, typename T2>
+    math::Point3_<T1> iconvert( const math::Point3_<T2> & gp ) const {
         double row, col;
         geo2rowcol( {gp(0),gp(1),.0}, row, col ); 
-        return math::Point3_<T2>( col, row, gp[2] );
+        return math::Point3_<T1>( col, row, gp[2] );
     }
     
 private :
@@ -123,24 +123,24 @@ public:
             srcGeo_( srcGeo ), src2dst_( src2dst ), 
             dst2src_( src2dst.inverse() ) {}
             
-    template <typename T1 = double, typename T2 = double>
+    template <typename T1 = double, typename T2>
     math::Point2_<T1> convert( const math::Point2_<T2> & p ) const {
         auto ret( src2dst_(srcGeo_.convert<double>(p) ) );
         return math::Point2_<T1>(ret(0),ret(1));
     }
     
-    template <typename T1 = double, typename T2 = double>
+    template <typename T1 = double, typename T2>
     math::Point2_<T1> iconvert( const math::Point2_<T2> & gp ) const {
         return srcGeo_.iconvert<T1>( dst2src_( math::Point2(gp(0),gp(1)) ) );
     }
 
-    template <typename T1 = double, typename T2 = double>
+    template <typename T1 = double, typename T2>
     math::Point3_<T1> convert( const math::Point3_<T2> & p ) const {
         auto ret( src2dst_(srcGeo_.convert<double>(p)) );
         return math::Point3_<T1>(ret(0),ret(1),ret(2));
     }
     
-    template <typename T1 = double, typename T2 = double>
+    template <typename T1 = double, typename T2>
     math::Point3_<T1> iconvert( const math::Point3_<T2> & gp ) const {
         return srcGeo_.iconvert<T1>( 
             dst2src_( math::Point3(gp(0),gp(1),gp(2))) );
