@@ -78,10 +78,10 @@ int CsSonv::run()
     geo::CsConvertor cs(src_, dst_);
 
     std::cout << std::setprecision(15);
-    math::Point2 p;
-    while (std::cin >> p(0) >> p(1)) {
+    math::Point3 p;
+    while (std::cin >> p(0) >> p(1) >> p(2)) {
         auto p2(cs(p));
-        std::cout << p2(0) << ' ' << p2(1) << std::endl;
+        std::cout << p2(0) << ' ' << p2(1) << ' ' << p2(2) <<std::endl;
     }
 
     return EXIT_SUCCESS;
