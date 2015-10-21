@@ -727,9 +727,9 @@ void GeoDataset::warpInto(GeoDataset & dst
                           , const boost::optional<Resampling> &requestedAlg)
     const
 {
-    LOG(info1)
+    /* LOG(info1)
         << std::fixed << "Warping into: dst extents = "
-        << dst.extents() << ", size = " << dst.size();
+        << dst.extents() << ", size = " << dst.size(); */
 
     // sanity
     ut::expect( dset_->GetRasterCount() == dst.dset_->GetRasterCount()
