@@ -25,7 +25,9 @@ public:
     VerticalAdjuster(const SrsFactors &factors)
         : sf_(boost::in_place(factors)) {}
 
-    math::Point3 operator()(math::Point3 p) const;
+    /** Apply/unapply vertical adjustment.
+     */
+    math::Point3 operator()(math::Point3 p, bool inverse = false) const;
 
 private:
     boost::optional<SrsFactors> sf_;

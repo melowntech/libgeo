@@ -30,10 +30,15 @@ VerticalAdjuster::VerticalAdjuster(bool apply, const SrsDefinition &srs
 {
 }
 
-math::Point3 VerticalAdjuster::operator()(math::Point3 p) const
+math::Point3 VerticalAdjuster::operator()(math::Point3 p, bool inverse) const
 {
     if (sf_) {
-        p(2) *= (*sf_)(p).meridionalScale;
+        auto scale((*sf_)(p).meridionalScale);
+        if (inverse) {
+            p(2) /= scale;
+        } else {
+            p(2) *= scale;
+        }
     }
     return p;
 }
