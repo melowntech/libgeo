@@ -14,24 +14,59 @@ namespace {
 
 namespace ublas = boost::numeric::ublas;
 
-std::shared_ptr<void> initTrans(const SrsDefinition &from
-                                , const SrsDefinition &to)
-{
-    OGRSpatialReference srFrom;
-    detail::import(srFrom, from);
-    OGRSpatialReference srTo;
-    detail::import(srTo, to);
+typedef boost::optional<std::string> OptName;
 
+std::string asName(const OGRSpatialReference &ref
+                   , const OptName &name = boost::none)
+{
+    if (name) { return *name; }
+    return SrsDefinition::fromReference(ref).srs;
+}
+
+std::shared_ptr<void>
+initTransImpl(const OGRSpatialReference &from, const OptName &fromName
+              , const OGRSpatialReference &to, const OptName &toName)
+{
     std::shared_ptr< ::OGRCoordinateTransformation>
-        trans(::OGRCreateCoordinateTransformation(&srFrom, &srTo));
+        trans(::OGRCreateCoordinateTransformation
+              (const_cast<OGRSpatialReference*>(&from)
+               , const_cast<OGRSpatialReference*>(&to)));
 
     if (!trans) {
         LOGTHROW(err1, std::runtime_error)
             << "Cannot initialize coordinate system transformation ("
-            << from.srs <<  " ->" << to.srs << "): <"
+            << asName(from, fromName) <<  " ->"
+            << asName(to, toName) << "): <"
             << ::CPLGetLastErrorMsg() << ">.";
     }
     return trans;
+}
+
+const OGRSpatialReference& asReference(const OGRSpatialReference &ref)
+{
+    return ref;
+}
+
+OptName optName(const OGRSpatialReference&)
+{
+    return boost::none;
+}
+
+OGRSpatialReference asReference(const SrsDefinition &def)
+{
+    return def.reference();
+}
+
+OptName optName(const SrsDefinition &def)
+{
+    return def.as(SrsDefinition::Type::proj4).srs;
+}
+
+template <typename S1, typename S2>
+std::shared_ptr<void> initTrans(const S1 &from, const S2 &to)
+{
+    return initTransImpl(asReference(from), optName(from)
+                         , asReference(to), optName(to));
 }
 
 inline OGRCoordinateTransformation& trans(const std::shared_ptr<void> &t)
@@ -42,14 +77,34 @@ inline OGRCoordinateTransformation& trans(const std::shared_ptr<void> &t)
 } // namespace
 
 CsConvertor::CsConvertor(const SrsDefinition &from, const SrsDefinition &to)
-    : from_(from), to_(to), trans_(initTrans(from, to))
-    , srcMetricScale_(trans(trans_).GetSourceCS()->GetLinearUnits())
-    , dstMetricScale_(trans(trans_).GetTargetCS()->GetLinearUnits())
+    : trans_(initTrans(from, to))
 {
     LOG(info1) << "Coordinate system transformation ("
-               << from.srs <<  " ->" << to.srs << "); "
-               << "Scales to metric system: ("
-               << srcMetricScale_ << ", " << dstMetricScale_ << ").";
+               << from.srs << " -> " << to.srs << ")";
+}
+
+CsConvertor::CsConvertor(const OGRSpatialReference &from
+                         , const OGRSpatialReference &to)
+    : trans_(initTrans(from, to))
+{
+    LOG(info1) << "Coordinate system transformation ("
+               << asName(from) << " -> " << asName(to) << ")";
+}
+
+CsConvertor::CsConvertor(const SrsDefinition &from
+                         , const OGRSpatialReference &to)
+    : trans_(initTrans(from, to))
+{
+    LOG(info1) << "Coordinate system transformation ("
+               << from.srs << " -> " << asName(to) << ")";
+}
+
+CsConvertor::CsConvertor(const OGRSpatialReference &from
+                         , const SrsDefinition &to)
+    : trans_(initTrans(from, to))
+{
+    LOG(info1) << "Coordinate system transformation ("
+               << asName(from) << " -> " << to.srs << ")";
 }
 
 math::Point2 CsConvertor::operator()(const math::Point2 &p) const
@@ -76,7 +131,8 @@ math::Point3 CsConvertor::operator()(const math::Point3 &p) const
 
 CsConvertor CsConvertor::inverse() const
 {
-    return CsConvertor(to_, from_);
+    return CsConvertor(*trans(trans_).GetTargetCS()
+                       , *trans(trans_).GetSourceCS());
 }
 
 bool CsConvertor::isProjected() const
@@ -97,28 +153,6 @@ bool CsConvertor::areSrsEqual() const
         << dstUnit << "/<" << dstName << ">.";
 
     return !std::strcmp(srcName, dstName);
-}
-
-double CsConvertor::dilation(const math::Point2 &point) const
-{
-    // one kilemeter
-    const double checkDistance(1000.);
-
-    // checkpoint (one kilometer from point)
-    const math::Point2 checkPoint(point(0) + checkDistance / srcMetricScale_
-                                  , point(1));
-
-    // transform point to destination SRS
-    auto xPoint(operator()(point));
-    auto xCheckPoint(operator()(checkPoint));
-
-    // calculate dilation
-    auto dilation((ublas::norm_2(xCheckPoint - xPoint) * dstMetricScale_)
-                  / checkDistance);
-
-    LOG(info1) << "Dilation for " << point << " is " << dilation << ".";
-
-    return dilation;
 }
 
 } // namespace geo

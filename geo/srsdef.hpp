@@ -28,6 +28,8 @@ struct SrsDefinition {
     const char* c_str() const { return srs.c_str(); }
 
     OGRSpatialReference reference() const;
+    static SrsDefinition fromReference(const OGRSpatialReference &src
+                                       , Type type = Type::proj4);
 
     static SrsDefinition longlat();
     static SrsDefinition utm(uint zone, bool isNorth = true );
@@ -39,6 +41,10 @@ enum class SrsEquivalence { both, geographic, vertical };
 bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
              , SrsEquivalence type = SrsEquivalence::both);
 
+/** Merges horizontal part from first parameter with vertical part from second
+ *  parameter.
+ */
+SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert);
 
 UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((proj4))
