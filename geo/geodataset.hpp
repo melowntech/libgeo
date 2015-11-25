@@ -14,6 +14,8 @@
 #include <boost/optional.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <opencv2/core/core.hpp>
+
 #include "math/math.hpp"
 #include "math/geometry.hpp"
 #include "geometry/mesh.hpp"

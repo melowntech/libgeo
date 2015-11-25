@@ -5,6 +5,19 @@ if(Boost_PROGRAM_OPTIONS_FOUND)
   list(APPEND geo_EXTRA_DEFINITIONS GEO_HAS_PROGRAM_OPTIONS=1)
 endif()
 
+set(geo_OPENCV_SOURCES)
+if(OpenCV_FOUND)
+  list(APPEND geo_EXTRA_DEPENDS OpenCV)
+  list(APPEND geo_EXTRA_DEFINITIONS GEO_HAS_OPENCV=1)
+  message(STATUS "geo: compiling in OpenCV support")
+
+  # OpenCV sources go here
+  set(geo_OPENCV_SOURCES
+    geodataset.hpp geodataset.cpp)
+else()
+  message(STATUS "geo: compiling without OpenCV support")
+endif()
+
 
 define_module(LIBRARY geo DEPENDS geometry imgproc math utility dbglog
   Boost_FILESYSTEM PROJ GDAL GEOGRAPHICLIB ${geo_EXTRA_DEPENDS}
@@ -18,7 +31,6 @@ set(geo_SOURCES
     project.hpp project.cpp
     csconvertor.hpp csconvertor.cpp
     heightconvertor.hpp heightconvertor.cpp
-    geodataset.hpp geodataset.cpp
     coordinates.hpp
     io.hpp
     geotransform.hpp geotransform.cpp
@@ -30,6 +42,8 @@ set(geo_SOURCES
 
     detail/pjfactors-4.7.h
     detail/pjfactors-4.8.h
+
+    ${geo_OPENCV_SOURCES}
 )
 
 # gdalwrapper.h contains __unused__ attribute in newer versions
