@@ -1425,7 +1425,7 @@ GeoDataset::Mask GeoDataset::convertMask(const geo::GeoDataset &src) const
     trafo(0, 2) = shiftX + 0.5 * (trafo(0, 0) - 1.0);
     trafo(1, 2) = shiftY + 0.5 * (trafo(1, 1) - 1.0);
 
-    LOG(info4) << "trafo: " << trafo;
+    LOG(debug) << "mask trafo: " << trafo;
 
     // and generate dst raster mask
     return transform(src.cmask(), dstSize, trafo);
