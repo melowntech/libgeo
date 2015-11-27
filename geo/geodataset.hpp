@@ -338,8 +338,13 @@ public:
      * WGS84. */
     GeoConverter2 longlatConverter() const { return GeoConverter2( 
         geoTransform_, srs(), SrsDefinition::longlat() ); }
-    
+
+    /** Convert other's mask into this grid.
+     */
+    Mask convertMask(const geo::GeoDataset &other) const;
+
     /** Apply mask from another dataset over this dataset.
+     *  Uses convertMask.
      */
     void applyMask(const GeoDataset &other);
 
