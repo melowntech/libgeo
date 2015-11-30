@@ -20,21 +20,15 @@ inline void validate(boost::any &v
     namespace ba = boost::algorithm;
 
     po::validators::check_first_occurrence(v);
-    std::string s(ba::trim_copy(po::validators::get_single_string(values)));
 
-    if (s.empty()) {
+    auto srs(SrsDefinition::fromString
+             (po::validators::get_single_string(values)));
+    if (srs.empty()) {
         throw po::validation_error(po::validation_error::invalid_option_value);
     }
-    if (s.front() == '+') {
-        // proj string
-        v = boost::any(SrsDefinition(s, SrsDefinition::Type::proj4));
-        return;
-    } else if (ba::istarts_with(s, "epsg:")) {
-        // epsg
-        v = boost::any(SrsDefinition(s.substr(5), SrsDefinition::Type::epsg));
-    } else {
-        v = boost::any(SrsDefinition(s, SrsDefinition::Type::wkt));
-    }
+
+    // ok
+    v = boost::any(srs);
 }
 
 } // namespace geo

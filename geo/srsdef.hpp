@@ -27,9 +27,19 @@ struct SrsDefinition {
     const std::string& string() const { return srs; }
     const char* c_str() const { return srs.c_str(); }
 
+    bool empty() const { return srs.empty(); }
+
     OGRSpatialReference reference() const;
     static SrsDefinition fromReference(const OGRSpatialReference &src
                                        , Type type = Type::proj4);
+
+    /** Creates SRS efinition from any string. Detects SRS from string:
+     *
+     *  starts with '+': Type::proj4
+     *  starts with 'epsg:': Type::epsg
+     *  other: Type::wkt
+     */
+    static SrsDefinition fromString(std::string value);
 
     static SrsDefinition longlat();
     static SrsDefinition utm(uint zone, bool isNorth = true );

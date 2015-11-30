@@ -3,6 +3,8 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
@@ -204,7 +206,10 @@ OGRSpatialReference merge(const OGRSpatialReference &horiz
             "geographic coordinate system";
     }
 
-    if (!(vert.IsProjected() || vert.IsGeographic())) {
+    if (!(vert.IsProjected()
+          || vert.IsGeographic()
+           || vert.IsVertical()))
+    {
         LOGTHROW(err1, std::runtime_error)
             << "SRS Merge: 'vertical' SRS is not projected nor "
             "geographic coordinate system";
@@ -239,6 +244,23 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert)
 {
     return SrsDefinition::fromReference
         (merge(horiz.reference(), vert.reference()));
+}
+
+SrsDefinition SrsDefinition::fromString(std::string value)
+{
+    namespace ba = boost::algorithm;
+    ba::trim(value);
+    if (value.empty()) { return {}; }
+
+    if (value.front() == '+') {
+        // proj string
+        return SrsDefinition(value, SrsDefinition::Type::proj4);
+    } else if (ba::istarts_with(value, "epsg:")) {
+        // epsg
+        return SrsDefinition(value.substr(5), SrsDefinition::Type::epsg);
+    }
+
+    return SrsDefinition(value, SrsDefinition::Type::wkt);
 }
 
 } // namespace geo
