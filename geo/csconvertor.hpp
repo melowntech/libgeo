@@ -13,6 +13,10 @@ namespace geo {
 class CsConvertor {
 public:
     CsConvertor(const SrsDefinition &from, const SrsDefinition &to);
+    CsConvertor(const OGRSpatialReference &from
+                , const OGRSpatialReference &to);
+    CsConvertor(const SrsDefinition &from, const OGRSpatialReference &to);
+    CsConvertor(const OGRSpatialReference &from, const SrsDefinition &to);
 
     math::Point2 operator()(const math::Point2 &p) const;
     math::Point3 operator()(const math::Point3 &p) const;
@@ -23,9 +27,6 @@ public:
                              , bool adjVertical ) const;
 
     CsConvertor inverse() const;
-
-    double dilation(const math::Point2 &point) const;
-    double dilation(const math::Point3 &point) const;
 
     /** Adjust vertical coordinate by lenght dilation.
      */
@@ -40,25 +41,10 @@ public:
     bool areSrsEqual() const;
 
 private:
-    SrsDefinition from_;
-    SrsDefinition to_;
     std::shared_ptr<void> trans_;
-    double srcMetricScale_;
-    double dstMetricScale_;
 };
 
 // inline method implementation
-
-inline double CsConvertor::dilation(const math::Point3 &point) const
-{
-    return dilation(math::Point2(point(0), point(1)));
-}
-
-inline math::Point3 CsConvertor::adjustVertical(math::Point3 point) const
-{
-    point(2) *= dilation(point);
-    return point;
-}
 
 inline math::Extents2 CsConvertor::operator()(const math::Extents2 &e) const
 {

@@ -2,6 +2,9 @@
 #include <vector>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
@@ -17,7 +20,39 @@ namespace geo {
 
 namespace {
 
-std::string def2Proj(const SrsDefinition &def)
+inline std::string srs2Wkt(const OGRSpatialReference &sr)
+{
+    char *out(nullptr);
+    auto err(sr.exportToWkt(&out));
+    if (err != OGRERR_NONE) {
+        ::CPLFree(out);
+        LOGTHROW(err1, std::runtime_error)
+            << "Error exporting SRS into wkt definition: <"
+            << err << ">.";
+    }
+    std::string wktDef(out);
+    ::CPLFree(out);
+
+    return wktDef;
+}
+
+inline std::string srs2Proj(const OGRSpatialReference &sr)
+{
+    char *out(nullptr);
+    auto err(sr.exportToProj4(&out));
+    if (err != OGRERR_NONE) {
+        ::CPLFree(out);
+        LOGTHROW(err1, std::runtime_error)
+            << "Error exporting SRS into proj definition: <"
+            << err << ">.";
+    }
+    std::string projDef(out);
+    ::CPLFree(out);
+
+    return projDef;
+}
+
+inline std::string def2Proj(const SrsDefinition &def)
 {
     OGRSpatialReference sr;
     detail::import(sr, def);
@@ -36,7 +71,7 @@ std::string def2Proj(const SrsDefinition &def)
     return projDef;
 }
 
-std::string def2Wkt(const SrsDefinition &def)
+inline std::string def2Wkt(const SrsDefinition &def)
 {
     OGRSpatialReference sr;
     detail::import(sr, def);
@@ -113,6 +148,21 @@ SrsDefinition SrsDefinition::as(Type dstType) const
     return *this;
 }
 
+SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
+                                           , Type type)
+{
+    switch (type) {
+    case SrsDefinition::Type::proj4: return { srs2Proj(src), type };
+    case SrsDefinition::Type::wkt: return { srs2Wkt(src), type };
+
+    case SrsDefinition::Type::epsg:
+        LOGTHROW(err1, std::runtime_error)
+            << "OGRSpatialReference cannot be exported into EPSG "
+            "representation.";
+    }
+    throw;
+}
+
 ::OGRSpatialReference SrsDefinition::reference() const
 {
     ::OGRSpatialReference sr;
@@ -145,6 +195,72 @@ OGRSpatialReference asOgrSr(const SrsDefinition &def)
     OGRSpatialReference sr;
     detail::import(sr, def);
     return sr;
+}
+
+OGRSpatialReference merge(const OGRSpatialReference &horiz
+                          , const OGRSpatialReference &vert)
+{
+    if (!(horiz.IsProjected() || horiz.IsGeographic())) {
+        LOGTHROW(err1, std::runtime_error)
+            << "SRS Merge: 'horizontal' SRS is not projected nor "
+            "geographic coordinate system";
+    }
+
+    if (!(vert.IsProjected()
+          || vert.IsGeographic()
+           || vert.IsVertical()))
+    {
+        LOGTHROW(err1, std::runtime_error)
+            << "SRS Merge: 'vertical' SRS is not projected nor "
+            "geographic coordinate system";
+    }
+
+    OGRSpatialReference h(horiz);
+    h.StripVertical();
+
+    if (!vert.IsVertical()) {
+        // vert SRS has no vertical component -> copy only horizontal part
+        return h;
+    }
+
+    // OK, there is vertical part in the vert SRS
+
+    // find VERT_CS node
+    OGRSpatialReference v;
+    v.SetRoot(vert.GetRoot()->GetNode("VERT_CS")->Clone());
+
+    auto name(str(boost::format("%s + %s Vertical Datum")
+                  % h.GetRoot()->GetChild(0)->GetValue()
+                  % v.GetRoot()->GetChild(0)->GetValue()));
+
+    OGRSpatialReference out;
+    out.SetCompoundCS(name.c_str(), &h, &v);
+
+    // done
+    return out;
+}
+
+SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert)
+{
+    return SrsDefinition::fromReference
+        (merge(horiz.reference(), vert.reference()));
+}
+
+SrsDefinition SrsDefinition::fromString(std::string value)
+{
+    namespace ba = boost::algorithm;
+    ba::trim(value);
+    if (value.empty()) { return {}; }
+
+    if (value.front() == '+') {
+        // proj string
+        return SrsDefinition(value, SrsDefinition::Type::proj4);
+    } else if (ba::istarts_with(value, "epsg:")) {
+        // epsg
+        return SrsDefinition(value.substr(5), SrsDefinition::Type::epsg);
+    }
+
+    return SrsDefinition(value, SrsDefinition::Type::wkt);
 }
 
 } // namespace geo

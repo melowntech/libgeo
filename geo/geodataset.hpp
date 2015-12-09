@@ -14,6 +14,8 @@
 #include <boost/optional.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <opencv2/core/core.hpp>
+
 #include "math/math.hpp"
 #include "math/geometry.hpp"
 #include "geometry/mesh.hpp"
@@ -336,8 +338,13 @@ public:
      * WGS84. */
     GeoConverter2 longlatConverter() const { return GeoConverter2( 
         geoTransform_, srs(), SrsDefinition::longlat() ); }
-    
+
+    /** Convert other's mask into this grid.
+     */
+    Mask convertMask(const geo::GeoDataset &other) const;
+
     /** Apply mask from another dataset over this dataset.
+     *  Uses convertMask.
      */
     void applyMask(const GeoDataset &other);
 

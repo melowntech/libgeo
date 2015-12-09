@@ -17,6 +17,8 @@
 #include "utility/path.hpp"
 #include "math/math.hpp"
 
+#include "imgproc/rastermask/transform.hpp"
+
 #include "./geodataset.hpp"
 #include "./coordinates.hpp"
 #include "./csconvertor.hpp"
@@ -1371,12 +1373,77 @@ bool GeoDataset::validf( double i, double j ) const {
 }
 
 
+/** Converts mask from src space of this space
+ */
+GeoDataset::Mask GeoDataset::convertMask(const geo::GeoDataset &src) const
+{
+    const auto srcExtents(src.extents());
+    const auto dstExtents(extents());
+    const auto srcSize(src.size());
+    const auto dstSize(size());
+    auto ssize(math::size(srcExtents));
+    auto dsize(math::size(dstExtents));
+
+    // transforms point from dst into src
+    imgproc::quadtree::Matrix2x3 trafo
+        (boost::numeric::ublas::zero_matrix<double>(2, 3));
+
+    /* Transformation from dst space to src space
+     *     p' = S * (p + 0.5) - 0.5 + O'
+     * where:
+     *     p: point in dst
+     *     p': point in src
+     *     S: scaling factor, i.e. ratio between src and dst pixel sizes
+     *     +0.5: shift from pixel index to pixel coordinate
+     *     -0.5: shift pixel coordinate to pixel index
+     *     O': offset between upper left corners of extents in src space
+     *
+     * this leads to:
+     *    p' = S * p + 0.5 * S - 0.5 + O'
+     *    p' = S * p + 0.5 * (S - 1) + O'
+     *
+     * broken to transformation matrix:
+     *    Sx  0   (0.5 * (Sx - 1) + Ox')
+     *    0   Sy  (0.5 * (Sy - 1) + Oy')
+     */
+
+    // scale component (ratio between src and dst pixel size):
+    trafo(0, 0) = ((srcSize.width * dsize.width)
+                   / (dstSize.width * ssize.width));
+    trafo(1, 1) = ((srcSize.height * dsize.height)
+                   / (dstSize.height * ssize.height));
+
+    /* extents shift (distance of ur(dstExtents) from ur(srcExtents) measured in
+     * src pixels)
+     */
+    auto shiftX((srcSize.width * (dstExtents.ll(0) - srcExtents.ll(0)))
+                / ssize.width);
+    auto shiftY((srcSize.height * (srcExtents.ur(1) - dstExtents.ur(1)))
+                / ssize.height);
+
+    // shift component:
+    trafo(0, 2) = shiftX + 0.5 * (trafo(0, 0) - 1.0);
+    trafo(1, 2) = shiftY + 0.5 * (trafo(1, 1) - 1.0);
+
+    LOG(debug) << "mask trafo: " << trafo;
+
+    // and generate dst raster mask
+    return transform(src.cmask(), dstSize, trafo);
+}
+
 void GeoDataset::applyMask(const GeoDataset &other)
 {
     assertData();
-    mask_->intersect(other.cmask());
-}
 
+    // if we have same grid at same extents -> just intersect
+    if ((size() == other.size()) && (extents() == other.extents())) {
+        mask_->intersect(other.cmask());
+        return;
+    }
+
+    // we have to convert mask to this space
+    mask_->intersect(convertMask(other));
+}
 
 void GeoDataset::flush()
 {
