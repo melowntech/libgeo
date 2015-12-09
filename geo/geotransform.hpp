@@ -76,10 +76,10 @@ public :
     }
     
     template <typename T1, typename T2>
-    math::Point2_<T2> iconvert( const math::Point2_<T2> & gp ) const {
+    math::Point2_<T1> iconvert( const math::Point2_<T2> & gp ) const {
         double row, col;
         geo2rowcol( {gp(0),gp(1),.0}, row, col ); 
-        return math::Point2_<T2>( col, row );
+        return math::Point2_<T1>( col, row );
     }
 
     template <typename T1, typename T2>
@@ -89,11 +89,19 @@ public :
     }
     
     template <typename T1, typename T2>
-    math::Point3_<T2> iconvert( const math::Point3_<T2> & gp ) const {
+    math::Point3_<T1> iconvert( const math::Point3_<T2> & gp ) const {
         double row, col;
         geo2rowcol( {gp(0),gp(1),.0}, row, col ); 
-        return math::Point3_<T2>( col, row, gp[2] );
+        return math::Point3_<T1>( col, row, gp[2] );
     }
+
+    /*template <typename T1>
+    math::Point3_<T1> iconvert( const math::Point3_<T1> & gp ) const {
+        double row, col;
+        geo2rowcol( {gp(0),gp(1),.0}, row, col ); 
+        return math::Point3_<T1>( col, row, gp[2] );
+    }*/
+    
     
 private :
     math::Point2 applyGeoTransform( double col, double row ) const;
