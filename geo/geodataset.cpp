@@ -16,6 +16,7 @@
 #include "utility/expect.hpp"
 #include "utility/path.hpp"
 #include "math/math.hpp"
+#include "geometry/polygon.hpp"
 
 #include "imgproc/rastermask/transform.hpp"
 
@@ -83,8 +84,8 @@ int gdal2cv(GDALDataType gdalDataType, int numChannels)
 
 
 bool areIdenticalButForShift( const GeoTransform & trafo1,
-                              const GeoTransform & trafo2 ) {
-    
+                              const GeoTransform & trafo2 )
+{
     return(
         trafo1[1] == trafo2[1] &&
         trafo1[2] == trafo2[2] &&
@@ -92,6 +93,48 @@ bool areIdenticalButForShift( const GeoTransform & trafo1,
         trafo1[5] == trafo2[5]
     );
 }
+
+// options support
+
+class OptionsWrapper : boost::noncopyable {
+public:
+    OptionsWrapper(const GeoDataset::Options &options)
+        : opts_(nullptr)
+    {
+        for (const auto &opt : options.options) {
+            opts_ = ::CSLSetNameValue(opts_, opt.first.c_str()
+                                      , opt.second.c_str());
+        }
+    }
+
+    ~OptionsWrapper() { ::CSLDestroy(opts_); }
+
+    operator char**() const { return opts_; }
+
+    char** release() {
+        char** opts(opts_);
+        opts_ = nullptr;
+        return opts;
+    }
+
+    OptionsWrapper& operator()(const char *name, const char *value) {
+        opts_ = ::CSLSetNameValue(opts_, name, value);
+        return *this;
+    }
+
+    template <typename T>
+    OptionsWrapper& operator()(const char *name, const T &value) {
+        return operator()
+            (name, boost::lexical_cast<std::string>(value).c_str());
+    }
+
+    OptionsWrapper& operator()(const char *name, bool value) {
+        return operator()(name, value ? "YES" : "NO");
+    }
+
+private:
+    char **opts_;
+};
 
 } // namespace
 
@@ -490,7 +533,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                              , const math::Size2 &rasterSize
                              , const Format &format
                              , double noDataValue
-                             , const CreateOptions &options ) {
+                             , const Options &options ) {
     
     if (!initialized_) { initialize(); }
 
@@ -529,21 +572,13 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
             << "> format doesn't support creation.";
     }
 
-    // fill in options (if any)
-    char **opts(nullptr);
-    for (const auto &opt : options.options) {
-        opts = ::CSLSetNameValue(opts, opt.first.c_str(), opt.second.c_str());
-    }
-
     std::unique_ptr<GDALDataset>
         ds(driver->Create(path.string().c_str()
                           , rasterSize.width
                           , rasterSize.height
                           , format.channels.size()
                           , format.channelType
-                          , opts));
-    // destroy options
-    ::CSLDestroy(opts);
+                          , OptionsWrapper(options)));
 
     ut::expect(ds.get(), "Failed to create new dataset.");
 
@@ -595,116 +630,13 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                               , const math::Size2 &rasterSize
                               , const Format &format
                               , double noDataValue
-                              , const CreateOptions &options) {
+                              , const Options &options) {
 
     auto geoTrafo( GeoTransform::northUpFromExtents(extents, rasterSize) );
     
     return create( path, srs, geoTrafo, rasterSize, format, noDataValue, 
                    options );
-    
 }
-
-/*GeoDataset GeoDataset::create(const boost::filesystem::path &path
-                              , const SrsDefinition &srs
-                              , const math::Extents2 &extents
-                              , const math::Size2 &rasterSize
-                              , const Format &format
-                              , double noDataValue
-                              , const CreateOptions &options)
-{
-    if (!initialized_) { initialize(); }
-
-    std::string storageFormat;
-    std::string wfExt;
-
-    switch (format.storageType) {
-    case Format::Storage::gtiff:
-        storageFormat = "GTiff";
-        wfExt = "tfw";
-        break;
-
-    case Format::Storage::png:
-        storageFormat = "PNG";
-        wfExt = "pgw";
-        break;
-
-    case Format::Storage::jpeg:
-        storageFormat = "JPEG";
-        wfExt = "jgw";
-        break;
-    }
-
-    auto driver(::GetGDALDriverManager()
-                ->GetDriverByName(storageFormat.c_str()));
-    if (!driver) {
-        LOGTHROW(err2, std::runtime_error)
-            << "Cannot find GDAL driver for <" << storageFormat
-            << "> format.";
-    }
-
-    auto metadata(driver->GetMetadata());
-    if (!CSLFetchBoolean(metadata, GDAL_DCAP_CREATE, FALSE)) {
-        LOGTHROW(err2, std::runtime_error)
-            << "GDAL driver for <" << storageFormat
-            << "> format doesn't support creation.";
-    }
-
-    // fill in options (if any)
-    char **opts(nullptr);
-    for (const auto &opt : options.options) {
-        opts = ::CSLSetNameValue(opts, opt.first.c_str(), opt.second.c_str());
-    }
-
-    std::unique_ptr<GDALDataset>
-        ds(driver->Create(path.string().c_str()
-                          , rasterSize.width
-                          , rasterSize.height
-                          , format.channels.size()
-                          , format.channelType
-                          , opts));
-    // destroy options
-    ::CSLDestroy(opts);
-
-    ut::expect(ds.get(), "Failed to create new dataset.");
-
-    // set projection
-    if (ds->SetProjection(srs.as(SrsDefinition::Type::wkt).c_str())
-        != CE_None)
-    {
-        LOGTHROW(err1, std::runtime_error)
-            << "Failed to set projection to newly created GDAL data set.";
-    }
-
-    auto geoTrafo(buildGeoTransform(extents, rasterSize));
-
-    // set geo trafo
-    if (ds->SetGeoTransform(geoTrafo.data()) != CE_None) {
-        LOGTHROW(err1, std::runtime_error)
-            << "Failed to set geo transform to newly created GDAL data set.";
-    }
-
-    // set no data value and color interpretation
-    {
-        int i = 1;
-        for (auto colorInterpretation : format.channels) {
-            auto band(ds->GetRasterBand(i));
-            ut::expect(band, "Cannot find band %d.", (i));
-            band->SetNoDataValue(noDataValue);
-            band->SetColorInterpretation(colorInterpretation);
-            ++i;
-        }
-    }
-
-    // write .prj file
-    geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), srs);
-
-    // write world file
-    geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
-                          , geoTrafo);
-
-    // OK, tell ctor that dset was freshly created
-    return GeoDataset(std::move(ds), true);
-}*/
 
 namespace {
 GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
@@ -723,22 +655,126 @@ GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
     return GRA_Lanczos;
 }
 
+double sourcePixelSize(const geo::CsConvertor conv
+                       , const geo::GeoDataset &src
+                       , const geo::GeoDataset &dst)
+{
+    // two points in the center of dst raster one pixel apart:
+    const auto dstSize(dst.size());
+    const math::Point2 dstR1(dstSize.width / 2. - .5, dstSize.height / 2.);
+    const math::Point2 dstR2(dstSize.width / 2. + .5, dstSize.height / 2.);
+
+    // convert them to geo coordinates
+    const auto dstG1(dst.raster2geo(dstR1, .0));
+    const auto dstG2(dst.raster2geo(dstR2, .0));
+
+    // now, convert them to source ref system
+    const auto srcG1(conv(dstG1));
+    const auto srcG2(conv(dstG2));
+
+    // and finally convert them to src raster
+    const auto srcR1(src.geo2raster<math::Point2>(srcG1));
+    const auto srcR2(src.geo2raster<math::Point2>(srcG2));
+
+    // calculate source distance -> size of source pixel
+    return boost::numeric::ublas::norm_2(srcR2 - srcR1);
+}
+
+template <typename T>
+inline char cpSign(const math::Point2_<T> &prev
+                   , const math::Point2_<T> &cur
+                   , const math::Point2_<T> &next)
+{
+    math::Point2_<T> v1(cur - prev);
+    math::Point2_<T> v2(next - cur);
+    auto cp(math::crossProduct(normalize(v1), normalize(v2)));
+
+    if (cp > 0.1) {
+        return 1;
+    } else if (cp < -0.1) {
+        return 2;
+    }
+
+    return 0;
+}
+
+/** True only when polygon is right rotating and has sane shape (i.e. not
+ *  flattened to (almost) line)
+ */
+bool rightRotating(const math::Points2 &polygon)
+{
+    if (polygon.size() < 3) {
+        // this is not a polygon
+        return false;
+    }
+
+    char sign(0);
+
+    // first, special cases
+    sign = cpSign(polygon.back(), polygon.front(), polygon[1]);
+    if (!sign) { return false; }
+
+    sign |= cpSign(polygon[polygon.size() - 2], polygon.back()
+                   , polygon.front());
+    // check for signs
+    if (!sign || (sign == 3)) { return false; }
+
+    // rest of polygon
+    for (auto ip(polygon.begin() + 1), ep(polygon.end() - 1); ip != ep; ++ip) {
+        auto s(cpSign(*(ip - 1), *ip, *(ip + 1)));
+        if (!s) { return false; }
+        sign |= s;
+        if (sign == 3) { return false; }
+    }
+
+    return (sign == 2);
+}
+
+void sourceExtra(const GeoDataset &src, const GeoDataset &dst
+                 , OptionsWrapper &wo)
+{
+    const geo::CsConvertor conv(dst.srs(), src.srs());
+
+    std::vector<math::Point2> corners;
+    auto dstExtents(dst.extents());
+    for (const auto &corner : {
+            math::ul(dstExtents), math::ur(dstExtents)
+            , math::lr(dstExtents), math::ll(dstExtents) })
+    {
+        corners.push_back(conv(corner));
+    }
+
+    if (rightRotating(corners)) {
+        // right rotating polygon maps to sane right rotating polygon -> no wrap
+        // arround
+        return;
+    }
+
+    auto ps(sourcePixelSize(conv, src, dst));
+    auto s(dst.size());
+    ps *= std::max(s.width, s.height);
+
+    // TODO: add some limit
+
+    LOG(info2) << "Setting SOURCE_EXTRA=" << std::ceil(ps) << ".";
+    wo("SOURCE_EXTRA", std::ceil(ps));
+}
+
 } // namespace
 
 void GeoDataset::warpInto(GeoDataset & dst
-                          , const boost::optional<Resampling> &requestedAlg)
+                          , const boost::optional<Resampling> &requestedAlg
+                          , const Options &options)
     const
 {
-    /* LOG(info1)
-        << std::fixed << "Warping into: dst extents = "
-        << dst.extents() << ", size = " << dst.size(); */
-
     // sanity
     ut::expect( dset_->GetRasterCount() == dst.dset_->GetRasterCount()
                 && dset_->GetRasterCount() > 0,
             "Error in warp: both dataset need to have the same number of bands." );
 
     Resampling alg(requestedAlg ? *requestedAlg : Resampling::lanczos);
+
+    OptionsWrapper wo(options);
 
     // ---- optimization starts here ----
     if (areSame(srs(), dst.srs(), SrsEquivalence::geographic)) {
@@ -747,10 +783,9 @@ void GeoDataset::warpInto(GeoDataset & dst
         math::Point2 dsOffset;
 
         if ( areIdenticalButForShift( geoTransform_, dst.geoTransform() ) ) {
-            
             // distance between origins
             auto res(resolution());
-            
+
             dsOffset = dst.origin() - origin();
             dsOffset(0) /= res(0);
             dsOffset(1) /= res(1);
@@ -768,6 +803,9 @@ void GeoDataset::warpInto(GeoDataset & dst
         }
     }
     // ---- optimization ends here ----
+
+    // calculate sourceExtra parameter from datasets (if needed)
+    sourceExtra(*this, dst, wo);
 
     // create warp options
     GDALWarpOptions * warpOptions = GDALCreateWarpOptions();
@@ -822,8 +860,10 @@ void GeoDataset::warpInto(GeoDataset & dst
     warpOptions->eResampleAlg = algoToGdal(alg);
     warpOptions->pfnProgress = GDALDummyProgress;
 
-    warpOptions->papszWarpOptions = CSLSetNameValue(
-        warpOptions->papszWarpOptions, "INIT_DEST", "NO_DATA" );
+    // update options and grab options since it is destroyed by
+    // GDALDestroyWarpOptions
+    wo("INIT_DEST", "NO_DATA");
+    warpOptions->papszWarpOptions = wo.release();
 
     // establish reprojection transformer.
     warpOptions->pTransformerArg =
@@ -831,7 +871,7 @@ void GeoDataset::warpInto(GeoDataset & dst
                                          dset_->GetProjectionRef(),
                                          warpOptions->hDstDS,
                                          dst.dset_->GetProjectionRef(),
-                                         true, 0, 1 ); 
+                                         true, 0, 1 );
     warpOptions->pfnTransformer = GDALGenImgProjTransform;
 
     // initialize and execute the warp operation.

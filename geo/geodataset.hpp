@@ -139,27 +139,27 @@ public:
         }
     };
 
-    /** Dataset create time options. Thin wrapper around string pair vector.
+    /** Various options. Thin wrapper around vector of string pairs.
      *
-     *  See:
+     *  For create-options see:
      *    * http://www.gdal.org/frmt_gtiff.html for gtiff options
      *    * http://www.gdal.org/frmt_various.html#PNG for png options
      *    * http://www.gdal.org/frmt_jpeg.html for jpeg options
      */
-    struct CreateOptions {
+    struct Options {
         typedef std::pair<std::string, std::string> Option;
-        typedef std::vector<Option> Options;
-        Options options;
+        typedef std::vector<Option> OptionList;
+        OptionList options;
 
-        CreateOptions() = default;
+        Options() = default;
 
         template <typename T>
-        CreateOptions(const std::string &name, const T &value) {
+        Options(const std::string &name, const T &value) {
             operator()(name, value);
         }
 
         template <typename T>
-        CreateOptions operator()(const std::string &name, const T &value) {
+        Options operator()(const std::string &name, const T &value) {
             options.emplace_back
                 (name, boost::lexical_cast<std::string>(value));
             return *this;
@@ -167,7 +167,7 @@ public:
 
         /** Special handling for boolean -> YES/NO
          */
-        CreateOptions operator()(const std::string &name, bool value) {
+        Options operator()(const std::string &name, bool value) {
             options.emplace_back(name, value ? "YES" : "NO");
             return *this;
         }
@@ -190,7 +190,7 @@ public:
                              , const math::Size2 &rasterSize
                              , const Format &format
                              , double noDataValue
-                             , const CreateOptions &options = CreateOptions());
+                             , const Options &options = Options());
 
     /** Creates new dataset at given path.
      *
@@ -208,7 +208,7 @@ public:
                              , const math::Size2 &rasterSize
                              , const Format &format
                              , double noDataValue
-                             , const CreateOptions &options = CreateOptions());
+                             , const Options &options = Options());
 
     enum class Type { custom, grayscale, rgb, rgba, alpha };
     Type type() const { return type_; }
@@ -230,9 +230,9 @@ public:
      * \param dst destination dataset
      * \param alg resampling algorithm (i.e. filter to use)
      */
-    void warpInto( GeoDataset & dst
-                   , const boost::optional<Resampling> &alg = boost::none)
-        const;
+    void warpInto(GeoDataset & dst
+                  , const boost::optional<Resampling> &alg = boost::none
+                  , const Options &options = Options()) const;
 
     void expectRGB() const;
     void expectGray() const;
