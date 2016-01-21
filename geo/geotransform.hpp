@@ -94,7 +94,7 @@ public :
         geo2rowcol( {gp(0),gp(1),.0}, row, col ); 
         return math::Point3_<T1>( col, row, gp[2] );
     }
-    
+
 private :
     math::Point2 applyGeoTransform( double col, double row ) const;
     void applyInvGeoTransform( 
