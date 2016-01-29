@@ -435,97 +435,11 @@ GeoDataset GeoDataset::deriveInMemory(
         size = boost::in_place(esize.width / res(0), esize.height / res(1));
     }
 
-    return deriveInMemory( source, srs, math::Point2( 
+    return deriveInMemory( source, srs, math::Point2(
                             ( extents.ur[0] - extents.ll[0] ) / size->width,
                             ( extents.ur[1] - extents.ll[1] ) / size->height ),
                            extents );
 }
-
-/*
-GeoDataset GeoDataset::deriveInMemory(
-        const GeoDataset & source, const SrsDefinition &srs,
-        boost::optional<math::Size2i> size,
-        const math::Extents2 &extents )
-{
-    // use source's SRS if same (this prevents conversion through lat/lon if
-    // GDAL thinks that these are not the same)
-    std::string srsWkt
-        (areSame(srs, SrsDefinition(source.srsWkt_, SrsDefinition::Type::wkt))
-         ? source.srsWkt_
-         : srs.as(SrsDefinition::Type::wkt).srs);
-
-    if (!size) {
-        auto esize(math::size(extents));
-        auto res(source.resolution());
-        size = boost::in_place(esize.width / res(0), esize.height / res(1));
-    }
-
-    GDALDataset * sdset( const_cast<GDALDataset *>( source.dset_.get() ) );
-
-    // obtain driver
-    GDALDriver * driver = GetGDALDriverManager()->GetDriverByName( "MEM" ); //"GTiff" );
-
-    ut::expect( driver, "Failed to initialize in memory driver." );
-
-    ut::expect( source.dset_->GetRasterCount() >= 1,
-        "No bands exist in input dataset." );
-
-    // determine datatypes
-    GDALDataType srcDataType, dstDataType( GDT_Byte );
-    double dstNoDataValue( 0.0 );
-
-    srcDataType = sdset->GetRasterBand(1)->GetRasterDataType();
-
-    if ( source.noDataValue_ ) {
-        dstNoDataValue = source.noDataValue_.get();
-        dstDataType = srcDataType;
-    }
-
-    if ( ! source.noDataValue_ ) switch( srcDataType ) {
-
-        case GDT_Byte :
-            dstDataType = GDT_Int16; dstNoDataValue = -1; break;
-
-        case GDT_UInt16 :
-            dstDataType = GDT_Int32; dstNoDataValue = -1; break;
-
-        case GDT_Int16 :
-            dstDataType = GDT_Int32; dstNoDataValue = 1 << 16; break;
-
-        case GDT_Float32 :
-            dstDataType = GDT_Float64; dstNoDataValue = 1.0E40; break;
-
-        default :
-            LOGTHROW( err2, std::runtime_error )
-                << "A no data value is compulsory for dataset of type "
-                << srcDataType << ". Please patch your data.";
-    }
-
-    // create dataset
-    std::unique_ptr<GDALDataset> tdset(driver->Create(
-        "MEM", //"MEM.tif",
-        size->width,
-        size->height,
-        sdset->GetRasterCount(), dstDataType, nullptr ));
-
-    ut::expect( tdset.get(), "Failed to create in memory dataset.\n" );
-
-    for ( int i = 1; i <= tdset->GetRasterCount(); i++ ) {
-
-        tdset->GetRasterBand(i)->SetColorInterpretation(
-            sdset->GetRasterBand(i)->GetColorInterpretation() );
-        tdset->GetRasterBand(i)->SetNoDataValue( dstNoDataValue );
-    }
-
-    auto geoTrafo(buildGeoTransform(extents, *size));
-
-    tdset->SetGeoTransform( geoTrafo.data() );
-    tdset->SetProjection( srsWkt.c_str() );
-
-    // all done
-    return GeoDataset(std::move(tdset));
-}
-*/
 
 GeoDataset GeoDataset::create(const boost::filesystem::path &path
                              , const SrsDefinition &srs
@@ -533,12 +447,16 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                              , const math::Size2 &rasterSize
                              , const Format &format
                              , double noDataValue
-                             , const Options &options ) {
-    
+                             , const Options &options )
+{
     if (!initialized_) { initialize(); }
 
+    // driver name to use
     std::string storageFormat;
+    // world file extension: both world and prj files are not written when empty
     std::string wfExt;
+    // path passed to driver
+    boost::filesystem::path usePath(path);
 
     switch (format.storageType) {
     case Format::Storage::gtiff:
@@ -554,6 +472,12 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     case Format::Storage::jpeg:
         storageFormat = "JPEG";
         wfExt = "jgw";
+        break;
+
+    case Format::Storage::memory:
+        storageFormat = "MEM";
+        usePath = "MEM";
+        wfExt = "";
         break;
     }
 
@@ -572,8 +496,15 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
             << "> format doesn't support creation.";
     }
 
+    /* create parent directory for output dataset */ {
+        auto pp(usePath.parent_path());
+        if (!pp.empty()) {
+            create_directories(pp);
+        }
+    }
+
     std::unique_ptr<GDALDataset>
-        ds(driver->Create(path.string().c_str()
+        ds(driver->Create(usePath.string().c_str()
                           , rasterSize.width
                           , rasterSize.height
                           , format.channels.size()
@@ -592,7 +523,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
 
     // set geo trafo
     auto geoTrafo( geoTransform );
-    
+
     if (ds->SetGeoTransform(geoTrafo.data()) != CE_None) {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to set geo transform to newly created GDAL data set.";
@@ -610,16 +541,17 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
         }
     }
 
-    // write .prj file
-    geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), srs);
+    if (!wfExt.empty()) {
+        // write .prj file
+        geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), srs);
 
-    // write world file
-    geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
-                          , geoTrafo);
+        // write world file
+        geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
+                              , geoTrafo);
+    }
 
     // OK, tell ctor that dset was freshly created
     return GeoDataset(std::move(ds), true);
-    
 }
 
 
@@ -1166,7 +1098,7 @@ void GeoDataset::filterMesh( const geometry::Mesh& mesh, const math::Extents2 & 
 
         std::map<int,int>::iterator ref0, ref1, ref2;
         bool v0, v1, v2;
- 
+
         v0 = ( ref0 = iord2oord.find( face.a ) ) != iord2oord.end();
         v1 = ( ref1 = iord2oord.find( face.b ) ) != iord2oord.end();
         v2 = ( ref2 = iord2oord.find( face.c ) ) != iord2oord.end();

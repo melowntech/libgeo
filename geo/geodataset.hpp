@@ -93,7 +93,7 @@ public:
     /** Format descriptor
      */
     struct Format {
-        enum class Storage { gtiff, png, jpeg };
+        enum class Storage { gtiff, png, jpeg, memory };
 
         /** Datatype (GDT_Byte, GDT_UInt16, ...)
          */
@@ -129,13 +129,12 @@ public:
                 , Format::Storage::jpeg };
         }
 
-        static Format coverage() {
-            return { GDT_Byte, { GCI_AlphaBand }, Format::Storage::gtiff };
+        static Format coverage(Storage storage = Storage::gtiff) {
+            return { GDT_Byte, { GCI_AlphaBand }, storage };
         }
 
-        static Format dsm() {
-            return { GDT_Float32, { GCI_GrayIndex }
-                , Format::Storage::gtiff };
+        static Format dsm(Storage storage = Storage::gtiff) {
+            return { GDT_Float32, { GCI_GrayIndex }, storage };
         }
     };
 
