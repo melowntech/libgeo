@@ -347,6 +347,11 @@ public:
      */
     void applyMask(const GeoDataset &other);
 
+    /** Applies mask over current mask. Called must ensure that mask gives
+     *  sense.
+     */
+    void applyMask(const Mask &mask);
+
     void flush();
 
     /** Returns geo extents of given pixel in raster

@@ -686,10 +686,14 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
     auto s(dst.size());
     ps *= std::max(s.width, s.height);
 
-    // TODO: add some limit
+    // TODO: dynamic limit
+    auto se(std::ceil(ps));
+    if (se > 1000) {
+        se = 1000;
+    }
 
-    LOG(info2) << "Setting SOURCE_EXTRA=" << std::ceil(ps) << ".";
-    wo("SOURCE_EXTRA", std::ceil(ps));
+    LOG(info2) << "Setting SOURCE_EXTRA=" << se << ".";
+    wo("SOURCE_EXTRA", se);
 }
 
 } // namespace
@@ -1415,6 +1419,12 @@ void GeoDataset::applyMask(const GeoDataset &other)
 
     // we have to convert mask to this space
     mask_->intersect(convertMask(other));
+}
+
+void GeoDataset::applyMask(const Mask &mask)
+{
+    assertData();
+    mask_->intersect(mask);
 }
 
 void GeoDataset::flush()
