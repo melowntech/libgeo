@@ -696,6 +696,96 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
     wo("SOURCE_EXTRA", se);
 }
 
+void createTransformer(GDALWarpOptions *wo)
+{
+    // destroy transformer if present
+    if (wo->pTransformerArg) {
+        ::GDALDestroyGenImgProjTransformer(wo->pTransformerArg);
+    }
+
+    // create new
+    wo->pfnTransformer = ::GDALGenImgProjTransform;
+    wo->pTransformerArg =
+        ::GDALCreateGenImgProjTransformer
+        (wo->hSrcDS, ::GDALGetProjectionRef(wo->hSrcDS)
+         , wo->hDstDS, ::GDALGetProjectionRef(wo->hDstDS)
+         , true, 0, 1);
+}
+
+std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo)
+{
+    auto src(static_cast<GDALDataset*>(wo->hSrcDS));
+
+    auto band(src->GetRasterBand(1));
+    // get number of overviews and bail out if there are none
+    auto count(band->GetOverviewCount());
+    if (!count) { return {}; }
+
+    // Compute what the "natural" output resolution (in pixels) would be for
+    // this input dataset
+    double suggestedGeoTransform[6];
+    double extents[4];
+    int x, y;
+    if (::GDALSuggestedWarpOutput2(src, wo->pfnTransformer
+                                   , wo->pTransformerArg
+                                   , suggestedGeoTransform
+                                   , &x, &y, extents, 0)
+        != CE_None)
+    {
+        return {};
+    }
+
+    // calculate target ratio
+    double targetRatio(1.0 / suggestedGeoTransform[1]);
+    if (targetRatio < 1.0) { return {}; }
+
+    int ovr(-1);
+    for (; ovr < count - 1; ++ovr) {
+        double thisRatio(1.0);
+        if (ovr >= 0) {
+            thisRatio = (double(src->GetRasterXSize())
+                         / double(band->GetOverview(ovr)->GetXSize()));
+        }
+        double nextRatio(double(src->GetRasterXSize())
+                         / double(band->GetOverview(ovr + 1)->GetXSize()));
+
+        if ((thisRatio < targetRatio) && (nextRatio > targetRatio)) {
+            // found
+            break;
+        }
+
+        if (std::abs(thisRatio - targetRatio) < 1e-1) {
+            // close enough
+            break;
+        }
+    }
+
+    // -1 -> original dataset
+    if (ovr < 0) { return {}; }
+
+    // use chosen overwiew
+    std::unique_ptr<GDALDataset> ovrDs
+        (::GDALCreateOverviewDataset(src, ovr, false, false));
+    if (!ovrDs) {
+        // failed -> go on with original dataset
+        return ovrDs;
+    }
+
+    // update warp options
+
+    // set new source
+    wo->hSrcDS = ovrDs.get();
+
+    // re-create transformer
+    createTransformer(wo);
+
+    LOG(info1)
+        << "Wapr uses overview #" << ovr << " instead of the full dataset.";
+
+    // and return holder
+    return ovrDs;
+}
+
 } // namespace
 
 void GeoDataset::warpInto(GeoDataset & dst
@@ -746,8 +836,8 @@ void GeoDataset::warpInto(GeoDataset & dst
     // create warp options
     GDALWarpOptions * warpOptions = GDALCreateWarpOptions();
 
-    warpOptions->hSrcDS = const_cast<GDALDataset *>( dset_.get() );
-    warpOptions->hDstDS = const_cast<GDALDataset *>( dst.dset_.get() );
+    warpOptions->hSrcDS = dset_.get();
+    warpOptions->hDstDS = dst.dset_.get();
 
     warpOptions->nBandCount = dset_->GetRasterCount();
 
@@ -802,13 +892,10 @@ void GeoDataset::warpInto(GeoDataset & dst
     warpOptions->papszWarpOptions = wo.release();
 
     // establish reprojection transformer.
-    warpOptions->pTransformerArg =
-        GDALCreateGenImgProjTransformer( warpOptions->hSrcDS,
-                                         dset_->GetProjectionRef(),
-                                         warpOptions->hDstDS,
-                                         dst.dset_->GetProjectionRef(),
-                                         true, 0, 1 );
-    warpOptions->pfnTransformer = GDALGenImgProjTransform;
+    createTransformer(warpOptions);
+
+    // choose overview and hold the dataset
+    auto ovrDs(chooseOverview(warpOptions));
 
     // initialize and execute the warp operation.
     GDALWarpOperation oOperation;
