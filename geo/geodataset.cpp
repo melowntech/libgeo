@@ -967,10 +967,13 @@ void GeoDataset::loadData() const {
     // establish mask
     mask_ = RasterMask( size_.width,size_.height,RasterMask::FULL );
 
-    if ( noDataValue_ ) {
-#if 0
-        // get mask band
-        auto maskBand(dset_->GetRasterBand(1)->GetMaskBand());
+    // generate mask
+
+    // get mask band
+    auto band(dset_->GetRasterBand(1));
+    if (!(band->GetMaskFlags() & GMF_ALL_VALID)) {
+        // some invalid pixels
+        auto maskBand(band->GetMaskBand());
         auto gdalDataType = maskBand->GetRasterDataType();
         auto cvDataType = gdal2cv(gdalDataType, 1);
         ut::expect((cvDataType == CV_8UC1)
@@ -1000,16 +1003,6 @@ void GeoDataset::loadData() const {
                 }
             }
         }
-
-#else
-        double * curpos = reinterpret_cast<double *>( data_->data );
-
-        for ( int i = 0; i < size_.height; i++ )
-            for ( int j = 0; j < size_.width; j++ )
-                for ( int k = 0; k < numChannels_; k++ )
-                    if ( *curpos++ == noDataValue_.get() )
-                        mask_->set(j,i,false);
-#endif
     }
 
     // all done
