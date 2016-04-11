@@ -581,6 +581,11 @@ GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
     case GeoDataset::Resampling::lanczos: return GRA_Lanczos;
     case GeoDataset::Resampling::average: return GRA_Average;
     case GeoDataset::Resampling::mode: return GRA_Mode;
+    case GeoDataset::Resampling::minimum: return GRA_Min;
+    case GeoDataset::Resampling::maximum: return GRA_Max;
+    case GeoDataset::Resampling::median: return GRA_Med;
+    case GeoDataset::Resampling::q1: return GRA_Q1;
+    case GeoDataset::Resampling::q3: return GRA_Q3;
     }
 
     // falback
@@ -780,7 +785,7 @@ std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo)
     createTransformer(wo);
 
     LOG(info1)
-        << "Wapr uses overview #" << ovr << " instead of the full dataset.";
+        << "Warp uses overview #" << ovr << " instead of the full dataset.";
 
     // and return holder
     return ovrDs;
@@ -1685,6 +1690,12 @@ math::Extents2 GeoDataset::pixelExtents(const math::Extents2i &raster) const
             , geo_ur(1) - halfPixel(1)
             , geo_ur(0) + halfPixel(0)
             , geo_ll(1) + halfPixel(1) };
+}
+
+bool GeoDataset::allValid() const
+{
+    // all pixels in mask must be valid
+    return (dset_->GetRasterBand(1)->GetMaskFlags() & GMF_ALL_VALID);
 }
 
 } // namespace geo

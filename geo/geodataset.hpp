@@ -214,6 +214,7 @@ public:
 
     enum Resampling {
         nearest, bilinear, cubic, cubicspline, lanczos, average, mode
+        , minimum, maximum, median, q1, q3
     };
 
     /** \brief Warp data from this dataset to destination dataset.
@@ -529,6 +530,10 @@ public:
     math::Point2 origin() const { 
         return math::Point2( geoTransform_[0], geoTransform_[3] ); }
 
+    /** Says whether all pixels in this datasets are valid.
+     */
+    bool allValid() const;
+
 private:
     static bool initialized_;
     static void initialize();
@@ -579,6 +584,11 @@ UTILITY_GENERATE_ENUM_IO(GeoDataset::Resampling,
                          ((lanczos))
                          ((average))
                          ((mode))
+                         ((minimum))
+                         ((maximum))
+                         ((median))
+                         ((q1))
+                         ((q3))
                          )
 
 } // namespace geo
