@@ -791,11 +791,19 @@ std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo)
     return ovrDs;
 }
 
+const GeoDataset::NodataValue&
+chooseNodataValue(const GeoDataset::NodataValue &original
+                  , const GeoDataset::OptionalNodataValue &override)
+{
+    // return original unless override is set
+    return override ? *override : original;
+}
+
 } // namespace
 
 void GeoDataset::warpInto(GeoDataset & dst
                           , const boost::optional<Resampling> &requestedAlg
-                          , const Options &options)
+                          , const WarpOptions &options)
     const
 {
     // sanity
@@ -851,7 +859,12 @@ void GeoDataset::warpInto(GeoDataset & dst
     warpOptions->panDstBands =
         (int *) CPLMalloc(sizeof(int) * warpOptions->nBandCount );
 
-    if ( noDataValue_ ) {
+    const NodataValue &srcNodataValue
+        (chooseNodataValue(noDataValue_, options.srcNodataValue));
+    const NodataValue &dstNodataValue
+        (chooseNodataValue(dst.noDataValue_, options.dstNodataValue));
+
+    if ( srcNodataValue ) {
 
         warpOptions->padfSrcNoDataReal =
             (double *) CPLMalloc(sizeof(double) * warpOptions->nBandCount );
@@ -860,8 +873,7 @@ void GeoDataset::warpInto(GeoDataset & dst
 
     }
 
-
-    if ( dst.noDataValue_ ) {
+    if ( dstNodataValue ) {
 
         warpOptions->padfDstNoDataReal =
             (double *) CPLMalloc(sizeof(double) * warpOptions->nBandCount );
@@ -875,15 +887,15 @@ void GeoDataset::warpInto(GeoDataset & dst
         warpOptions->panSrcBands[i] = i + 1;
         warpOptions->panDstBands[i] = i + 1;
 
-        if ( noDataValue_ ) {
+        if ( srcNodataValue ) {
 
-            warpOptions->padfSrcNoDataReal[i] = noDataValue_.get();
+            warpOptions->padfSrcNoDataReal[i] = srcNodataValue.get();
             warpOptions->padfSrcNoDataImag[i] = 0.0;
         }
 
-        if ( dst.noDataValue_ ) {
+        if ( dstNodataValue ) {
 
-            warpOptions->padfDstNoDataReal[i] = dst.noDataValue_.get();
+            warpOptions->padfDstNoDataReal[i] = dstNodataValue.get();
             warpOptions->padfDstNoDataImag[i] = 0.0;
         }
     }

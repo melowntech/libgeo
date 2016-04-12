@@ -138,6 +138,9 @@ public:
         }
     };
 
+    typedef boost::optional<double> NodataValue;
+    typedef boost::optional<NodataValue> OptionalNodataValue;
+
     /** Various options. Thin wrapper around vector of string pairs.
      *
      *  For create-options see:
@@ -172,6 +175,17 @@ public:
         }
     };
 
+    struct WarpOptions : Options {
+        WarpOptions() = default;
+
+        template <typename T>
+        WarpOptions(const std::string &name, const T &value) {
+            operator()(name, value);
+        }
+
+        OptionalNodataValue srcNodataValue;
+        OptionalNodataValue dstNodataValue;
+    };
 
     /** Creates new dataset at given path
      *
@@ -232,7 +246,7 @@ public:
      */
     void warpInto(GeoDataset & dst
                   , const boost::optional<Resampling> &alg = boost::none
-                  , const Options &options = Options()) const;
+                  , const WarpOptions &options = WarpOptions()) const;
 
     void expectRGB() const;
     void expectGray() const;
@@ -559,7 +573,7 @@ private:
     int numChannels_;
     /** Read/write channel mapping: maps GDAL band number to opencv channel. */
     std::vector<int> channelMapping_;
-    boost::optional<double> noDataValue_;
+    NodataValue noDataValue_;
     mutable boost::optional<cv::Mat> data_;
     mutable boost::optional<Mask> mask_;
 
