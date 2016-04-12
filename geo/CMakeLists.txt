@@ -43,6 +43,8 @@ set(geo_SOURCES
     detail/pjfactors-4.7.h
     detail/pjfactors-4.8.h
 
+    gdal.hpp gdal.cpp
+
     ${geo_OPENCV_SOURCES}
 )
 
