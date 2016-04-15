@@ -279,7 +279,8 @@ GeoDataset GeoDataset::deriveInMemory(
         const GeoDataset & source, const SrsDefinition & srs,
         boost::optional<math::Point2d> pixelSize,
         boost::optional<math::Extents2> extents,
-        const math::Matrix2 & trafo ) {
+        const math::Matrix2 & trafo,
+        boost::optional<GDALDataType> dstDataTypeOverride) {
 
     // source dataset handle
     GDALDataset * sdset( const_cast<GDALDataset *>( source.dset_.get() ) );
@@ -401,6 +402,39 @@ GeoDataset GeoDataset::deriveInMemory(
                 << srcDataType << ". Please patch your data.";
     }
 
+    // override dstDatatype if requested
+    if (dstDataTypeOverride) {
+        dstDataType = *dstDataTypeOverride;
+
+        if ( ! source.noDataValue_ ) switch( dstDataType ) {
+
+            case GDT_Byte :
+                dstNoDataValue = 0; break;
+
+            case GDT_UInt16 :
+                dstNoDataValue = 0; break;
+
+            case GDT_Int16 :
+                dstNoDataValue = -1; break;
+
+            case GDT_Int32:
+                dstNoDataValue = 1 << 16; break;
+
+            case GDT_Float32 :
+                dstNoDataValue = 1.0E15; break;
+
+            case GDT_Float64:
+                dstNoDataValue = 1.0E40; break;
+
+
+            default :
+                LOGTHROW( err2, std::runtime_error )
+                    << "A no data value is compulsory for source dataset "
+                    << "when override type is" << dstDataType
+                    << ". Please patch your data.";
+        }
+    }
+
     // create dataset
     std::unique_ptr<GDALDataset> tdset(driver->Create(
         "MEM", //"MEM.tif",
@@ -427,7 +461,8 @@ GeoDataset GeoDataset::deriveInMemory(
 GeoDataset GeoDataset::deriveInMemory(
         const GeoDataset & source, const SrsDefinition &srs,
         boost::optional<math::Size2i> size,
-        const math::Extents2 &extents )
+        const math::Extents2 &extents,
+        boost::optional<GDALDataType> dstDataTypeOverride)
 {
     if (!size) {
         auto esize(math::size(extents));
@@ -438,7 +473,8 @@ GeoDataset GeoDataset::deriveInMemory(
     return deriveInMemory( source, srs, math::Point2(
                             ( extents.ur[0] - extents.ll[0] ) / size->width,
                             ( extents.ur[1] - extents.ll[1] ) / size->height ),
-                           extents );
+                           extents, ublas::identity_matrix<double>(2),
+                           dstDataTypeOverride);
 }
 
 GeoDataset GeoDataset::create(const boost::filesystem::path &path
