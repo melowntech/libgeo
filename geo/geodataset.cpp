@@ -345,8 +345,8 @@ GeoDataset GeoDataset::deriveInMemory(
 
     math::Matrix3 istrafo = ublas::identity_matrix<double>(3);
     
-    size.width = ( textents.ur[0] - textents.ll[0] ) / lpixelSize(0);
-    size.height = ( textents.ur[1] - textents.ll[1] ) / lpixelSize(1);
+    size.width = std::round(( textents.ur[0] - textents.ll[0] ) / lpixelSize(0));
+    size.height = std::round(( textents.ur[1] - textents.ll[1] ) / lpixelSize(1));
     
     istrafo(0,0) = 1.0 / lpixelSize(0); istrafo(1,1) = - 1.0 / lpixelSize(1);
     math::Point2 offset = - subrange( prod( istrafo, 
