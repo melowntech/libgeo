@@ -22,6 +22,11 @@ OGRSpatialReference asOgrSr(const SrsDefinition &def);
 OGRSpatialReference merge(const OGRSpatialReference &horiz
                           , const OGRSpatialReference &vert);
 
+/** Adds/replaces geoid to spatial reference.
+ */
+::OGRSpatialReference setGeoid(const ::OGRSpatialReference &srs
+                               , const std::string &geoid);
+
 } // namespace geo
 
 #endif // geo_srs_hpp_included_

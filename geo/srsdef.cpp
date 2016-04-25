@@ -246,6 +246,38 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert)
         (merge(horiz.reference(), vert.reference()));
 }
 
+::OGRSpatialReference setGeoid(const ::OGRSpatialReference &srs
+                               , const std::string &geoid)
+{
+    if (!(srs.IsProjected() || srs.IsGeographic())) {
+        LOGTHROW(err1, std::runtime_error)
+            << "SRS set geoid: SRS is neither projected nor "
+            "geographic coordinate system";
+    }
+
+    std::string wkt("VERT_CS[\"geoid height\","
+                    "VERT_DATUM[\"geoid\",2005,EXTENSION[\"PROJ4_GRIDS\""
+                    ",\"" + geoid + "\"]],UNIT[\"metre\",1]]");
+    std::vector<char> tmp(wkt.c_str(), wkt.c_str() + wkt.size() + 1);
+    ::OGRSpatialReference vert;
+    char *data(tmp.data());
+    auto err(vert.importFromWkt(&data));
+    if (err != OGRERR_NONE) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Error parsing wkt definition: <" << err << "> (input = "
+            << wkt << ").";
+    }
+
+    ::OGRSpatialReference out;
+    out.SetCompoundCS("", &srs, &vert);
+    return out;
+}
+
+SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoid)
+{
+    return SrsDefinition::fromReference(setGeoid(srs.reference(), geoid));
+}
+
 SrsDefinition SrsDefinition::fromString(std::string value)
 {
     namespace ba = boost::algorithm;

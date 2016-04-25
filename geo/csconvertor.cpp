@@ -112,7 +112,8 @@ math::Point2 CsConvertor::operator()(const math::Point2 &p) const
     double x(p(0)), y(p(1)), z(0);
     if (!(trans(trans_).Transform(1, &x, &y, &z))) {
         LOGTHROW(err1, std::runtime_error)
-            << "Cannot convert point between coordinate systems: <"
+            << std::fixed
+            << "Cannot convert point " << p << " between coordinate systems: <"
             << ::CPLGetLastErrorMsg() << ">.";
     }
     return { x, y };
@@ -123,7 +124,8 @@ math::Point3 CsConvertor::operator()(const math::Point3 &p) const
     double x(p(0)), y(p(1)), z(p(2));
     if (!(trans(trans_).Transform(1, &x, &y, &z))) {
         LOGTHROW(err1, std::runtime_error)
-            << "Cannot convert point between coordinate systems: <"
+            << std::fixed
+            << "Cannot convert point " << p << " between coordinate systems: <"
             << ::CPLGetLastErrorMsg() << ">.";
     }
     return { x, y, z };

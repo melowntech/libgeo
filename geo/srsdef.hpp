@@ -56,6 +56,10 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
  */
 SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert);
 
+/** Adds/replaces geoid to spatial reference.
+ */
+SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoidGrid);
+
 UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((proj4))
     ((wkt))
