@@ -185,8 +185,22 @@ public:
             operator()(name, value);
         }
 
+        /** Src nodata override.
+         */
         OptionalNodataValue srcNodataValue;
+
+        /** Dst nodata override.
+         */
         OptionalNodataValue dstNodataValue;
+    };
+
+    /** Information about warp operation.
+     */
+    struct WarpResultInfo {
+        /** Index of used overview. Unset if dataset has been warped using
+         *  original dataset.
+         */
+        boost::optional<unsigned int> overview;
     };
 
     /** Creates new dataset at given path
@@ -245,10 +259,12 @@ public:
      *
      * \param dst destination dataset
      * \param alg resampling algorithm (i.e. filter to use)
+     * \return info about processed warp operation
      */
-    void warpInto(GeoDataset & dst
-                  , const boost::optional<Resampling> &alg = boost::none
-                  , const WarpOptions &options = WarpOptions()) const;
+    WarpResultInfo
+    warpInto(GeoDataset &dst
+             , const boost::optional<Resampling> &alg = boost::none
+             , const WarpOptions &options = WarpOptions()) const;
 
     void expectRGB() const;
     void expectGray() const;

@@ -753,7 +753,8 @@ void createTransformer(GDALWarpOptions *wo)
          , true, 0, 1);
 }
 
-std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo)
+std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo
+                                            , GeoDataset::WarpResultInfo &wri)
 {
     auto src(static_cast<GDALDataset*>(wo->hSrcDS));
 
@@ -802,7 +803,13 @@ std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo)
     }
 
     // -1 -> original dataset
-    if (ovr < 0) { return {}; }
+    if (ovr < 0) {
+        wri.overview = boost::none;
+        return {};
+    }
+
+    // set overview
+    wri.overview = ovr;
 
     // use chosen overwiew
     std::unique_ptr<GDALDataset> ovrDs
@@ -837,9 +844,10 @@ chooseNodataValue(const GeoDataset::NodataValue &original
 
 } // namespace
 
-void GeoDataset::warpInto(GeoDataset & dst
-                          , const boost::optional<Resampling> &requestedAlg
-                          , const WarpOptions &options)
+GeoDataset::WarpResultInfo
+GeoDataset::warpInto(GeoDataset &dst
+                     , const boost::optional<Resampling> &requestedAlg
+                     , const WarpOptions &options)
     const
 {
     // sanity
@@ -947,8 +955,10 @@ void GeoDataset::warpInto(GeoDataset & dst
     // establish reprojection transformer.
     createTransformer(warpOptions);
 
+    GeoDataset::WarpResultInfo wri;
+
     // choose overview and hold the dataset
-    auto ovrDs(chooseOverview(warpOptions));
+    auto ovrDs(chooseOverview(warpOptions, wri));
 
     // initialize and execute the warp operation.
     GDALWarpOperation oOperation;
@@ -967,7 +977,7 @@ void GeoDataset::warpInto(GeoDataset & dst
     dst.data_ = boost::none; dst.mask_ = boost::none;
 
     // done
-    //LOG(debug) << "Warped.";
+    return wri;
 }
 
 void GeoDataset::assertData() const {
@@ -1745,5 +1755,6 @@ bool GeoDataset::allValid() const
     // all pixels in mask must be valid
     return (dset_->GetRasterBand(1)->GetMaskFlags() & GMF_ALL_VALID);
 }
+
 
 } // namespace geo
