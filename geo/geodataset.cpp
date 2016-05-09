@@ -607,6 +607,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
 }
 
 namespace {
+
 GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
 {
     switch (alg) {
@@ -622,15 +623,20 @@ GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
     case GeoDataset::Resampling::median: return GRA_Med;
     case GeoDataset::Resampling::q1: return GRA_Q1;
     case GeoDataset::Resampling::q3: return GRA_Q3;
+
+    // these are just placeholders
+    case GeoDataset::Resampling::texture: return GRA_Lanczos;
+    case GeoDataset::Resampling::dem: return GRA_Lanczos;
     }
 
     // falback
     return GRA_Lanczos;
 }
 
-double sourcePixelSize(const geo::CsConvertor conv
+double sourcePixelSize(const geo::CsConvertor &conv
                        , const geo::GeoDataset &src
-                       , const geo::GeoDataset &dst)
+                       , const geo::GeoDataset &dst
+                       , const math::Point2 &srcScale = math::Point2(1.0, 1.0))
 {
     // two points in the center of dst raster one pixel apart:
     const auto dstSize(dst.size());
@@ -646,11 +652,21 @@ double sourcePixelSize(const geo::CsConvertor conv
     const auto srcG2(conv(dstG2));
 
     // and finally convert them to src raster
-    const auto srcR1(src.geo2raster<math::Point2>(srcG1));
-    const auto srcR2(src.geo2raster<math::Point2>(srcG2));
+    auto srcR1(src.geo2raster<math::Point2>(srcG1));
+    auto srcR2(src.geo2raster<math::Point2>(srcG2));
+    srcR2(0) *= srcScale(0); srcR2(1) *= srcScale(1);
+    srcR1(0) *= srcScale(0); srcR1(1) *= srcScale(1);
 
-    // calculate source distance -> size of source pixel
+    // calculate (scaled) source distance -> size of source pixel
     return boost::numeric::ublas::norm_2(srcR2 - srcR1);
+}
+
+double sourcePixelSize(const geo::GeoDataset &src
+                       , const geo::GeoDataset &dst
+                       , const math::Point2 &srcScale = math::Point2(1.0, 1.0))
+{
+    return sourcePixelSize(geo::CsConvertor(dst.srs(), src.srs())
+                           , src, dst, srcScale);
 }
 
 template <typename T>
@@ -761,7 +777,9 @@ std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo
     auto band(src->GetRasterBand(1));
     // get number of overviews and bail out if there are none
     auto count(band->GetOverviewCount());
-    if (!count) { return {}; }
+    if (!count) {
+        return {};
+    }
 
     // Compute what the "natural" output resolution (in pixels) would be for
     // this input dataset
@@ -792,12 +810,10 @@ std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo
                          / double(band->GetOverview(ovr + 1)->GetXSize()));
 
         if ((thisRatio < targetRatio) && (nextRatio > targetRatio)) {
-            // found
             break;
         }
 
         if (std::abs(thisRatio - targetRatio) < 1e-1) {
-            // close enough
             break;
         }
     }
@@ -840,6 +856,39 @@ chooseNodataValue(const GeoDataset::NodataValue &original
 {
     // return original unless override is set
     return override ? *override : original;
+}
+
+GDALResampleAlg chooseResampling(GeoDataset::Resampling alg
+                                 , GeoDataset::WarpResultInfo &wri)
+{
+    switch (alg) {
+    case GeoDataset::Resampling::texture:
+        if (wri.scale >= 0.5) {
+            // upscale or dowscale not less than half of original
+            return algoToGdal
+                (wri.resampling = GeoDataset::Resampling::cubic);
+        }
+
+        // downscaling to less than half
+        return algoToGdal
+            (wri.resampling = GeoDataset::Resampling::average);
+
+    case GeoDataset::Resampling::dem:
+        if (wri.scale > 1.0) {
+            // upscale
+            return algoToGdal
+                (wri.resampling = GeoDataset::Resampling::cubicspline);
+        }
+
+        // keep or downscale
+        return algoToGdal
+            (wri.resampling = GeoDataset::Resampling::average);
+
+    default: break;
+    }
+
+    // use provided resampling
+    return algoToGdal(wri.resampling =  alg);
 }
 
 } // namespace
@@ -944,7 +993,6 @@ GeoDataset::warpInto(GeoDataset &dst
         }
     }
 
-    warpOptions->eResampleAlg = algoToGdal(alg);
     warpOptions->pfnProgress = GDALDummyProgress;
 
     // update options and grab options since it is destroyed by
@@ -959,6 +1007,25 @@ GeoDataset::warpInto(GeoDataset &dst
 
     // choose overview and hold the dataset
     auto ovrDs(chooseOverview(warpOptions, wri));
+
+    // calculate (average) scale
+    {
+        // scaling applied to source (this) dataset by overview, defaults to 1x1
+        // if no overview present
+        math::Point2 srcScale(1.0, 1.0);
+        if (ovrDs) {
+            srcScale(0) = (double(ovrDs->GetRasterXSize())
+                           / double(dset_->GetRasterXSize()));
+            srcScale(1) = (double(ovrDs->GetRasterYSize()))
+                           / double(dset_->GetRasterYSize());
+        }
+
+        // scale is inverse of size of source pixel size
+        wri.scale = 1.0 / sourcePixelSize(*this, dst, srcScale);
+    }
+
+    // done
+    warpOptions->eResampleAlg = chooseResampling(alg, wri);
 
     // initialize and execute the warp operation.
     GDALWarpOperation oOperation;

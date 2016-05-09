@@ -194,15 +194,6 @@ public:
         OptionalNodataValue dstNodataValue;
     };
 
-    /** Information about warp operation.
-     */
-    struct WarpResultInfo {
-        /** Index of used overview. Unset if dataset has been warped using
-         *  original dataset.
-         */
-        boost::optional<unsigned int> overview;
-    };
-
     /** Creates new dataset at given path
      *
      *  \param path path to created file
@@ -245,6 +236,26 @@ public:
     enum Resampling {
         nearest, bilinear, cubic, cubicspline, lanczos, average, mode
         , minimum, maximum, median, q1, q3
+        , texture // selects best resampling based on scale for textures
+        , dem  // selects best resampling based on scale for dem
+    };
+
+    /** Information about warp operation.
+     */
+    struct WarpResultInfo {
+        /** Index of used overview. Unset if dataset has been warped using
+         *  original dataset.
+         */
+        boost::optional<unsigned int> overview;
+
+        /** Average scale between destination image and source image.
+         *  > 1: upscale, < 1 downscale
+         */
+        double scale;
+
+        /** Used resampling algorithm
+         */
+        Resampling resampling;
     };
 
     /** \brief Warp data from this dataset to destination dataset.
@@ -621,6 +632,8 @@ UTILITY_GENERATE_ENUM_IO(GeoDataset::Resampling,
                          ((median))
                          ((q1))
                          ((q3))
+                         ((texture))
+                         ((dem))
                          )
 
 } // namespace geo
