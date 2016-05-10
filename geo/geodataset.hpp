@@ -143,6 +143,9 @@ public:
     typedef boost::optional<double> NodataValue;
     typedef boost::optional<NodataValue> OptionalNodataValue;
 
+    typedef boost::optional<double> Overview;
+    typedef boost::optional<Overview> OptionalOverview;
+
     /** Various options. Thin wrapper around vector of string pairs.
      *
      *  For create-options see:
@@ -175,23 +178,6 @@ public:
             options.emplace_back(name, value ? "YES" : "NO");
             return *this;
         }
-    };
-
-    struct WarpOptions : Options {
-        WarpOptions() = default;
-
-        template <typename T>
-        WarpOptions(const std::string &name, const T &value) {
-            operator()(name, value);
-        }
-
-        /** Src nodata override.
-         */
-        OptionalNodataValue srcNodataValue;
-
-        /** Dst nodata override.
-         */
-        OptionalNodataValue dstNodataValue;
     };
 
     /** Creates new dataset at given path
@@ -246,7 +232,7 @@ public:
         /** Index of used overview. Unset if dataset has been warped using
          *  original dataset.
          */
-        boost::optional<unsigned int> overview;
+        Overview overview;
 
         /** Average scale between destination image and source image.
          *  > 1: upscale, < 1 downscale
@@ -256,6 +242,32 @@ public:
         /** Used resampling algorithm
          */
         Resampling resampling;
+    };
+
+    /** Warp options. Generic options + special stuff.
+     */
+    struct WarpOptions : Options {
+        WarpOptions() = default;
+
+        template <typename T>
+        WarpOptions(const std::string &name, const T &value) {
+            operator()(name, value);
+        }
+
+        /** Src nodata override.
+         */
+        OptionalNodataValue srcNodataValue;
+
+        /** Dst nodata override.
+         */
+        OptionalNodataValue dstNodataValue;
+
+        /** Force overview:
+         *  boost::none: auto
+         *  { boost::none }: original dataset
+         *  { int }: overview
+         */
+        OptionalOverview overview;
     };
 
     /** \brief Warp data from this dataset to destination dataset.

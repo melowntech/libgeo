@@ -769,16 +769,55 @@ void createTransformer(GDALWarpOptions *wo)
          , true, 0, 1);
 }
 
-std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo
-                                            , GeoDataset::WarpResultInfo &wri)
+std::unique_ptr<GDALDataset>
+chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
+               , const GeoDataset::WarpOptions &options)
 {
     auto src(static_cast<GDALDataset*>(wo->hSrcDS));
+
+    auto useOverview([&](int ovr) -> std::unique_ptr<GDALDataset>
+    {
+        // set overview
+        wri.overview = ovr;
+
+        // use chosen overwiew
+        std::unique_ptr<GDALDataset> ovrDs
+            (::GDALCreateOverviewDataset(src, ovr, false, false));
+        if (!ovrDs) {
+            // failed -> go on with original dataset
+            return ovrDs;
+        }
+
+        // update warp options
+
+        // set new source
+        wo->hSrcDS = ovrDs.get();
+
+        // re-create transformer
+        createTransformer(wo);
+
+        LOG(info1)
+            << "Warp uses overview #" << ovr
+            << " instead of the full dataset.";
+
+        // and return holder
+        return ovrDs;
+    });
 
     auto band(src->GetRasterBand(1));
     // get number of overviews and bail out if there are none
     auto count(band->GetOverviewCount());
-    if (!count) {
-        return {};
+    // no overview -> original
+    if (!count) { return {}; }
+
+    if (options.overview) {
+        // no auto selection
+        auto ovr(*options.overview);
+        // set to none -> original
+        if (!ovr) { return {}; }
+
+        // use given overview
+        return useOverview(*ovr);
     }
 
     // Compute what the "natural" output resolution (in pixels) would be for
@@ -824,30 +863,8 @@ std::unique_ptr<GDALDataset> chooseOverview(GDALWarpOptions *wo
         return {};
     }
 
-    // set overview
-    wri.overview = ovr;
-
-    // use chosen overwiew
-    std::unique_ptr<GDALDataset> ovrDs
-        (::GDALCreateOverviewDataset(src, ovr, false, false));
-    if (!ovrDs) {
-        // failed -> go on with original dataset
-        return ovrDs;
-    }
-
-    // update warp options
-
-    // set new source
-    wo->hSrcDS = ovrDs.get();
-
-    // re-create transformer
-    createTransformer(wo);
-
-    LOG(info1)
-        << "Warp uses overview #" << ovr << " instead of the full dataset.";
-
-    // and return holder
-    return ovrDs;
+    // use given overview
+    return useOverview(ovr);
 }
 
 const GeoDataset::NodataValue&
@@ -1006,7 +1023,7 @@ GeoDataset::warpInto(GeoDataset &dst
     GeoDataset::WarpResultInfo wri;
 
     // choose overview and hold the dataset
-    auto ovrDs(chooseOverview(warpOptions, wri));
+    auto ovrDs(chooseOverview(warpOptions, wri, options));
 
     // calculate (average) scale
     {
