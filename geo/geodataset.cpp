@@ -1124,42 +1124,72 @@ void GeoDataset::loadMask() const {
     ut::expect( dset_->GetRasterCount() > 0 );
 
     // establish mask
-    mask_ = RasterMask( size_.width,size_.height, RasterMask::FULL);
-
     // generate mask
 
     // get mask band
     auto band(dset_->GetRasterBand(1));
-    if (!(band->GetMaskFlags() & GMF_ALL_VALID)) {
-        // some invalid pixels
-        auto maskBand(band->GetMaskBand());
-        auto gdalDataType = maskBand->GetRasterDataType();
-        auto cvDataType = gdal2cv(gdalDataType, 1);
-        ut::expect((cvDataType == CV_8UC1)
-                   , "Expected band mask to be of byte type.");
+    if (band->GetMaskFlags() & GMF_ALL_VALID) {
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
+        return;
+    }
 
-        cv::Mat raster(size_.height, size_.width, cvDataType);
-        int bandMap(1);
+    // some invalid pixels
+    auto maskBand(band->GetMaskBand());
+    auto gdalDataType = maskBand->GetRasterDataType();
+    auto cvDataType = gdal2cv(gdalDataType, 1);
+    ut::expect((cvDataType == CV_8UC1)
+               , "Expected band mask to be of byte type.");
 
-        auto err = dset_->RasterIO
-            (GF_Read // GDALRWFlag  eRWFlag,
-             , 0, 0 // int nXOff, int nYOff
-             , size_.width, size_.height // int nXSize, int nYSize,
-             , (void *)(raster.data)  // void * pData,
-             , size_.width, size_.height // int nBufXSize, int nBufYSize,
-             , gdalDataType // GDALDataType  eBufType,
-             , 1 //  int nBandCount,
-             , &bandMap  // int * panBandMap,
-             , raster.elemSize() // int nPixelSpace,
-             , size_.width * raster.elemSize(), 0); // int nLineSpace
+    cv::Mat raster(size_.height, size_.width, cvDataType);
+    int bandMap(1);
 
-        ut::expect((err == CE_None)
-                   , "Reading of mask band data failed.");
-        const auto *d(raster.data);
-        for (int i = 0; i < size_.height; ++i) {
-            for (int j = 0; j < size_.width; ++j) {
+    auto err = dset_->RasterIO
+        (GF_Read // GDALRWFlag  eRWFlag,
+         , 0, 0 // int nXOff, int nYOff
+         , size_.width, size_.height // int nXSize, int nYSize,
+         , (void *)(raster.data)  // void * pData,
+         , size_.width, size_.height // int nBufXSize, int nBufYSize,
+         , gdalDataType // GDALDataType  eBufType,
+         , 1 //  int nBandCount,
+         , &bandMap  // int * panBandMap,
+         , raster.elemSize() // int nPixelSpace,
+         , size_.width * raster.elemSize(), 0); // int nLineSpace
+
+    ut::expect((err == CE_None), "Reading of mask band data failed.");
+
+    // statistics
+    std::size_t total(size_.width * size_.height);
+    std::size_t nz(countNonZero(raster));
+    if (!nz) {
+        // empty
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::EMPTY);
+        return;
+    }
+    if (nz == total) {
+        // full
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
+        return;
+    }
+
+    // partial
+    const auto *d(raster.data);
+    if (nz >= (total / 2)) {
+        // at least half is set, start with full and remove unset pixels
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
+        for (int j = 0; j < size_.height; ++j) {
+            for (int i = 0; i < size_.width; ++i) {
                 if (!*d++) {
-                    mask_->set(j, i, false);
+                    mask_->set(i, j, false);
+                }
+            }
+        }
+    } else {
+        // less than hald is set, start with empty and set pixels
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::EMPTY);
+        for (int j = 0; j < size_.height; ++j) {
+            for (int i = 0; i < size_.width; ++i) {
+                if (*d++) {
+                    mask_->set(i, j, true);
                 }
             }
         }
