@@ -33,6 +33,28 @@ namespace ublas = boost::numeric::ublas;
 
 namespace geo {
 
+/** Color to burn into raster during rasterization.
+ */
+class BurnColor {
+public:
+    template<class ...Args>
+    BurnColor(Args &&...args)
+        : color_{std::forward<Args>(args)...}
+    {}
+
+    /** Returns list of bands.
+     */
+    std::vector<int> bandList() const;
+
+    /** Returns list of values.
+     */
+    std::vector<double> valueList() const;
+
+private:
+    typedef boost::optional<double> Color;
+    std::vector<Color> color_;
+};
+
 class GeoDataset {
 public:
     typedef imgproc::quadtree::RasterMask Mask;
@@ -420,47 +442,27 @@ public:
 
     /** Get data for reading/writing.
      */
-    cv::Mat& data() {
-        assertData();
-        changed_ = true;
-        return *data_;
-    }
+    cv::Mat& data(bool justData = false);
 
     /** Get data for reading.
      */
-    const cv::Mat& data() const {
-        assertData();
-        return *data_;
-    }
+    const cv::Mat& data(bool justData = false) const;
 
     /** Get data for reading.
      */
-    const cv::Mat& cdata() const {
-        assertData();
-        return *data_;
-    }
+    const cv::Mat& cdata(bool justData = false) const;
 
     /** Get mask for reading/writing.
      */
-    Mask& mask() {
-        assertData();
-        changed_ = true;
-        return *mask_;
-    }
+    Mask& mask(bool justMask = false);
 
     /** Get mask for reading.
      */
-    const Mask& mask() const {
-        assertData();
-        return *mask_;
-    }
+    const Mask& mask(bool justMask = false) const;
 
     /** Get mask for reading.
      */
-    const Mask& cmask() const {
-        assertData();
-        return *mask_;
-    }
+    const Mask& cmask(bool justMask = false) const;
 
     /** Move ctor. Allows initialization from return value.
      */
@@ -577,17 +579,21 @@ public:
     double noDataValue(double defaultValue) const {
         return noDataValue_ ? *noDataValue_ : defaultValue;
     }
-    
+
     /** returns true if dataset is orthogonal */
     bool isOrthogonal() const;
-    
+
     /** returns geographic coordinates of origin */
-    math::Point2 origin() const { 
+    math::Point2 origin() const {
         return math::Point2( geoTransform_[0], geoTransform_[3] ); }
 
     /** Says whether all pixels in this datasets are valid.
      */
     bool allValid() const;
+
+    /** Rasterize single of OGR geometry into this dataset.
+     */
+    void rasterize(const ::OGRGeometry *geometry, const BurnColor &color);
 
 private:
     static bool initialized_;
@@ -600,8 +606,16 @@ private:
     GeoDataset(std::unique_ptr<GDALDataset> &&dset
                , bool freshlyCreated = false);
 
-    void assertData() const;
+    struct DataFlag {
+        enum {
+            data = 0x1
+            , mask = 0x2
+            , all = data | mask
+        };
+    };
+    void assertData(int what = DataFlag::all) const;
     void loadData() const;
+    void loadMask() const;
 
     bool valid( int i, int j ) const;
     bool validf( double i, double j ) const;
@@ -647,6 +661,43 @@ UTILITY_GENERATE_ENUM_IO(GeoDataset::Resampling,
                          ((texture))
                          ((dem))
                          )
+
+
+inline cv::Mat& GeoDataset::data(bool justData)
+{
+    assertData(justData ? DataFlag::data : DataFlag::all);
+    changed_ = true;
+    return *data_;
+}
+
+inline const cv::Mat& GeoDataset::data(bool justData) const
+{
+    return cdata(justData);
+}
+
+inline const cv::Mat& GeoDataset::cdata(bool justData) const
+{
+    assertData(justData ? DataFlag::data : DataFlag::all);
+    return *data_;
+}
+
+inline GeoDataset::Mask& GeoDataset::mask(bool justMask)
+{
+    assertData(justMask ? DataFlag::mask : DataFlag::all);
+    changed_ = true;
+    return *mask_;
+}
+
+inline const GeoDataset::Mask& GeoDataset::mask(bool justMask) const
+{
+    return cmask(justMask);
+}
+
+inline const GeoDataset::Mask& GeoDataset::cmask(bool justMask) const
+{
+    assertData(justMask ? DataFlag::mask : DataFlag::all);
+    return *mask_;
+}
 
 } // namespace geo
 

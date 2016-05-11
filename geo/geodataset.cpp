@@ -1064,11 +1064,16 @@ GeoDataset::warpInto(GeoDataset &dst
     return wri;
 }
 
-void GeoDataset::assertData() const {
+void GeoDataset::assertData(int what) const {
 
     UTILITY_OMP(critical)
-    if ( ! mask_ || ! data_ ) {
-        loadData();
+    {
+        if (!data_ && (what & DataFlag::data)) {
+            loadData();
+        }
+        if (!mask_ && (what & DataFlag::mask)) {
+            loadMask();
+        }
     }
 }
 
@@ -1111,8 +1116,15 @@ void GeoDataset::loadData() const {
     data_ = cv::Mat();
     raster.convertTo( data_.get(), CV_64FC( numChannels ) );
 
+    // all done
+}
+
+void GeoDataset::loadMask() const {
+    // sanity
+    ut::expect( dset_->GetRasterCount() > 0 );
+
     // establish mask
-    mask_ = RasterMask( size_.width,size_.height,RasterMask::FULL );
+    mask_ = RasterMask( size_.width,size_.height, RasterMask::FULL);
 
     // generate mask
 
@@ -1125,7 +1137,8 @@ void GeoDataset::loadData() const {
         auto cvDataType = gdal2cv(gdalDataType, 1);
         ut::expect((cvDataType == CV_8UC1)
                    , "Expected band mask to be of byte type.");
-        raster.create(size_.height, size_.width, cvDataType);
+
+        cv::Mat raster(size_.height, size_.width, cvDataType);
         int bandMap(1);
 
         auto err = dset_->RasterIO
@@ -1151,8 +1164,6 @@ void GeoDataset::loadData() const {
             }
         }
     }
-
-    // all done
 }
 
 void GeoDataset::exportCvMat( cv::Mat & raster, int cvDataType ) {
@@ -1840,5 +1851,50 @@ bool GeoDataset::allValid() const
     return (dset_->GetRasterBand(1)->GetMaskFlags() & GMF_ALL_VALID);
 }
 
+std::vector<int> BurnColor::bandList()
+    const
+{
+    std::vector<int> out;
+    int i(1);
+    for (const auto &v : color_) {
+        if (v) {
+            // remember channel
+            out.push_back(i);
+        }
+        ++i;
+    }
+    return out;
+}
+
+std::vector<double> BurnColor::valueList()
+    const
+{
+    std::vector<double> out;
+    for (const auto &v : color_) {
+        if (v) { out.push_back(*v); }
+    }
+    return out;
+}
+
+void GeoDataset::rasterize(const ::OGRGeometry *geometry
+                           , const BurnColor &color)
+{
+    auto bands(color.bandList());
+    auto values(color.valueList());
+
+    void *g(const_cast< ::OGRGeometry*>(geometry));
+    auto err(::GDALRasterizeGeometries(dset_.get(), bands.size(), bands.data()
+                                       , 1, &g
+                                       , nullptr, nullptr, values.data()
+                                       , nullptr, nullptr, nullptr));
+    if (err != CE_None) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Error rasterizing geometry.";
+    }
+
+    // invalidate
+    data_ = boost::none;
+    mask_ = boost::none;
+}
 
 } // namespace geo
