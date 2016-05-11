@@ -891,8 +891,8 @@ GDALResampleAlg chooseResampling(GeoDataset::Resampling alg
             (wri.resampling = GeoDataset::Resampling::average);
 
     case GeoDataset::Resampling::dem:
-        if (wri.scale > 1.0) {
-            // upscale
+        if (wri.scale >= 0.5) {
+            // upscale or dowscale not less than half of original
             return algoToGdal
                 (wri.resampling = GeoDataset::Resampling::cubicspline);
         }
