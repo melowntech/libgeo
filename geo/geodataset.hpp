@@ -595,6 +595,18 @@ public:
      */
     void rasterize(const ::OGRGeometry *geometry, const BurnColor &color);
 
+    /** Fetches mask as single-channel byte matrix.
+     *  NB: result is NOT cached.
+     *
+     *  User internally by loadMask which converts it to rastermask (which is
+     *  cached)
+     *
+     * \param optimized return invalid matrix (i.e. data is null) when all
+     *        pixels in the dataset are valid
+     *
+     */
+    cv::Mat fetchMask(bool optimized = false) const;
+
 private:
     static bool initialized_;
     static void initialize();

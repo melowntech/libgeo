@@ -1119,7 +1119,8 @@ void GeoDataset::loadData() const {
     // all done
 }
 
-void GeoDataset::loadMask() const {
+cv::Mat GeoDataset::fetchMask(bool optimized) const
+{
     // sanity
     ut::expect( dset_->GetRasterCount() > 0 );
 
@@ -1128,9 +1129,8 @@ void GeoDataset::loadMask() const {
 
     // get mask band
     auto band(dset_->GetRasterBand(1));
-    if (band->GetMaskFlags() & GMF_ALL_VALID) {
-        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
-        return;
+    if (optimized && (band->GetMaskFlags() & GMF_ALL_VALID)) {
+        return {};
     }
 
     // some invalid pixels
@@ -1156,6 +1156,20 @@ void GeoDataset::loadMask() const {
          , size_.width * raster.elemSize(), 0); // int nLineSpace
 
     ut::expect((err == CE_None), "Reading of mask band data failed.");
+
+    // done
+    return raster;
+}
+
+void GeoDataset::loadMask() const {
+    // fetch mask (in optimized mode)
+    auto raster(fetchMask(true));
+
+    if (!raster.data) {
+        // invalid matrix + optimized mode -> whole dataset is valid
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
+        return;
+    }
 
     // statistics
     std::size_t total(size_.width * size_.height);
