@@ -7,6 +7,7 @@
 
 #include <boost/utility/in_place_factory.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/format.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -1141,17 +1142,14 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
                , "Expected band mask to be of byte type.");
 
     cv::Mat raster(size_.height, size_.width, cvDataType);
-    int bandMap(1);
 
-    auto err = dset_->RasterIO
+    auto err = maskBand->RasterIO
         (GF_Read // GDALRWFlag  eRWFlag,
          , 0, 0 // int nXOff, int nYOff
          , size_.width, size_.height // int nXSize, int nYSize,
          , (void *)(raster.data)  // void * pData,
          , size_.width, size_.height // int nBufXSize, int nBufYSize,
          , gdalDataType // GDALDataType  eBufType,
-         , 1 //  int nBandCount,
-         , &bandMap  // int * panBandMap,
          , raster.elemSize() // int nPixelSpace,
          , size_.width * raster.elemSize(), 0); // int nLineSpace
 
@@ -1174,6 +1172,7 @@ void GeoDataset::loadMask() const {
     // statistics
     std::size_t total(size_.width * size_.height);
     std::size_t nz(countNonZero(raster));
+    LOG(debug) << boost::format( "Loaded mask with %1% / %2% pixels." ) % nz % total;
     if (!nz) {
         // empty
         mask_ = RasterMask(size_.width, size_.height, RasterMask::EMPTY);
