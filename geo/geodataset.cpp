@@ -821,11 +821,13 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
         return useOverview(*ovr);
     }
 
+#if 0
     // Compute what the "natural" output resolution (in pixels) would be for
     // this input dataset
     double suggestedGeoTransform[6];
     double extents[4];
     int x, y;
+
     if (::GDALSuggestedWarpOutput2(src, wo->pfnTransformer
                                    , wo->pTransformerArg
                                    , suggestedGeoTransform
@@ -835,10 +837,85 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
         return {};
     }
 
+
+
     // calculate target ratio
     double targetRatio(1.0 / suggestedGeoTransform[1]);
+#endif
+
+    // obtain maximum destination scale
+    auto dst(static_cast<GDALDataset*>(wo->hDstDS));
+    
+    struct {
+        std::array<double,45> x,y,z;
+        std::array<int,45> successf, successb;
+    } samples;
+     
+    for (int j = 0; j < 3; j++) 
+        for(int i = 0; i < 3; i++) {
+        
+            samples.x[3*j+i] = i / 2.0 * dst->GetRasterXSize();
+            samples.y[3*j+i] = j / 2.0 * dst->GetRasterYSize();
+            samples.z[3*j+i] = 0;
+        }
+        
+        
+    if ( wo->pfnTransformer(wo->pTransformerArg, TRUE, 9, 
+        samples.x.data(), samples.y.data(), samples.z.data(), 
+        samples.successf.data() ) != TRUE ) 
+        return {};    
+        
+    for (int i = 0; i < 9; i++) {
+    
+        samples.x[9+i] = samples.x[i] + 1.0;
+        samples.y[9+i] = samples.y[i];
+        samples.z[9+i] = 0;
+        samples.x[18+i] = samples.x[i] - 1.0;
+        samples.y[18+i] = samples.y[i];
+        samples.z[18+i] = 0;
+        samples.x[27+i] = samples.x[i];
+        samples.y[27+i] = samples.y[i] + 1.0;
+        samples.z[27+i] = 0;
+        samples.x[36+i] = samples.x[i];
+        samples.y[36+i] = samples.y[i] - 1.0;
+        samples.z[36+i] = 0;
+    }
+    
+    if ( wo->pfnTransformer(wo->pTransformerArg, FALSE, 45, 
+        samples.x.data(), samples.y.data(), samples.z.data(), 
+        samples.successb.data() ) != TRUE ) 
+        return {};    
+        
+    boost::optional<double> scale;
+    
+    for ( int i = 0; i < 9; i++ ) 
+        if (samples.successf[i] && samples.successb[i] &&
+            samples.successb[9+i] && samples.successb[18+i] &&
+            samples.successb[27+i] && samples.successb[36+i] ) {
+             ublas::vector<double> a(4);
+             a[0] = std::min(fabs(samples.x[9+i] - samples.x[i]), fabs(samples.x[18+i] - samples.x[i]));
+             a[1] = std::min(fabs(samples.y[9+i] - samples.y[i]),  fabs(samples.y[18+i] - samples.y[i]));
+             a[2] = std::min(fabs(samples.x[27+i] - samples.x[i]), fabs(samples.x[36+i] - samples.x[i]));
+             a[3] = std::min(fabs(samples.y[27+i] - samples.y[i]), fabs(samples.y[36+i] - samples.y[i]));
+             double nscale = norm_2(a);
+             
+             //LOG( debug ) << a;
+             //LOG( debug ) << boost::format("Dst scale is %.5f.") % nscale;
+             
+             if ( ! scale || nscale > *scale )
+                scale=nscale;       
+        }
+        
+    if ( scale ) {
+        LOG(info1) << boost::format("Overview selection based on dst/src scale of %.5f.") % *scale;
+    }
+         
+    // target ratio is inverse of minimum scale
+    double targetRatio(1.0);
+    if ( scale ) targetRatio=(1.0 / *scale);
     if (targetRatio < 1.0) { return {}; }
 
+    // choose overview
     int ovr(-1);
     for (; ovr < count - 1; ++ovr) {
         double thisRatio(1.0);
