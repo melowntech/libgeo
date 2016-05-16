@@ -1090,6 +1090,9 @@ GeoDataset::warpInto(GeoDataset &dst
 
     warpOptions->pfnProgress = GDALDummyProgress;
 
+    // set virtual memory to 256 megs instead of default 64 megs
+    warpOptions->dfWarpMemoryLimit = 256 * 1 << 20;
+
     // update options and grab options since it is destroyed by
     // GDALDestroyWarpOptions
     wo("INIT_DEST", "NO_DATA");
