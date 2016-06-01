@@ -747,7 +747,7 @@ struct Corners {
     math::Points2 asPoints() const {
         math::Points2 out;
         for (int i(0); i < 4; ++i) {
-z            out.emplace_back(x[i], y[i]);
+            out.emplace_back(x[i], y[i]);
         }
         return out;
     }
