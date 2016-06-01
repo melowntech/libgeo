@@ -691,7 +691,7 @@ inline char cpSign(const math::Point2_<T> &prev
 /** True only when polygon is right rotating and has sane shape (i.e. not
  *  flattened to (almost) line)
  */
-bool rightRotating(const math::Points2 &polygon)
+bool rightRotating(const math::Points2 &polygon, bool yGrowsUp = true)
 {
     if (polygon.size() < 3) {
         // this is not a polygon
@@ -717,30 +717,71 @@ bool rightRotating(const math::Points2 &polygon)
         if (sign == 3) { return false; }
     }
 
-    return (sign == 2);
+    return (yGrowsUp ? (sign == 2) : (sign == 1));
 }
 
+template <int count>
+struct Corners {
+    std::array<double, count> x;
+    std::array<double, count> y;
+    std::array<double, count> z;
+    std::array<int, count> success;
+
+    void add(int i, double xx, double yy) {
+        x[i] = xx;
+        y[i] = yy;
+        z[i] = 0.0;
+    }
+
+    constexpr int size() const { return count; }
+
+    bool allValid() const {
+        auto valid(std::accumulate(success.begin(), success.end()
+                                   , 0
+                                   , [&](int out, int in) -> int {
+                                       return out + in;
+                                   }));
+        return (valid == count);
+    }
+
+    math::Points2 asPoints() const {
+        math::Points2 out;
+        for (int i(0); i < 4; ++i) {
+z            out.emplace_back(x[i], y[i]);
+        }
+        return out;
+    }
+};
+
 void sourceExtra(const GeoDataset &src, const GeoDataset &dst
-                 , OptionsWrapper &wo)
+                 , OptionsWrapper &wo, const GDALWarpOptions *warpOptions)
 {
-    const geo::CsConvertor conv(dst.srs(), src.srs());
+    auto size(dst.size());
 
-    std::vector<math::Point2> corners;
-    auto dstExtents(dst.extents());
-    for (const auto &corner : {
-            math::ul(dstExtents), math::ur(dstExtents)
-            , math::lr(dstExtents), math::ll(dstExtents) })
-    {
-        corners.push_back(conv(corner));
+    Corners<4> corners;
+
+    corners.add(0, 0.0, 0.0);
+    corners.add(1, size.width, 0.0);
+    corners.add(2, size.width, size.height);
+    corners.add(3, 0.0, size.height);
+
+    // try to transform points
+    warpOptions->pfnTransformer(warpOptions->pTransformerArg, true, 4
+                                , corners.x.data(), corners.y.data()
+                                , corners.z.data()
+                                , corners.success.data());
+
+    if (corners.allValid()) {
+        // all pixels were transformed, check for right rotation (in pixel
+        // space, Y grows down)
+        if (rightRotating(corners.asPoints(), false)) {
+            // right rotating polygon maps to sane right rotating polygon -> no
+            // wrap arround
+            return;
+        }
     }
 
-    if (rightRotating(corners)) {
-        // right rotating polygon maps to sane right rotating polygon -> no wrap
-        // arround
-        return;
-    }
-
-    auto ps(sourcePixelSize(conv, src, dst));
+    auto ps(sourcePixelSize(src, dst));
     auto s(dst.size());
     ps *= std::max(s.width, s.height);
 
@@ -750,8 +791,9 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
         se = 1000;
     }
 
-    LOG(info2) << "Setting SOURCE_EXTRA=" << se << ".";
-    wo("SOURCE_EXTRA", se);
+    LOG(info1) << "Setting SOURCE_EXTRA=" << se << " and SAMPLE_GRID=YES.";
+    wo("SOURCE_EXTRA", int(se));
+    wo("SAMPLE_GRID", true);
 }
 
 void createTransformer(GDALWarpOptions *wo)
@@ -1031,9 +1073,6 @@ GeoDataset::warpInto(GeoDataset &dst
     }
     // ---- optimization ends here ----
 
-    // calculate sourceExtra parameter from datasets (if needed)
-    sourceExtra(*this, dst, wo);
-
     // create warp options
     GDALWarpOptions * warpOptions = GDALCreateWarpOptions();
 
@@ -1093,13 +1132,12 @@ GeoDataset::warpInto(GeoDataset &dst
     // set virtual memory to 256 megs instead of default 64 megs
     warpOptions->dfWarpMemoryLimit = 256 * 1 << 20;
 
-    // update options and grab options since it is destroyed by
-    // GDALDestroyWarpOptions
-    wo("INIT_DEST", "NO_DATA");
-    warpOptions->papszWarpOptions = wo.release();
-
     // establish reprojection transformer.
     createTransformer(warpOptions);
+
+    // calculate sourceExtra parameter from datasets (if needed)
+    // TODO: move after overview selection and use overview information
+    sourceExtra(*this, dst, wo, warpOptions);
 
     GeoDataset::WarpResultInfo wri;
 
@@ -1121,6 +1159,11 @@ GeoDataset::warpInto(GeoDataset &dst
         // scale is inverse of size of source pixel size
         wri.scale = 1.0 / sourcePixelSize(*this, dst, srcScale);
     }
+
+    // update options and grab options since it is destroyed by
+    // GDALDestroyWarpOptions
+    wo("INIT_DEST", "NO_DATA");
+    warpOptions->papszWarpOptions = wo.release();
 
     // done
     warpOptions->eResampleAlg = chooseResampling(alg, wri);
