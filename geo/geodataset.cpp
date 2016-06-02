@@ -1295,7 +1295,8 @@ void GeoDataset::loadMask() const {
     // statistics
     std::size_t total(size_.width * size_.height);
     std::size_t nz(countNonZero(raster));
-    LOG(debug) << boost::format( "Loaded mask with %1% / %2% pixels." ) % nz % total;
+    LOG(debug) << "Loaded mask with " << nz << "/" << total << " pixels.";
+
     if (!nz) {
         // empty
         mask_ = RasterMask(size_.width, size_.height, RasterMask::EMPTY);
