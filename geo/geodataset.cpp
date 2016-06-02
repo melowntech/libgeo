@@ -281,7 +281,9 @@ GeoDataset GeoDataset::deriveInMemory(
         boost::optional<math::Point2d> pixelSize,
         boost::optional<math::Extents2> extents,
         const math::Matrix2 & trafo,
-        boost::optional<GDALDataType> dstDataTypeOverride) {
+        boost::optional<GDALDataType> dstDataTypeOverride
+        , OptionalNodataValue dstNodataValueOverride)
+{
 
     // source dataset handle
     GDALDataset * sdset( const_cast<GDALDataset *>( source.dset_.get() ) );
@@ -374,7 +376,7 @@ GeoDataset GeoDataset::deriveInMemory(
 
     // determine datatypes
     GDALDataType srcDataType, dstDataType( GDT_Byte );
-    double dstNoDataValue( 0.0 );
+    NodataValue dstNoDataValue( 0.0 );
 
     srcDataType = sdset->GetRasterBand(1)->GetRasterDataType();
 
@@ -436,6 +438,10 @@ GeoDataset GeoDataset::deriveInMemory(
         }
     }
 
+    if (dstNodataValueOverride) {
+        dstNoDataValue = *dstNodataValueOverride;
+    }
+
     // create dataset
     std::unique_ptr<GDALDataset> tdset(driver->Create(
         "MEM", //"MEM.tif",
@@ -448,7 +454,9 @@ GeoDataset GeoDataset::deriveInMemory(
 
         tdset->GetRasterBand(i)->SetColorInterpretation(
             sdset->GetRasterBand(i)->GetColorInterpretation() );
-        tdset->GetRasterBand(i)->SetNoDataValue( dstNoDataValue );
+        if (dstNoDataValue) {
+            tdset->GetRasterBand(i)->SetNoDataValue(*dstNoDataValue);
+        }
     }
 
     tdset->SetGeoTransform( geoTransform.data() );
@@ -463,7 +471,8 @@ GeoDataset GeoDataset::deriveInMemory(
         const GeoDataset & source, const SrsDefinition &srs,
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents,
-        boost::optional<GDALDataType> dstDataTypeOverride)
+        boost::optional<GDALDataType> dstDataTypeOverride
+        , OptionalNodataValue dstNodataValue)
 {
     if (!size) {
         auto esize(math::size(extents));
@@ -475,7 +484,7 @@ GeoDataset GeoDataset::deriveInMemory(
                             ( extents.ur[0] - extents.ll[0] ) / size->width,
                             ( extents.ur[1] - extents.ll[1] ) / size->height ),
                            extents, ublas::identity_matrix<double>(2),
-                           dstDataTypeOverride);
+                           dstDataTypeOverride, dstNodataValue);
 }
 
 GeoDataset GeoDataset::create(const boost::filesystem::path &path
@@ -818,10 +827,11 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
 {
     auto src(static_cast<GDALDataset*>(wo->hSrcDS));
 
-    auto useOverview([&](int ovr) -> std::unique_ptr<GDALDataset>
+    auto useOverview([&](int ovr, double scale) -> std::unique_ptr<GDALDataset>
     {
         // set overview
         wri.overview = ovr;
+        wri.scale = scale;
 
         // use chosen overwiew
         std::unique_ptr<GDALDataset> ovrDs
@@ -860,30 +870,9 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
         if (!ovr) { return {}; }
 
         // use given overview
-        return useOverview(*ovr);
+        // FIXME: calculate scale by different means
+        return useOverview(*ovr, 1.0);
     }
-
-#if 0
-    // Compute what the "natural" output resolution (in pixels) would be for
-    // this input dataset
-    double suggestedGeoTransform[6];
-    double extents[4];
-    int x, y;
-
-    if (::GDALSuggestedWarpOutput2(src, wo->pfnTransformer
-                                   , wo->pTransformerArg
-                                   , suggestedGeoTransform
-                                   , &x, &y, extents, 0)
-        != CE_None)
-    {
-        return {};
-    }
-
-
-
-    // calculate target ratio
-    double targetRatio(1.0 / suggestedGeoTransform[1]);
-#endif
 
     // obtain maximum destination scale
     auto dst(static_cast<GDALDataset*>(wo->hDstDS));
@@ -954,17 +943,22 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
          
     // target ratio is inverse of minimum scale
     double targetRatio(1.0);
-    if ( scale ) targetRatio=(1.0 / *scale);
-    if (targetRatio < 1.0) { return {}; }
+    if ( scale ) {
+        targetRatio=(1.0 / *scale);
+    } else {
+        // FIXME: calculate scale by different means
+        scale = 1.0;
+    }
+    if (targetRatio < 1.0) {
+        wri.overview = boost::none;
+        wri.scale = *scale;
+        return {};
+    }
 
     // choose overview
     int ovr(-1);
-    for (; ovr < count - 1; ++ovr) {
-        double thisRatio(1.0);
-        if (ovr >= 0) {
-            thisRatio = (double(src->GetRasterXSize())
-                         / double(band->GetOverview(ovr)->GetXSize()));
-        }
+    double thisRatio(1.0);
+    for (; ovr < (count - 1); ++ovr) {
         double nextRatio(double(src->GetRasterXSize())
                          / double(band->GetOverview(ovr + 1)->GetXSize()));
 
@@ -975,16 +969,19 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
         if (std::abs(thisRatio - targetRatio) < 1e-1) {
             break;
         }
+
+        thisRatio = nextRatio;
     }
 
     // -1 -> original dataset
     if (ovr < 0) {
         wri.overview = boost::none;
+        wri.scale = *scale;
         return {};
     }
 
     // use given overview
-    return useOverview(ovr);
+    return useOverview(ovr, *scale * thisRatio);
 }
 
 const GeoDataset::NodataValue&
@@ -1025,7 +1022,82 @@ GDALResampleAlg chooseResampling(GeoDataset::Resampling alg
     }
 
     // use provided resampling
-    return algoToGdal(wri.resampling =  alg);
+    return algoToGdal(wri.resampling = alg);
+}
+
+struct CmdlineLogger {
+    CmdlineLogger(const GDALWarpOptions *warpOptions
+                  , const GeoDataset::WarpOptions &options
+                  , const GeoDataset::WarpResultInfo &wri
+                  , const GeoDataset &src
+                  , const GeoDataset &dst
+                  , GDALDataType ot)
+        : warpOptions(warpOptions), options(options)
+        , wri(wri), src(src), dst(dst), ot(ot)
+    {}
+
+    const GDALWarpOptions *warpOptions;
+    const GeoDataset::WarpOptions &options;
+    const GeoDataset::WarpResultInfo &wri;
+    const GeoDataset &src;
+    const GeoDataset &dst;
+    GDALDataType ot;
+};
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const CmdlineLogger &l)
+{
+    os << std::fixed << "gdalwarp";
+    os << " -r " << l.wri.resampling;
+    if (l.wri.overview) {
+        os << " -ovr " << *l.wri.overview;
+    }
+
+    auto extents(l.dst.extents());
+    auto size(l.dst.size());
+    os << " -te " << extents.ll(0) << ' ' << extents.ll(1) << ' '
+       << extents.ur(0) << ' ' << extents.ur(1);
+
+    os << " -ts " << size.width << ' ' << size.height;
+
+    if (l.options.srcNodataValue) {
+        if (*l.options.srcNodataValue) {
+            os << " -srcnodata " << **l.options.srcNodataValue;
+        } else {
+            os << " -srcnodata None";
+        }
+    }
+
+    if (l.options.dstNodataValue) {
+        if (*l.options.dstNodataValue) {
+            os << " -dstnodata " << **l.options.dstNodataValue;
+        } else {
+            os << " -dstnodata None";
+        }
+    }
+
+    switch (l.ot) {
+    case ::GDT_Byte: os << " -ot byte"; break;
+    case ::GDT_UInt16: os << " -ot uint16"; break;
+    case ::GDT_Int16: os << " -ot int16"; break;
+    case ::GDT_UInt32: os << " -ot uint32"; break;
+    case ::GDT_Int32: os << " -ot int32"; break;
+    case ::GDT_Float32: os << " -ot float32"; break;
+    case ::GDT_Float64: os << " -ot float64"; break;
+    default: break;
+    }
+
+    os << " -t_srs \"" << l.dst.srsProj4() << "\"";
+
+    if (l.warpOptions->papszWarpOptions) {
+        for (char **opts(l.warpOptions->papszWarpOptions);
+             *opts; ++opts)
+        {
+            os << " -wo " << *opts;
+        }
+    }
+    return os;
 }
 
 } // namespace
@@ -1144,22 +1216,6 @@ GeoDataset::warpInto(GeoDataset &dst
     // choose overview and hold the dataset
     auto ovrDs(chooseOverview(warpOptions, wri, options));
 
-    // calculate (average) scale
-    {
-        // scaling applied to source (this) dataset by overview, defaults to 1x1
-        // if no overview present
-        math::Point2 srcScale(1.0, 1.0);
-        if (ovrDs) {
-            srcScale(0) = (double(ovrDs->GetRasterXSize())
-                           / double(dset_->GetRasterXSize()));
-            srcScale(1) = (double(ovrDs->GetRasterYSize()))
-                           / double(dset_->GetRasterYSize());
-        }
-
-        // scale is inverse of size of source pixel size
-        wri.scale = 1.0 / sourcePixelSize(*this, dst, srcScale);
-    }
-
     // update options and grab options since it is destroyed by
     // GDALDestroyWarpOptions
     wo("INIT_DEST", "NO_DATA");
@@ -1177,6 +1233,12 @@ GeoDataset::warpInto(GeoDataset &dst
                                   dst.dset_->GetRasterYSize() );
 
     GDALDestroyGenImgProjTransformer( warpOptions->pTransformerArg );
+
+    // log before options destruction
+    LOG(debug) << CmdlineLogger
+        (warpOptions, options, wri, *this, dst
+         , dst.dset_->GetRasterBand(1)->GetRasterDataType());
+
     GDALDestroyWarpOptions( warpOptions );
 
     ut::expect( err == CE_None, "Warp failed." );
@@ -1288,6 +1350,7 @@ void GeoDataset::loadMask() const {
 
     if (!raster.data) {
         // invalid matrix + optimized mode -> whole dataset is valid
+        LOG(debug) << "Loaded fully valid mask.";
         mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
         return;
     }

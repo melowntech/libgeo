@@ -59,6 +59,9 @@ class GeoDataset {
 public:
     typedef imgproc::quadtree::RasterMask Mask;
 
+    typedef boost::optional<double> NodataValue;
+    typedef boost::optional<NodataValue> OptionalNodataValue;
+
     static GeoDataset createFromFS(const boost::filesystem::path &path) {
         return open(path);
     }
@@ -79,7 +82,8 @@ public:
         const GeoDataset & source, const SrsDefinition &srs,
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents,
-        boost::optional<GDALDataType> dstDataTypeOverride = boost::none);
+        boost::optional<GDALDataType> dstDataTypeOverride = boost::none
+        , OptionalNodataValue dstNodataValue = boost::none);
 
     /** Derive in-memory data set from an existing set, using a generic
      * affine geographic transformation in destination source reference system.
@@ -103,7 +107,8 @@ public:
         boost::optional<math::Point2d> pixelSize,
         boost::optional<math::Extents2> extents,
         const math::Matrix2 & trafo = ublas::identity_matrix<double>(2),
-        boost::optional<GDALDataType> dstDataTypeOverride = boost::none);
+        boost::optional<GDALDataType> dstDataTypeOverride = boost::none
+        , OptionalNodataValue dstNodataValue = boost::none);
     
     /** Creates an invalid placeholder that can be used to hold valid dataset.
      *  Do not call any method on placeholder except:
@@ -162,10 +167,7 @@ public:
         }
     };
 
-    typedef boost::optional<double> NodataValue;
-    typedef boost::optional<NodataValue> OptionalNodataValue;
-
-    typedef boost::optional<double> Overview;
+    typedef boost::optional<int> Overview;
     typedef boost::optional<Overview> OptionalOverview;
 
     /** Various options. Thin wrapper around vector of string pairs.
