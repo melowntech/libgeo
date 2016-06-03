@@ -1,0 +1,23 @@
+libgeo: Geospatial support library
+
+Dependencis:
+    * geometry
+    * imgproc
+    * math
+    * utility
+    * dbglog
+    * [ OpenCV ]
+    * [ Boost_PROGRAM_OPTIONS ]
+    * Boost_FILESYSTEM
+    * PROJ
+    * GDAL
+    * GEOGRAPHICLIB
+
+Tips:
+
+    * Setting environmental variable GEO_DUMP_GDALWARP to non-empty value
+      instructs geo::GeoDataset::warpInto() function to log command=line for
+      gdalwarp utility.
+
+      Variable must be set during program start, later changes (by user code)
+      have no effect.
