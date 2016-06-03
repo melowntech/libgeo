@@ -1,7 +1,7 @@
 libgeo: Geospatial support library
 
 Dependencis:
-    * [geometry](/lib/geometry)
+    * geometry
     * imgproc
     * math
     * utility
