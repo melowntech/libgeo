@@ -63,6 +63,17 @@ typedef imgproc::quadtree::RasterMask RasterMask;
 
 namespace {
 
+/**Get value of GEO_DUMP_GDALWARP environmental variable before main is run.
+ *
+ * Nonset or empty value is considered as false, anything else is true.
+ */
+const bool GEO_DUMP_GDALWARP([]() -> bool
+{
+    const char *value(std::getenv("GEO_DUMP_GDALWARP"));
+    if (!value || !*value) { return false; }
+    return true;
+}());
+
 int gdal2cv(GDALDataType gdalDataType, int numChannels)
 {
     // determine output datatype automatically
@@ -1235,9 +1246,12 @@ GeoDataset::warpInto(GeoDataset &dst
     GDALDestroyGenImgProjTransformer( warpOptions->pTransformerArg );
 
     // log before options destruction
-    LOG(debug) << CmdlineLogger
-        (warpOptions, options, wri, *this, dst
-         , dst.dset_->GetRasterBand(1)->GetRasterDataType());
+    if (GEO_DUMP_GDALWARP) {
+        LOG(info4) << CmdlineLogger
+            (warpOptions, options, wri, *this, dst
+             , dst.dset_->GetRasterBand(1)->GetRasterDataType());
+        LOG(info4) << "scale: " << wri.scale;
+    }
 
     GDALDestroyWarpOptions( warpOptions );
 
