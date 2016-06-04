@@ -42,6 +42,8 @@ set(geo_SOURCES
 
     detail/pjfactors-4.7.h
     detail/pjfactors-4.8.h
+    detail/gdalwarpoperation.hpp detail/gdalwarpoperation.cpp
+    detail/warpmemorymeter.hpp detail/warpmemorymeter.cpp
 
     gdal.hpp gdal.cpp
 

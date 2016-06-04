@@ -165,7 +165,7 @@ public:
     typedef boost::optional<double> NodataValue;
     typedef boost::optional<NodataValue> OptionalNodataValue;
 
-    typedef boost::optional<double> Overview;
+    typedef boost::optional<int> Overview;
     typedef boost::optional<Overview> OptionalOverview;
 
     /** Various options. Thin wrapper around vector of string pairs.
@@ -256,7 +256,14 @@ public:
          */
         Overview overview;
 
-        /** Average scale between destination image and source image.
+        /** Maximum scale between destination and source image
+         *  > 1: upscale, < 1 downscale
+         *  used to select overview
+         */
+        double truescale;
+
+        /** Maximum scale between destination image and the physical image used
+         *  (original or overview).
          *  > 1: upscale, < 1 downscale
          */
         double scale;
@@ -269,7 +276,10 @@ public:
     /** Warp options. Generic options + special stuff.
      */
     struct WarpOptions : Options {
-        WarpOptions() = default;
+    
+        WarpOptions(): 
+            warpMemoryLimit(0x10000000), // 256 MB
+            safeChunks(true) {}
 
         template <typename T>
         WarpOptions(const std::string &name, const T &value) {
@@ -290,6 +300,14 @@ public:
          *  { int }: overview
          */
         OptionalOverview overview;
+
+        /** Warp memory limit in bytes */       
+        int warpMemoryLimit;
+        
+        /** Use overviews agressively to restrict memory usage (and prevent overflows).
+          * There is some performance penalty when this option is set, resulting from  
+          * the chunking code being run (at least) twice. */
+        bool safeChunks; 
     };
 
     /** \brief Warp data from this dataset to destination dataset.

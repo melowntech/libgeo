@@ -25,6 +25,7 @@
 #include "./coordinates.hpp"
 #include "./csconvertor.hpp"
 #include "./io.hpp"
+#include "./detail/warpmemorymeter.hpp"
 
 
 extern "C" {
@@ -767,182 +768,265 @@ void createTransformer(GDALWarpOptions *wo)
         ::GDALCreateGenImgProjTransformer
         (wo->hSrcDS, ::GDALGetProjectionRef(wo->hSrcDS)
          , wo->hDstDS, ::GDALGetProjectionRef(wo->hDstDS)
-         , true, 0, 1);
+         , true, 0, 1);         
 }
+
+
+void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri) {
+
+    try {
+
+        auto dst(static_cast<GDALDataset*>(wo->hDstDS));
+    
+        struct {
+            std::array<double,45> x,y,z;
+            std::array<int,45> successf, successb;
+        } samples;
+     
+        for (int j = 0; j < 3; j++) 
+            for(int i = 0; i < 3; i++) {
+        
+                samples.x[3*j+i] = i / 2.0 * dst->GetRasterXSize();
+                samples.y[3*j+i] = j / 2.0 * dst->GetRasterYSize();
+                samples.z[3*j+i] = 0;
+            }
+        
+        
+        if ( wo->pfnTransformer(wo->pTransformerArg, TRUE, 9, 
+            samples.x.data(), samples.y.data(), samples.z.data(), 
+            samples.successf.data() ) != TRUE ) {
+        }
+        
+        for (int i = 0; i < 9; i++) {
+    
+            samples.x[9+i] = samples.x[i] + 1.0;
+            samples.y[9+i] = samples.y[i];
+            samples.z[9+i] = 0;
+            samples.x[18+i] = samples.x[i] - 1.0;
+            samples.y[18+i] = samples.y[i];
+            samples.z[18+i] = 0;
+            samples.x[27+i] = samples.x[i];
+            samples.y[27+i] = samples.y[i] + 1.0;
+            samples.z[27+i] = 0;
+            samples.x[36+i] = samples.x[i];
+            samples.y[36+i] = samples.y[i] - 1.0;
+            samples.z[36+i] = 0;
+        }
+    
+        if ( wo->pfnTransformer(wo->pTransformerArg, FALSE, 45, 
+            samples.x.data(), samples.y.data(), samples.z.data(), 
+            samples.successb.data() ) != TRUE ) {
+            LOGTHROW( err2, std::runtime_error ) << "Transformer failed.";
+        }  
+        
+        auto scale = boost::make_optional(false, 0.0);
+    
+        for ( int i = 0; i < 9; i++ ) 
+            if (samples.successf[i] && samples.successb[i] &&
+                samples.successb[9+i] && samples.successb[18+i] &&
+                samples.successb[27+i] && samples.successb[36+i] ) {
+                 ublas::vector<double> a(4);
+                 a[0] = std::min(fabs(samples.x[9+i] - samples.x[i]), fabs(samples.x[18+i] - samples.x[i]));
+                 a[1] = std::min(fabs(samples.y[9+i] - samples.y[i]),  fabs(samples.y[18+i] - samples.y[i]));
+                 a[2] = std::min(fabs(samples.x[27+i] - samples.x[i]), fabs(samples.x[36+i] - samples.x[i]));
+                 a[3] = std::min(fabs(samples.y[27+i] - samples.y[i]), fabs(samples.y[36+i] - samples.y[i]));
+                 double nscale = norm_2(a);
+             
+                 //LOG( debug ) << a;
+                 //LOG( debug ) << boost::format("Dst scale is %.5f.") % nscale;
+
+                 if ( ! scale || nscale > *scale )
+                    scale = nscale;
+            }
+
+       if ( ! scale )    
+           LOGTHROW(err1, std::runtime_error) << "Transformer failed.";
+   
+       wri.truescale = wri.scale = *scale;
+       
+   } catch ( std::runtime_error & ) {
+   
+       LOG(warn3) << "Could not determine scale, falling back to 1.";
+       wri.truescale = wri.scale = 1.0;
+   }
+}
+
+std::unique_ptr<GDALDataset> useOverview(
+    GDALDataset *src, 
+    GDALWarpOptions *wo, int ovr,
+    GeoDataset::WarpResultInfo & wri) {
+
+    // use chosen overwiew
+    std::unique_ptr<GDALDataset> ovrDs;
+    
+    if (ovr >= 0) {
+       ovrDs = std::unique_ptr<GDALDataset>(
+           ::GDALCreateOverviewDataset(src, ovr, false, false));
+    }
+    
+    if (!ovrDs) {
+        // failed -> go on with original dataset
+        return ovrDs;
+    }
+
+    // update warp options
+
+    // set new source
+    wo->hSrcDS = ovrDs.get();
+
+    // re-create transformer
+    createTransformer(wo);
+
+
+    // determine scale
+    double overviewScale = double(ovrDs->GetRasterXSize()) / src->GetRasterXSize();
+    wri.scale = wri.truescale / overviewScale;
+    
+    LOG(debug) << boost::format( "Using overview #%d, truescale %.5f, scale %.5f" ) 
+       % ovr % wri.truescale % wri.scale;
+
+    // and return holder
+    return ovrDs;
+}
+
+std::unique_ptr<GDALDataset> overviewByScale(GDALDataset *src, 
+    GDALWarpOptions *wo, int & ovr, GeoDataset::WarpResultInfo &wri) {
+
+    auto band(src->GetRasterBand(1));
+    auto count(band->GetOverviewCount());
+    
+    // true scale is presumed to be defined
+    LOG(info1) << boost::format(
+       "Overview selection based on dst/src scale of %.5f.") % wri.truescale;
+         
+    // choose overview
+    for (; ovr < count - 1; ++ovr) {
+
+        double nextScale(double(band->GetOverview(ovr + 1)->GetXSize())
+          / double(src->GetRasterXSize()));
+
+        if (nextScale < wri.truescale) {
+            break;
+        }
+    }
+
+    // all done
+    return useOverview(src, wo, ovr, wri);
+}
+
+std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src, 
+  GDALWarpOptions * wo, int & ovr, GeoDataset::WarpResultInfo & wri) {
+  
+  auto band(src->GetRasterBand(1));
+  auto count(band->GetOverviewCount());
+
+  bool requirementsMet(false);
+  ulong measure(0UL);
+  
+  if (wo->dfWarpMemoryLimit == 0.0) {
+     LOG(warn2) << "Warp memory limit set to internal default, "
+       "cannot test for memory requirements.";
+  }
+    
+  std::unique_ptr<GDALDataset> ovrDs;  
+    
+  for ( ;ovr < count; ovr++) {
+  
+     // use overview
+     ovrDs = useOverview(src, wo, ovr, wri);     
+
+     // obtain measure
+     measure = detail::WarpMemoryMeter(wo).measure();
+  
+     // test
+     if ( ovr > 0 ) {
+     
+       LOG(info1) << boost::format("Memory requirements at overview %d: %lu bytes.") 
+         % ovr % measure;
+         
+     } else {
+     
+       LOG(info1) << boost::format("Memory requirements at original: %lu bytes.")
+         % measure;
+     }
+        
+     if (measure <= wo->dfWarpMemoryLimit) {
+     
+        requirementsMet = true; break; 
+     }
+  }
+    
+  if (! requirementsMet) {
+     LOG(warn2) << boost::format("Could not meet desired memory requirements "
+         "(%lu est > %lu target), need more overviews?") % measure
+         % wo->dfWarpMemoryLimit;
+     ovr = count;
+  }
+         
+  return ovrDs;
+}
+
 
 std::unique_ptr<GDALDataset>
 chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
                , const GeoDataset::WarpOptions &options)
 {
     auto src(static_cast<GDALDataset*>(wo->hSrcDS));
+    std::unique_ptr<GDALDataset> ovrDs;
 
-    auto useOverview([&](int ovr) -> std::unique_ptr<GDALDataset>
-    {
-        // set overview
-        wri.overview = ovr;
+    wri.scale = 1.0; // IMPROVE - fallback value for original dataset
 
-        // use chosen overwiew
-        std::unique_ptr<GDALDataset> ovrDs
-            (::GDALCreateOverviewDataset(src, ovr, false, false));
-        if (!ovrDs) {
-            // failed -> go on with original dataset
-            return ovrDs;
-        }
-
-        // update warp options
-
-        // set new source
-        wo->hSrcDS = ovrDs.get();
-
-        // re-create transformer
-        createTransformer(wo);
-
-        LOG(info1)
-            << "Warp uses overview #" << ovr
-            << " instead of the full dataset.";
-
-        // and return holder
-        return ovrDs;
-    });
-
-    auto band(src->GetRasterBand(1));
-    // get number of overviews and bail out if there are none
-    auto count(band->GetOverviewCount());
-    // no overview -> original
-    if (!count) { return {}; }
-
+    // overview set explicitely in options
     if (options.overview) {
+    
         // no auto selection
         auto ovr(*options.overview);
+        
         // set to none -> original
-        if (!ovr) { return {}; }
+        if (!ovr) { 
+           return {}; 
+        }
 
         // use given overview
-        return useOverview(*ovr);
+        wri.overview = *ovr;
+        ovrDs = useOverview(src, wo, *ovr, wri);
+        return ovrDs;
     }
 
-#if 0
-    // Compute what the "natural" output resolution (in pixels) would be for
-    // this input dataset
-    double suggestedGeoTransform[6];
-    double extents[4];
-    int x, y;
-
-    if (::GDALSuggestedWarpOutput2(src, wo->pfnTransformer
-                                   , wo->pTransformerArg
-                                   , suggestedGeoTransform
-                                   , &x, &y, extents, 0)
-        != CE_None)
-    {
-        return {};
-    }
-
-
-
-    // calculate target ratio
-    double targetRatio(1.0 / suggestedGeoTransform[1]);
-#endif
-
-    // obtain maximum destination scale
-    auto dst(static_cast<GDALDataset*>(wo->hDstDS));
-    
-    struct {
-        std::array<double,45> x,y,z;
-        std::array<int,45> successf, successb;
-    } samples;
-     
-    for (int j = 0; j < 3; j++) 
-        for(int i = 0; i < 3; i++) {
-        
-            samples.x[3*j+i] = i / 2.0 * dst->GetRasterXSize();
-            samples.y[3*j+i] = j / 2.0 * dst->GetRasterYSize();
-            samples.z[3*j+i] = 0;
-        }
-        
-        
-    if ( wo->pfnTransformer(wo->pTransformerArg, TRUE, 9, 
-        samples.x.data(), samples.y.data(), samples.z.data(), 
-        samples.successf.data() ) != TRUE ) 
-        return {};    
-        
-    for (int i = 0; i < 9; i++) {
-    
-        samples.x[9+i] = samples.x[i] + 1.0;
-        samples.y[9+i] = samples.y[i];
-        samples.z[9+i] = 0;
-        samples.x[18+i] = samples.x[i] - 1.0;
-        samples.y[18+i] = samples.y[i];
-        samples.z[18+i] = 0;
-        samples.x[27+i] = samples.x[i];
-        samples.y[27+i] = samples.y[i] + 1.0;
-        samples.z[27+i] = 0;
-        samples.x[36+i] = samples.x[i];
-        samples.y[36+i] = samples.y[i] - 1.0;
-        samples.z[36+i] = 0;
-    }
-    
-    if ( wo->pfnTransformer(wo->pTransformerArg, FALSE, 45, 
-        samples.x.data(), samples.y.data(), samples.z.data(), 
-        samples.successb.data() ) != TRUE ) 
-        return {};    
-        
-    boost::optional<double> scale;
-    
-    for ( int i = 0; i < 9; i++ ) 
-        if (samples.successf[i] && samples.successb[i] &&
-            samples.successb[9+i] && samples.successb[18+i] &&
-            samples.successb[27+i] && samples.successb[36+i] ) {
-             ublas::vector<double> a(4);
-             a[0] = std::min(fabs(samples.x[9+i] - samples.x[i]), fabs(samples.x[18+i] - samples.x[i]));
-             a[1] = std::min(fabs(samples.y[9+i] - samples.y[i]),  fabs(samples.y[18+i] - samples.y[i]));
-             a[2] = std::min(fabs(samples.x[27+i] - samples.x[i]), fabs(samples.x[36+i] - samples.x[i]));
-             a[3] = std::min(fabs(samples.y[27+i] - samples.y[i]), fabs(samples.y[36+i] - samples.y[i]));
-             double nscale = norm_2(a);
-             
-             //LOG( debug ) << a;
-             //LOG( debug ) << boost::format("Dst scale is %.5f.") % nscale;
-             
-             if ( ! scale || nscale > *scale )
-                scale=nscale;       
-        }
-        
-    if ( scale ) {
-        LOG(info1) << boost::format("Overview selection based on dst/src scale of %.5f.") % *scale;
-    }
-         
-    // target ratio is inverse of minimum scale
-    double targetRatio(1.0);
-    if ( scale ) targetRatio=(1.0 / *scale);
-    if (targetRatio < 1.0) { return {}; }
-
-    // choose overview
+    // automatic overview determination - start at original dataset
     int ovr(-1);
-    for (; ovr < count - 1; ++ovr) {
-        double thisRatio(1.0);
-        if (ovr >= 0) {
-            thisRatio = (double(src->GetRasterXSize())
-                         / double(band->GetOverview(ovr)->GetXSize()));
-        }
-        double nextRatio(double(src->GetRasterXSize())
-                         / double(band->GetOverview(ovr + 1)->GetXSize()));
 
-        if ((thisRatio < targetRatio) && (nextRatio > targetRatio)) {
-            break;
-        }
+    // relax to overview due to scale
+    ovrDs = overviewByScale(src, wo, ovr, wri);
 
-        if (std::abs(thisRatio - targetRatio) < 1e-1) {
-            break;
-        }
+    LOG(info1) << "Most efficient lossless source is " << (( ovr > -1 ) ? 
+        boost::format( "overview #%d." ) % ovr : boost::format("original."));
+      
+    // force overview due to memory requirements
+    if (options.safeChunks) {
+
+       ovrDs = overviewByMemoryReqs(src, wo, ovr, wri);
+
+       LOG(info1) << "Safe chunks requirement results in usage of " 
+           << (( ovr > -1 ) ? boost::format( "overview #%d." ) % ovr 
+               : boost::format("original."));
     }
 
     // -1 -> original dataset
     if (ovr < 0) {
+    
         wri.overview = boost::none;
-        return {};
+        LOG(info1) << "Warp uses original dataset (no suitable overviews).";
+        
+    } else {
+    
+        wri.overview = ovr;
+        LOG(info1) << boost::format( 
+           "Warp uses overview #%d instead of the full dataset." ) % ovr;
     }
-
+    
     // use given overview
-    return useOverview(ovr);
+    return ovrDs;
 }
 
 const GeoDataset::NodataValue&
@@ -990,10 +1074,18 @@ GDALResampleAlg chooseResampling(GeoDataset::Resampling alg
 
 GeoDataset::WarpResultInfo
 GeoDataset::warpInto(GeoDataset &dst
-                     , const boost::optional<Resampling> &requestedAlg
+                     , const boost::optional<Resampling> & requestedAlg
                      , const WarpOptions &options)
     const
 {
+
+    // log extents
+    if ( isOrthogonal() ) {
+        math::Extents2 extents( dst.extents() );
+        LOG( info2 ) << boost::format( "Warp: -te %f %f %f %f" )
+            % extents.ll[0] % extents.ll[1] % extents.ur[0] % extents.ur[1];
+    } 
+
     // sanity
     ut::expect( dset_->GetRasterCount() == dst.dset_->GetRasterCount()
                 && dset_->GetRasterCount() > 0,
@@ -1090,8 +1182,8 @@ GeoDataset::warpInto(GeoDataset &dst
 
     warpOptions->pfnProgress = GDALDummyProgress;
 
-    // set virtual memory to 256 megs instead of default 64 megs
-    warpOptions->dfWarpMemoryLimit = 256 * 1 << 20;
+    // set virtual memory for warp operation (GDAL default is 64 megs)
+    warpOptions->dfWarpMemoryLimit = options.warpMemoryLimit;
 
     // update options and grab options since it is destroyed by
     // GDALDestroyWarpOptions
@@ -1102,6 +1194,9 @@ GeoDataset::warpInto(GeoDataset &dst
     createTransformer(warpOptions);
 
     GeoDataset::WarpResultInfo wri;
+
+    // obtain maximum scaling factor source->destination
+    obtainScale(warpOptions, wri);
 
     // choose overview and hold the dataset
     auto ovrDs(chooseOverview(warpOptions, wri, options));

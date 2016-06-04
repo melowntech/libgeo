@@ -79,8 +79,9 @@ inline OGRCoordinateTransformation& trans(const std::shared_ptr<void> &t)
 CsConvertor::CsConvertor(const SrsDefinition &from, const SrsDefinition &to)
     : trans_(initTrans(from, to))
 {
-//    LOG(info1) << "Coordinate system transformation ("
-//               << from.srs << " -> " << to.srs << ")";
+    LOG(info1) << "Coordinate system transformation ("
+               << from.as( SrsDefinition::Type::proj4 )
+               << " -> " << to.as( SrsDefinition::Type::proj4 ) << ")";
 }
 
 CsConvertor::CsConvertor(const OGRSpatialReference &from
