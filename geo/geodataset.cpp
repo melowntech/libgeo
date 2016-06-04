@@ -64,6 +64,17 @@ typedef imgproc::quadtree::RasterMask RasterMask;
 
 namespace {
 
+/**Get value of GEO_DUMP_GDALWARP environmental variable before main is run.
+ *
+ * Nonset or empty value is considered as false, anything else is true.
+ */
+const bool GEO_DUMP_GDALWARP([]() -> bool
+{
+    const char *value(std::getenv("GEO_DUMP_GDALWARP"));
+    if (!value || !*value) { return false; }
+    return true;
+}());
+
 int gdal2cv(GDALDataType gdalDataType, int numChannels)
 {
     // determine output datatype automatically
@@ -282,7 +293,9 @@ GeoDataset GeoDataset::deriveInMemory(
         boost::optional<math::Point2d> pixelSize,
         boost::optional<math::Extents2> extents,
         const math::Matrix2 & trafo,
-        boost::optional<GDALDataType> dstDataTypeOverride) {
+        boost::optional<GDALDataType> dstDataTypeOverride
+        , OptionalNodataValue dstNodataValueOverride)
+{
 
     // source dataset handle
     GDALDataset * sdset( const_cast<GDALDataset *>( source.dset_.get() ) );
@@ -375,7 +388,7 @@ GeoDataset GeoDataset::deriveInMemory(
 
     // determine datatypes
     GDALDataType srcDataType, dstDataType( GDT_Byte );
-    double dstNoDataValue( 0.0 );
+    NodataValue dstNoDataValue( 0.0 );
 
     srcDataType = sdset->GetRasterBand(1)->GetRasterDataType();
 
@@ -437,6 +450,10 @@ GeoDataset GeoDataset::deriveInMemory(
         }
     }
 
+    if (dstNodataValueOverride) {
+        dstNoDataValue = *dstNodataValueOverride;
+    }
+
     // create dataset
     std::unique_ptr<GDALDataset> tdset(driver->Create(
         "MEM", //"MEM.tif",
@@ -449,7 +466,9 @@ GeoDataset GeoDataset::deriveInMemory(
 
         tdset->GetRasterBand(i)->SetColorInterpretation(
             sdset->GetRasterBand(i)->GetColorInterpretation() );
-        tdset->GetRasterBand(i)->SetNoDataValue( dstNoDataValue );
+        if (dstNoDataValue) {
+            tdset->GetRasterBand(i)->SetNoDataValue(*dstNoDataValue);
+        }
     }
 
     tdset->SetGeoTransform( geoTransform.data() );
@@ -464,7 +483,8 @@ GeoDataset GeoDataset::deriveInMemory(
         const GeoDataset & source, const SrsDefinition &srs,
         boost::optional<math::Size2i> size,
         const math::Extents2 &extents,
-        boost::optional<GDALDataType> dstDataTypeOverride)
+        boost::optional<GDALDataType> dstDataTypeOverride
+        , OptionalNodataValue dstNodataValue)
 {
     if (!size) {
         auto esize(math::size(extents));
@@ -476,7 +496,7 @@ GeoDataset GeoDataset::deriveInMemory(
                             ( extents.ur[0] - extents.ll[0] ) / size->width,
                             ( extents.ur[1] - extents.ll[1] ) / size->height ),
                            extents, ublas::identity_matrix<double>(2),
-                           dstDataTypeOverride);
+                           dstDataTypeOverride, dstNodataValue);
 }
 
 GeoDataset GeoDataset::create(const boost::filesystem::path &path
@@ -692,7 +712,7 @@ inline char cpSign(const math::Point2_<T> &prev
 /** True only when polygon is right rotating and has sane shape (i.e. not
  *  flattened to (almost) line)
  */
-bool rightRotating(const math::Points2 &polygon)
+bool rightRotating(const math::Points2 &polygon, bool yGrowsUp = true)
 {
     if (polygon.size() < 3) {
         // this is not a polygon
@@ -718,30 +738,71 @@ bool rightRotating(const math::Points2 &polygon)
         if (sign == 3) { return false; }
     }
 
-    return (sign == 2);
+    return (yGrowsUp ? (sign == 2) : (sign == 1));
 }
 
+template <int count>
+struct Corners {
+    std::array<double, count> x;
+    std::array<double, count> y;
+    std::array<double, count> z;
+    std::array<int, count> success;
+
+    void add(int i, double xx, double yy) {
+        x[i] = xx;
+        y[i] = yy;
+        z[i] = 0.0;
+    }
+
+    constexpr int size() const { return count; }
+
+    bool allValid() const {
+        auto valid(std::accumulate(success.begin(), success.end()
+                                   , 0
+                                   , [&](int out, int in) -> int {
+                                       return out + in;
+                                   }));
+        return (valid == count);
+    }
+
+    math::Points2 asPoints() const {
+        math::Points2 out;
+        for (int i(0); i < 4; ++i) {
+            out.emplace_back(x[i], y[i]);
+        }
+        return out;
+    }
+};
+
 void sourceExtra(const GeoDataset &src, const GeoDataset &dst
-                 , OptionsWrapper &wo)
+                 , OptionsWrapper &wo, const GDALWarpOptions *warpOptions)
 {
-    const geo::CsConvertor conv(dst.srs(), src.srs());
+    auto size(dst.size());
 
-    std::vector<math::Point2> corners;
-    auto dstExtents(dst.extents());
-    for (const auto &corner : {
-            math::ul(dstExtents), math::ur(dstExtents)
-            , math::lr(dstExtents), math::ll(dstExtents) })
-    {
-        corners.push_back(conv(corner));
+    Corners<4> corners;
+
+    corners.add(0, 0.0, 0.0);
+    corners.add(1, size.width, 0.0);
+    corners.add(2, size.width, size.height);
+    corners.add(3, 0.0, size.height);
+
+    // try to transform points
+    warpOptions->pfnTransformer(warpOptions->pTransformerArg, true, 4
+                                , corners.x.data(), corners.y.data()
+                                , corners.z.data()
+                                , corners.success.data());
+
+    if (corners.allValid()) {
+        // all pixels were transformed, check for right rotation (in pixel
+        // space, Y grows down)
+        if (rightRotating(corners.asPoints(), false)) {
+            // right rotating polygon maps to sane right rotating polygon -> no
+            // wrap arround
+            return;
+        }
     }
 
-    if (rightRotating(corners)) {
-        // right rotating polygon maps to sane right rotating polygon -> no wrap
-        // arround
-        return;
-    }
-
-    auto ps(sourcePixelSize(conv, src, dst));
+    auto ps(sourcePixelSize(src, dst));
     auto s(dst.size());
     ps *= std::max(s.width, s.height);
 
@@ -751,8 +812,9 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
         se = 1000;
     }
 
-    LOG(info2) << "Setting SOURCE_EXTRA=" << se << ".";
-    wo("SOURCE_EXTRA", se);
+    LOG(info1) << "Setting SOURCE_EXTRA=" << se << " and SAMPLE_GRID=YES.";
+    wo("SOURCE_EXTRA", int(se));
+    wo("SAMPLE_GRID", true);
 }
 
 void createTransformer(GDALWarpOptions *wo)
@@ -924,8 +986,10 @@ std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src,
   ulong measure(0UL);
   
   if (wo->dfWarpMemoryLimit == 0.0) {
+  
      LOG(warn2) << "Warp memory limit set to internal default, "
        "cannot test for memory requirements.";
+     return {}; 
   }
     
   std::unique_ptr<GDALDataset> ovrDs;  
@@ -1067,7 +1131,82 @@ GDALResampleAlg chooseResampling(GeoDataset::Resampling alg
     }
 
     // use provided resampling
-    return algoToGdal(wri.resampling =  alg);
+    return algoToGdal(wri.resampling = alg);
+}
+
+struct CmdlineLogger {
+    CmdlineLogger(const GDALWarpOptions *warpOptions
+                  , const GeoDataset::WarpOptions &options
+                  , const GeoDataset::WarpResultInfo &wri
+                  , const GeoDataset &src
+                  , const GeoDataset &dst
+                  , GDALDataType ot)
+        : warpOptions(warpOptions), options(options)
+        , wri(wri), src(src), dst(dst), ot(ot)
+    {}
+
+    const GDALWarpOptions *warpOptions;
+    const GeoDataset::WarpOptions &options;
+    const GeoDataset::WarpResultInfo &wri;
+    const GeoDataset &src;
+    const GeoDataset &dst;
+    GDALDataType ot;
+};
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const CmdlineLogger &l)
+{
+    os << std::fixed << "gdalwarp";
+    os << " -r " << l.wri.resampling;
+    if (l.wri.overview) {
+        os << " -ovr " << *l.wri.overview;
+    }
+
+    auto extents(l.dst.extents());
+    auto size(l.dst.size());
+    os << " -te " << extents.ll(0) << ' ' << extents.ll(1) << ' '
+       << extents.ur(0) << ' ' << extents.ur(1);
+
+    os << " -ts " << size.width << ' ' << size.height;
+
+    if (l.options.srcNodataValue) {
+        if (*l.options.srcNodataValue) {
+            os << " -srcnodata " << **l.options.srcNodataValue;
+        } else {
+            os << " -srcnodata None";
+        }
+    }
+
+    if (l.options.dstNodataValue) {
+        if (*l.options.dstNodataValue) {
+            os << " -dstnodata " << **l.options.dstNodataValue;
+        } else {
+            os << " -dstnodata None";
+        }
+    }
+
+    switch (l.ot) {
+    case ::GDT_Byte: os << " -ot byte"; break;
+    case ::GDT_UInt16: os << " -ot uint16"; break;
+    case ::GDT_Int16: os << " -ot int16"; break;
+    case ::GDT_UInt32: os << " -ot uint32"; break;
+    case ::GDT_Int32: os << " -ot int32"; break;
+    case ::GDT_Float32: os << " -ot float32"; break;
+    case ::GDT_Float64: os << " -ot float64"; break;
+    default: break;
+    }
+
+    os << " -t_srs \"" << l.dst.srsProj4() << "\"";
+
+    if (l.warpOptions->papszWarpOptions) {
+        for (char **opts(l.warpOptions->papszWarpOptions);
+             *opts; ++opts)
+        {
+            os << " -wo " << *opts;
+        }
+    }
+    return os;
 }
 
 } // namespace
@@ -1122,9 +1261,6 @@ GeoDataset::warpInto(GeoDataset &dst
         }
     }
     // ---- optimization ends here ----
-
-    // calculate sourceExtra parameter from datasets (if needed)
-    sourceExtra(*this, dst, wo);
 
     // create warp options
     GDALWarpOptions * warpOptions = GDALCreateWarpOptions();
@@ -1185,13 +1321,12 @@ GeoDataset::warpInto(GeoDataset &dst
     // set virtual memory for warp operation (GDAL default is 64 megs)
     warpOptions->dfWarpMemoryLimit = options.warpMemoryLimit;
 
-    // update options and grab options since it is destroyed by
-    // GDALDestroyWarpOptions
-    wo("INIT_DEST", "NO_DATA");
-    warpOptions->papszWarpOptions = wo.release();
-
     // establish reprojection transformer.
     createTransformer(warpOptions);
+
+    // calculate sourceExtra parameter from datasets (if needed)
+    // TODO: move after overview selection and use overview information
+    sourceExtra(*this, dst, wo, warpOptions);
 
     GeoDataset::WarpResultInfo wri;
 
@@ -1201,24 +1336,19 @@ GeoDataset::warpInto(GeoDataset &dst
     // choose overview and hold the dataset
     auto ovrDs(chooseOverview(warpOptions, wri, options));
 
-    // calculate (average) scale
-    {
-        // scaling applied to source (this) dataset by overview, defaults to 1x1
-        // if no overview present
-        math::Point2 srcScale(1.0, 1.0);
-        if (ovrDs) {
-            srcScale(0) = (double(ovrDs->GetRasterXSize())
-                           / double(dset_->GetRasterXSize()));
-            srcScale(1) = (double(ovrDs->GetRasterYSize()))
-                           / double(dset_->GetRasterYSize());
-        }
+    // update options and grab options since it is destroyed by
+    // GDALDestroyWarpOptions
+    wo("INIT_DEST", "NO_DATA");
+    warpOptions->papszWarpOptions = wo.release();
 
-        // scale is inverse of size of source pixel size
-        wri.scale = 1.0 / sourcePixelSize(*this, dst, srcScale);
-    }
-
-    // done
+    // choose resampling 
     warpOptions->eResampleAlg = chooseResampling(alg, wri);
+    
+    {
+       // re-check memory requirements, resampling may change everything
+       int ovr( wri.overview ? *wri.overview : -1 );
+       ovrDs = overviewByMemoryReqs(dset_.get(), warpOptions, ovr, wri);
+    }
 
     // initialize and execute the warp operation.
     GDALWarpOperation oOperation;
@@ -1229,6 +1359,15 @@ GeoDataset::warpInto(GeoDataset &dst
                                   dst.dset_->GetRasterYSize() );
 
     GDALDestroyGenImgProjTransformer( warpOptions->pTransformerArg );
+
+    // log before options destruction
+    if (GEO_DUMP_GDALWARP) {
+        LOG(info4) << CmdlineLogger
+            (warpOptions, options, wri, *this, dst
+             , dst.dset_->GetRasterBand(1)->GetRasterDataType());
+        LOG(info4) << "scale: " << wri.scale;
+    }
+
     GDALDestroyWarpOptions( warpOptions );
 
     ut::expect( err == CE_None, "Warp failed." );
@@ -1340,6 +1479,7 @@ void GeoDataset::loadMask() const {
 
     if (!raster.data) {
         // invalid matrix + optimized mode -> whole dataset is valid
+        LOG(debug) << "Loaded fully valid mask.";
         mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
         return;
     }
@@ -1347,7 +1487,8 @@ void GeoDataset::loadMask() const {
     // statistics
     std::size_t total(size_.width * size_.height);
     std::size_t nz(countNonZero(raster));
-    LOG(debug) << boost::format( "Loaded mask with %1% / %2% pixels." ) % nz % total;
+    LOG(debug) << "Loaded mask with " << nz << "/" << total << " pixels.";
+
     if (!nz) {
         // empty
         mask_ = RasterMask(size_.width, size_.height, RasterMask::EMPTY);
