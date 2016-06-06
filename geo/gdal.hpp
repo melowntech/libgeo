@@ -10,6 +10,10 @@
 
 #include <boost/lexical_cast.hpp>
 
+#include <gdal/gdal.h>
+
+#include "utility/enum-io.hpp"
+
 namespace geo {
 
 struct Gdal {
@@ -41,5 +45,19 @@ inline void Gdal::setOption(const std::string &name, const T &value
 }
 
 } // namespace geo
+
+UTILITY_GENERATE_ENUM_IO(::GDALDataType,
+                         ((::GDT_Byte)("byte"))
+                         ((::GDT_UInt16)("uint16"))
+                         ((::GDT_Int16)("int16"))
+                         ((::GDT_UInt32)("uint32"))
+                         ((::GDT_Int32)("int32"))
+                         ((::GDT_Float32)("float32"))
+                         ((::GDT_Float64)("float64"))
+                         ((::GDT_CInt16)("cint16"))
+                         ((::GDT_CInt32)("cint32"))
+                         ((::GDT_CFloat32)("cfloat32"))
+                         ((::GDT_CFloat64)("cfloat64"))
+                         )
 
 #endif // geo_gdal_hpp_included
