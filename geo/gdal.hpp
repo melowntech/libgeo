@@ -46,18 +46,40 @@ inline void Gdal::setOption(const std::string &name, const T &value
 
 } // namespace geo
 
-UTILITY_GENERATE_ENUM_IO(::GDALDataType,
-                         ((GDT_Byte)("byte"))
-                         ((GDT_UInt16)("uint16"))
-                         ((GDT_Int16)("int16"))
-                         ((GDT_UInt32)("uint32"))
-                         ((GDT_Int32)("int32"))
-                         ((GDT_Float32)("float32"))
-                         ((GDT_Float64)("float64"))
-                         ((GDT_CInt16)("cint16"))
-                         ((GDT_CInt32)("cint32"))
-                         ((GDT_CFloat32)("cfloat32"))
-                         ((GDT_CFloat64)("cfloat64"))
-                         )
+UTILITY_GENERATE_ENUM_IO_CI(::GDALDataType,
+                            ((GDT_Byte)("Byte"))
+                            ((GDT_UInt16)("UInt16"))
+                            ((GDT_Int16)("Int16"))
+                            ((GDT_UInt32)("UInt32"))
+                            ((GDT_Int32)("Int32"))
+                            ((GDT_Float32)("Float32"))
+                            ((GDT_Float64)("Float64"))
+                            ((GDT_CInt16)("CInt16"))
+                            ((GDT_CInt32)("CInt32"))
+                            ((GDT_CFloat32)("CFloat32"))
+                            ((GDT_CFloat64)("CFloat64"))
+                            ((GDT_Unknown)("Unknown"))
+                            ((GDT_TypeCount)("TypeCount"))
+                            )
+
+/*! Types of color interpretation for raster bands. */
+UTILITY_GENERATE_ENUM_IO_CI(::GDALColorInterp,
+                            ((GCI_GrayIndex)("GrayIndex"))
+                            ((GCI_PaletteIndex)("PaletteIndex"))
+                            ((GCI_RedBand)("RedBand"))
+                            ((GCI_GreenBand)("GreenBand"))
+                            ((GCI_BlueBand)("BlueBand"))
+                            ((GCI_AlphaBand)("AlphaBand"))
+                            ((GCI_HueBand)("HueBand"))
+                            ((GCI_SaturationBand)("SaturationBand"))
+                            ((GCI_LightnessBand)("LightnessBand"))
+                            ((GCI_CyanBand)("CyanBand"))
+                            ((GCI_MagentaBand)("MagentaBand"))
+                            ((GCI_YellowBand)("YellowBand"))
+                            ((GCI_BlackBand)("BlackBand"))
+                            ((GCI_YCbCr_YBand)("YBand"))
+                            ((GCI_YCbCr_CbBand)("CbBand"))
+                            ((GCI_YCbCr_CrBand)("CrBand"))
+                            )
 
 #endif // geo_gdal_hpp_included
