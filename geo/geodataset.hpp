@@ -388,6 +388,10 @@ public:
 
     math::Size2i size() const { return size_; }
 
+    /** Returns size of given overview.
+     */
+    math::Size2i size(const Overview &ovr) const;
+
     std::string srsWkt() const { return srsWkt_; }
     std::string srsProj4() const { return srsProj4_; }
     SrsDefinition srs() const {

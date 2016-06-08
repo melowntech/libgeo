@@ -2138,7 +2138,14 @@ void setMetadataIn(GDALMajorObject *obj, const GeoDataset::Metadata &metadata
     }
     md.push_back(nullptr);
 
-    obj->SetMetadata(md.data(), domain.empty() ? 0x0 : domain.c_str());
+    auto err(obj->SetMetadata
+             (md.data(), domain.empty() ? 0x0 : domain.c_str()));
+
+    if (err != CE_None) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Cannot set metadata: <" << ::CPLGetLastErrorMsg() << ">"
+            << " (err=" << err << ").";
+    }
 }
 
 } // namespace
@@ -2341,6 +2348,25 @@ GeoDataset::BandProperties GeoDataset::bandProperties(int band) const
     bp.size.height = b->GetYSize();
     b->GetBlockSize(&bp.blockSize.width, &bp.blockSize.height);
     return bp;
+}
+
+math::Size2i GeoDataset::size(const Overview &ovr) const
+{
+    if (!ovr) { return size(); }
+
+    // overview specified -> analyze overview of first band
+    auto *b(dset_->GetRasterBand(1));
+    auto count(b->GetOverviewCount());
+
+    // no overview -> use full dataset
+    if (!count) { return size(); }
+
+    // if ovr is past end, use end
+    int o(*ovr);
+    if (o >= count) { o = count - 1; }
+
+    auto ob(b->GetOverview(o));
+    return math::Size2i(ob->GetXSize(), ob->GetYSize());
 }
 
 } // namespace geo
