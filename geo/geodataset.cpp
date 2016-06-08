@@ -175,6 +175,11 @@ GeoDataset GeoDataset::placeholder()
     return GeoDataset({}, false);
 }
 
+GeoDataset GeoDataset::use(std::unique_ptr<GDALDataset> &&dset)
+{
+    return GeoDataset(std::move(dset));
+}
+
 GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
                        , bool freshlyCreated)
     : type_(Type::custom), dset_(std::move(dset)), changed_(false)
@@ -504,7 +509,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                              , const GeoTransform & geoTransform
                              , const math::Size2 &rasterSize
                              , const Format &format
-                             , double noDataValue
+                             , const NodataValue &noDataValue
                              , const Options &options )
 {
     if (!initialized_) { initialize(); }
@@ -532,9 +537,24 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
         wfExt = "jgw";
         break;
 
+    case Format::Storage::jp2:
+        storageFormat = "JP2OpenJPEG";
+        wfExt = "";
+        break;
+
+    case Format::Storage::vrt:
+        storageFormat = "VRT";
+        wfExt = "";
+        break;
+
     case Format::Storage::memory:
         storageFormat = "MEM";
         usePath = "MEM";
+        wfExt = "";
+        break;
+
+    case Format::Storage::custom:
+        storageFormat = format.driver;
         wfExt = "";
         break;
     }
@@ -593,7 +613,9 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
         for (auto colorInterpretation : format.channels) {
             auto band(ds->GetRasterBand(i));
             ut::expect(band, "Cannot find band %d.", (i));
-            band->SetNoDataValue(noDataValue);
+            if (noDataValue) {
+                band->SetNoDataValue(*noDataValue);
+            }
             band->SetColorInterpretation(colorInterpretation);
             ++i;
         }
@@ -619,7 +641,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                               , const math::Extents2 &extents
                               , const math::Size2 &rasterSize
                               , const Format &format
-                              , double noDataValue
+                              , const NodataValue &noDataValue
                               , const Options &options) {
 
     auto geoTrafo( GeoTransform::northUpFromExtents(extents, rasterSize) );
@@ -2078,14 +2100,17 @@ void GeoDataset::flush()
     changed_ = false;
 }
 
-GeoDataset::Metadata GeoDataset::getMetadata(const std::string &domain) const
+namespace {
+
+GeoDataset::Metadata getMetadataFrom(GDALMajorObject *obj
+                                     , const std::string &domain)
 {
-    auto md(dset_->GetMetadata(domain.empty() ? 0x0 : domain.c_str()));
+    auto md(obj->GetMetadata(domain.empty() ? 0x0 : domain.c_str()));
     if (!md) {
         return {};
     }
 
-    Metadata metadata;
+    GeoDataset::Metadata metadata;
     char *key;
     for (; *md; ++md) {
         auto value(::CPLParseNameValue(*md, &key));
@@ -2095,8 +2120,8 @@ GeoDataset::Metadata GeoDataset::getMetadata(const std::string &domain) const
     return metadata;
 }
 
-void GeoDataset::setMetadata(const Metadata &metadata
-                             , const std::string &domain)
+void setMetadataIn(GDALMajorObject *obj, const GeoDataset::Metadata &metadata
+                   , const std::string &domain)
 {
     // convert metadata into list
     std::vector<std::string> strings;
@@ -2113,7 +2138,32 @@ void GeoDataset::setMetadata(const Metadata &metadata
     }
     md.push_back(nullptr);
 
-    dset_->SetMetadata(md.data(), domain.empty() ? 0x0 : domain.c_str());
+    obj->SetMetadata(md.data(), domain.empty() ? 0x0 : domain.c_str());
+}
+
+} // namespace
+
+GeoDataset::Metadata GeoDataset::getMetadata(const std::string &domain) const
+{
+    return getMetadataFrom(dset_.get(), domain);
+}
+
+void GeoDataset::setMetadata(const Metadata &metadata
+                             , const std::string &domain)
+{
+    setMetadataIn(dset_.get(), metadata, domain);
+}
+
+GeoDataset::Metadata
+GeoDataset::getMetadata(int band, const std::string &domain) const
+{
+    return getMetadataFrom(dset_->GetRasterBand(band), domain);
+}
+
+void GeoDataset::setMetadata(int band, const Metadata &metadata
+                             , const std::string &domain)
+{
+    setMetadataIn(dset_->GetRasterBand(band), metadata, domain);
 }
 
 // rawish interface
@@ -2254,6 +2304,43 @@ void GeoDataset::rasterize(const ::OGRGeometry *geometry
     // invalidate
     data_ = boost::none;
     mask_ = boost::none;
+}
+
+GeoDataset::Format GeoDataset::getFormat() const
+{
+    Format f;
+    f.storageType = Format::Storage::custom;
+    f.driver = dset_->GetDriver()->GetDescription();
+
+    int rc(dset_->GetRasterCount());
+    if (!rc) { return f; }
+
+    for (int i(1); i <= rc; ++i) {
+        auto *band(dset_->GetRasterBand(i));
+        if (i == 1) {
+            f.channelType = band->GetRasterDataType();
+        }
+        f.channels.push_back(band->GetColorInterpretation());
+    }
+
+    return f;
+}
+
+std::size_t GeoDataset::bandCount() const
+{
+    return dset_->GetRasterCount();
+}
+
+GeoDataset::BandProperties GeoDataset::bandProperties(int band) const
+{
+    auto *b(dset_->GetRasterBand(band + 1));
+    BandProperties bp;
+    bp.dataType = b->GetRasterDataType();
+    bp.colorInterpretation = b->GetColorInterpretation();
+    bp.size.width = b->GetXSize();
+    bp.size.height = b->GetYSize();
+    b->GetBlockSize(&bp.blockSize.width, &bp.blockSize.height);
+    return bp;
 }
 
 } // namespace geo

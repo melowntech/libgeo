@@ -68,6 +68,8 @@ public:
 
     static GeoDataset open(const boost::filesystem::path &path);
 
+    static GeoDataset use(std::unique_ptr<GDALDataset> &&dset);
+
     /** Derive in-memory data set from existing data set.
      *  Only metadata from source are used.
      *
@@ -122,11 +124,11 @@ public:
     /** Format descriptor
      */
     struct Format {
-        enum class Storage { gtiff, png, jpeg, memory };
+        enum class Storage { custom, gtiff, png, jpeg, jp2, vrt, memory };
 
         /** Datatype (GDT_Byte, GDT_UInt16, ...)
          */
-        GDALDataType channelType;
+        ::GDALDataType channelType;
 
         /** Number and color interpretation of channels.
          */
@@ -135,6 +137,19 @@ public:
         /** Type of storage (tiff image, png image, ...)
          */
         Storage storageType;
+
+        /** Valid only if storageType == Storage::custom
+         */
+        std::string driver;
+
+        Format() : channelType(::GDT_Byte), storageType(Storage::custom) {}
+        Format(::GDALDataType channelType
+               , const std::initializer_list< ::GDALColorInterp> &channels
+               , Storage storageType = Storage::custom)
+            : channelType(channelType)
+            , channels(channels.begin(), channels.end())
+            , storageType(storageType)
+        {}
 
         static Format gtiffRGBPhoto() {
             return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand }
@@ -216,10 +231,10 @@ public:
      */
     static GeoDataset create(const boost::filesystem::path &path
                              , const SrsDefinition &srs
-                             , const GeoTransform & geoTransform 
+                             , const GeoTransform & geoTransform
                              , const math::Size2 &rasterSize
                              , const Format &format
-                             , double noDataValue
+                             , const NodataValue &noDataValue = boost::none
                              , const Options &options = Options());
 
     /** Creates new dataset at given path.
@@ -237,7 +252,7 @@ public:
                              , const math::Extents2 &extents
                              , const math::Size2 &rasterSize
                              , const Format &format
-                             , double noDataValue
+                             , const NodataValue &noDataValue = boost::none
                              , const Options &options = Options());
 
     enum class Type { custom, grayscale, rgb, rgba, alpha };
@@ -559,10 +574,36 @@ public:
         Items items_;
     };
 
+    /** Get dataset's metadata.
+     */
     Metadata getMetadata(const std::string &domain = "") const;
 
+    /** Set dataset's metadata.
+     */
     void setMetadata(const Metadata &metadata
                      , const std::string &domain = "");
+
+    /** Get band's metadata. NB: Bands are zero based.
+     */
+    Metadata getMetadata(int band, const std::string &domain = "") const;
+
+    /** Set band's metadata. NB: Bands are zero based.
+     */
+    void setMetadata(int band, const Metadata &metadata
+                     , const std::string &domain = "");
+
+    std::size_t bandCount() const;
+
+    struct BandProperties {
+        ::GDALDataType dataType;
+        :: GDALColorInterp colorInterpretation;
+        math::Size2 size;
+        math::Size2 blockSize;
+    };
+
+    /** Get band propeties. NB: Bands are zero based.
+     */
+    BandProperties bandProperties(int band) const;
 
     // rawish data interface
 
@@ -600,6 +641,8 @@ public:
         return noDataValue_ ? *noDataValue_ : defaultValue;
     }
 
+    NodataValue rawNodataValue() const { return noDataValue_; }
+
     /** returns true if dataset is orthogonal */
     bool isOrthogonal() const;
 
@@ -626,6 +669,8 @@ public:
      *
      */
     cv::Mat fetchMask(bool optimized = false) const;
+
+    Format getFormat() const;
 
 private:
     static bool initialized_;

@@ -64,6 +64,7 @@ UTILITY_GENERATE_ENUM_IO_CI(::GDALDataType,
 
 /*! Types of color interpretation for raster bands. */
 UTILITY_GENERATE_ENUM_IO_CI(::GDALColorInterp,
+                            ((GCI_Undefined)("Undefined"))
                             ((GCI_GrayIndex)("GrayIndex"))
                             ((GCI_PaletteIndex)("PaletteIndex"))
                             ((GCI_RedBand)("RedBand"))
