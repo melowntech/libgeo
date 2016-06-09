@@ -2211,6 +2211,62 @@ GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset)
     return block;
 }
 
+GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset
+                                        , unsigned int band
+                                        , bool native)
+    const
+{
+    auto bs(blockSize());
+    unsigned int numChannels(dset_->GetRasterCount());
+    ut::expect((band < numChannels), "Band out of bounds.");
+    // convert band to 1-based
+    ++band;
+
+    ut::expect(((blockOffset(0) >= 0) && (blockOffset(1) >= 0))
+               , "Block out of raster.");
+
+    // check whether we are not outside raster
+    math::Point2 offset(blockOffset(0) * bs.width
+                        , blockOffset(1) * bs.height);
+
+    ut::expect(((offset(0) < size_.width) && (offset(1) < size_.height))
+               , "Block out of raster.");
+
+    math::Point2 end(offset(0) + bs.width, offset(1) + bs.height);
+    if (end(0) > size_.width) { end(0) = size_.width; }
+    if (end(1) > size_.height) { end(1) = size_.height; }
+
+    math::Size2 size(end(0) - offset(0), end(1) - offset(1));
+
+    ::GDALDataType gdalDataType
+          (native
+           ? dset_->GetRasterBand(band)->GetRasterDataType()
+           : GDT_Float64);
+    int cvDataType(gdal2cv(gdalDataType, 1));
+
+    Block block;
+    block.data.create(size.height, size.width, cvDataType);
+
+    int bandMap(band);
+    auto err = dset_->RasterIO
+        (GF_Read // GDALRWFlag  eRWFlag,
+         , offset(0) // int nXOff
+         , offset(1) // int nYOff
+         , size.width, size.height // int nXSize, int nYSize,
+         , (void *) block.data.data // void * pData,
+         , size.width, size.height // int nBufXSize, int
+                                                 // nBufYSize,
+         , gdalDataType // GDALDataType  eBufType,
+         , 1 //  int nBandCount,
+         , &bandMap  // int * panBandMap,
+         , block.data.elemSize() // int nPixelSpace,
+         , size.width * block.data.elemSize(), 0); // int nLineSpace
+
+    ut::expect(err == CE_None, "Reading of raster data failed.");
+
+    return block;
+}
+
 math::Size2 GeoDataset::blockSize() const
 {
     math::Size2 size;
@@ -2225,6 +2281,33 @@ GeoDataset::blockCoord(const math::Point2i &point) const
     return std::tuple<math::Point2i, math::Point2i>
         (math::Point2i(point(0) / size.width, point(1) / size.height)
          , math::Point2i(point(0) % size.width, point(1) % size.height));
+}
+
+GeoDataset::BlockInfo::list GeoDataset::getBlocking() const
+{
+    GeoDataset::BlockInfo::list out;
+
+    const auto bs(blockSize());
+
+    // size in blocks
+    const math::Size2 blocked((size_.width + bs.width - 1) / bs.width
+                              , (size_.height + bs.height - 1) / bs.height);
+
+    // last block size
+    math::Point2i last((blocked.width - 1), (blocked.height - 1));
+    const math::Size2 tail(size_.width - last(0) * bs.width
+                           , size_.height - last(1) * bs.height);
+
+    // generate list of blocks
+    for (int j(0), y(0); j != blocked.height; ++j, y += bs.height) {
+        int height((j == last(1)) ? tail.height : bs.height);
+        for (int i(0), x(0); i != blocked.width; ++i, x += bs.width) {
+            int width((i == last(0)) ? tail.width : bs.width);
+            out.emplace_back(math::Point2i(x, y), math::Size2(width, height));
+        }
+    }
+
+    return out;
 }
 
 math::Extents2 GeoDataset::pixelExtents(const math::Point2i &raster) const
@@ -2335,6 +2418,15 @@ GeoDataset::BandProperties GeoDataset::bandProperties(int band) const
     bp.size.height = b->GetYSize();
     b->GetBlockSize(&bp.blockSize.width, &bp.blockSize.height);
     return bp;
+}
+
+GeoDataset::BandProperties::list GeoDataset::bandProperties() const
+{
+    BandProperties::list out;
+    for (int i(0), ei(dset_->GetRasterCount()); i != ei; ++i) {
+        out.push_back(bandProperties(i));
+    }
+    return out;
 }
 
 math::Size2i GeoDataset::size(const Overview &ovr) const

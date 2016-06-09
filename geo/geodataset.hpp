@@ -610,11 +610,17 @@ public:
         :: GDALColorInterp colorInterpretation;
         math::Size2 size;
         math::Size2 blockSize;
+
+        typedef std::vector<BandProperties> list;
     };
 
     /** Get band propeties. NB: Bands are zero based.
      */
     BandProperties bandProperties(int band) const;
+
+    /** Get propeties of all bands at once.
+     */
+    BandProperties::list bandProperties() const;
 
     // rawish data interface
 
@@ -634,6 +640,13 @@ public:
      */
     Block readBlock(const math::Point2i &blockOffset) const;
 
+    /** Reads block fron single band that contains given point.
+     *
+     *  Data are returned in a double matrix unless native is true.
+     */
+    Block readBlock(const math::Point2i &blockOffset, unsigned int band
+                    , bool native = false) const;
+
     /** Size of IO block.
      */
     math::Size2 blockSize() const;
@@ -642,6 +655,21 @@ public:
      */
     std::tuple<math::Point2i, math::Point2i>
     blockCoord(const math::Point2i &point) const;
+
+    struct BlockInfo {
+        math::Point2i offset;
+        math::Size2 size;
+
+        BlockInfo(const math::Point2i &offset, const math::Size2 &size)
+            : offset(offset), size(size)
+        {}
+
+        typedef std::vector<BlockInfo> list;
+    };
+
+    /** Returns dataset broken to individual blocks.
+     */
+    BlockInfo::list getBlocking() const;
 
     /** Checks whether this dataset is valid dataset (i.e. is backed by valid
      *  GDAL dataset. Returns false for placeholder.
