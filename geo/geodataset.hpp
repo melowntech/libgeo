@@ -124,7 +124,7 @@ public:
     /** Format descriptor
      */
     struct Format {
-        enum class Storage { custom, gtiff, png, jpeg, jp2, vrt, memory };
+        enum class Storage { custom, gtiff, png, jpeg, vrt, memory };
 
         /** Datatype (GDT_Byte, GDT_UInt16, ...)
          */
@@ -254,6 +254,13 @@ public:
                              , const Format &format
                              , const NodataValue &noDataValue = boost::none
                              , const Options &options = Options());
+
+    /** Creates copy of existing dataset in specified storage format.
+     */
+    static GeoDataset createCopy(const boost::filesystem::path &path
+                                 , const std::string &storageFormat
+                                 , const geo::GeoDataset &src
+                                 , const Options &options = Options());
 
     enum class Type { custom, grayscale, rgb, rgba, alpha };
     Type type() const { return type_; }

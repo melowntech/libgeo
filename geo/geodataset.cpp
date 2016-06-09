@@ -537,11 +537,6 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
         wfExt = "jgw";
         break;
 
-    case Format::Storage::jp2:
-        storageFormat = "JP2OpenJPEG";
-        wfExt = "";
-        break;
-
     case Format::Storage::vrt:
         storageFormat = "VRT";
         wfExt = "";
@@ -966,8 +961,8 @@ std::unique_ptr<GDALDataset> useOverview(
     double overviewScale = double(ovrDs->GetRasterXSize()) / src->GetRasterXSize();
     wri.scale = wri.truescale / overviewScale;
     
-    LOG(debug) << boost::format( "Using overview #%d, truescale %.5f, scale %.5f" ) 
-       % ovr % wri.truescale % wri.scale;
+    LOG(debug)( "Using overview #%d, truescale %.5f, scale %.5f"
+                , ovr, wri.truescale, wri.scale );
 
     // and return holder
     return ovrDs;
@@ -980,9 +975,9 @@ std::unique_ptr<GDALDataset> overviewByScale(GDALDataset *src,
     auto count(band->GetOverviewCount());
     
     // true scale is presumed to be defined
-    LOG(info1) << boost::format(
-       "Overview selection based on dst/src scale of %.5f.") % wri.truescale;
-         
+    LOG(info1)
+        ( "Overview selection based on dst/src scale of %.5f.", wri.truescale );
+
     // choose overview
     for (; ovr < count - 1; ++ovr) {
 
@@ -1025,15 +1020,15 @@ std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src,
      measure = detail::WarpMemoryMeter(wo).measure();
   
      // test
-     if ( ovr > 0 ) {
+     if ( ovr >= 0 ) {
      
-       LOG(info1) << boost::format("Memory requirements at overview %d: %lu bytes.") 
-         % ovr % measure;
+         LOG(info1)("Memory requirements at overview %d: %lu bytes."
+                    , ovr, measure);
          
      } else {
      
-       LOG(info1) << boost::format("Memory requirements at original: %lu bytes.")
-         % measure;
+         LOG(info1)("Memory requirements at original: %lu bytes."
+                    , measure);
      }
         
      if (measure <= wo->dfWarpMemoryLimit) {
@@ -1043,10 +1038,10 @@ std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src,
   }
     
   if (! requirementsMet) {
-     LOG(warn2) << boost::format("Could not meet desired memory requirements "
-         "(%lu est > %lu target), need more overviews?") % measure
-         % wo->dfWarpMemoryLimit;
-     ovr = count;
+     LOG(warn2)("Could not meet desired memory requirements "
+                "(%lu est > %lu target), need more overviews?"
+                , measure, wo->dfWarpMemoryLimit);
+     ovr = count - 1;
   }
          
   return ovrDs;
@@ -1107,8 +1102,8 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
     } else {
     
         wri.overview = ovr;
-        LOG(info1) << boost::format( 
-           "Warp uses overview #%d instead of the full dataset." ) % ovr;
+        LOG(info1)("Warp uses overview #%d instead of the full dataset."
+                   , ovr);
     }
     
     // use given overview
@@ -1239,14 +1234,6 @@ GeoDataset::warpInto(GeoDataset &dst
                      , const WarpOptions &options)
     const
 {
-
-    // log extents
-    if ( isOrthogonal() ) {
-        math::Extents2 extents( dst.extents() );
-        LOG( info2 ) << boost::format( "Warp: -te %f %f %f %f" )
-            % extents.ll[0] % extents.ll[1] % extents.ur[0] % extents.ur[1];
-    } 
-
     // sanity
     ut::expect( dset_->GetRasterCount() == dst.dset_->GetRasterCount()
                 && dset_->GetRasterCount() > 0,
@@ -1363,10 +1350,10 @@ GeoDataset::warpInto(GeoDataset &dst
     wo("INIT_DEST", "NO_DATA");
     warpOptions->papszWarpOptions = wo.release();
 
-    // choose resampling 
+    // choose resampling
     warpOptions->eResampleAlg = chooseResampling(alg, wri);
-    
-    {
+
+    if (options.safeChunks) {
        // re-check memory requirements, resampling may change everything
        int ovr( wri.overview ? *wri.overview : -1 );
        ovrDs = overviewByMemoryReqs(dset_.get(), warpOptions, ovr, wri);
@@ -2367,6 +2354,34 @@ math::Size2i GeoDataset::size(const Overview &ovr) const
 
     auto ob(b->GetOverview(o));
     return math::Size2i(ob->GetXSize(), ob->GetYSize());
+}
+
+GeoDataset GeoDataset::createCopy(const boost::filesystem::path &path
+                                  , const std::string &storageFormat
+                                  , const geo::GeoDataset &src
+                                  , const Options &options)
+{
+    auto *driver
+        (GetGDALDriverManager()->GetDriverByName(storageFormat.c_str()));
+    if (!driver) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Cannot find GDAL driver for <" << storageFormat << ">.";
+    }
+
+    auto metadata(driver->GetMetadata());
+    if (!CSLFetchBoolean(metadata, GDAL_DCAP_CREATECOPY, FALSE)) {
+        LOGTHROW(err2, std::runtime_error)
+            << "GDAL driver for <" << storageFormat
+            << "> format doesn't know how to crete a copy.";
+    }
+
+    std::unique_ptr<GDALDataset>
+        ds(driver->CreateCopy(path.c_str(), src.dset_.get()
+                              , true // strict
+                              , OptionsWrapper(options)
+                              , ::GDALDummyProgress
+                              , nullptr));
+    return GeoDataset(std::move(ds));
 }
 
 } // namespace geo
