@@ -183,6 +183,7 @@ GeoDataset GeoDataset::use(std::unique_ptr<GDALDataset> &&dset)
 GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
                        , bool freshlyCreated)
     : type_(Type::custom), dset_(std::move(dset)), changed_(false)
+    , fresh_(freshlyCreated)
 {
     // stop here if invalid
     if (!dset_) { return; }
@@ -249,12 +250,6 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
             }
         }
     }
-
-    if (freshlyCreated) {
-        // freshly created -> create initial data
-        data_ = cv::Mat(size_.height, size_.width, CV_64FC(numChannels_));
-        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
-    }
 }
 
 GeoDataset::~GeoDataset() noexcept
@@ -275,7 +270,7 @@ void GeoDataset::initialize() {
 }
 
 
-GeoDataset GeoDataset::open(const fs::path & path)
+GeoDataset GeoDataset::open(const fs::path &path, const Options&)
 {
 
     if ( ! initialized_ ) initialize();
@@ -1375,14 +1370,21 @@ GeoDataset::warpInto(GeoDataset &dst
             (warpOptions, options, wri, *this, dst
              , dst.dset_->GetRasterBand(1)->GetRasterDataType());
         LOG(info4) << "scale: " << wri.scale;
+        LOG(info4) << "truescale: " << wri.truescale;
     }
 
     GDALDestroyWarpOptions( warpOptions );
 
-    ut::expect( err == CE_None, "Warp failed." );
+    if (err != CE_None) {
+        LOGTHROW(err1, std::runtime_error )
+            << "Warp failed: <" << ::CPLGetLastErrorMsg() << ">"
+            << " (err=" << err << ").";
+    }
 
     // invalidate local copies of target dataset content
-    dst.data_ = boost::none; dst.mask_ = boost::none;
+    dst.data_ = boost::none;
+    dst.mask_ = boost::none;
+    dst.fresh_ = false;
 
     // done
     return wri;
@@ -1404,6 +1406,13 @@ void GeoDataset::assertData(int what) const {
 void GeoDataset::loadData() const {
     // sanity
     ut::expect( dset_->GetRasterCount() > 0 );
+
+    if (fresh_) {
+        // freshly created -> create initial data
+        data_ = cv::Mat(size_.height, size_.width, CV_64FC(numChannels_));
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
+        return;
+    }
 
     // determine matrix data type
     GDALDataType gdalDataType = dset_->GetRasterBand(1)->GetRasterDataType();
@@ -1485,6 +1494,13 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
 void GeoDataset::loadMask() const {
     // fetch mask (in optimized mode)
     auto raster(fetchMask(true));
+
+    if (fresh_) {
+        // freshly created -> create initial data
+        data_ = cv::Mat(size_.height, size_.width, CV_64FC(numChannels_));
+        mask_ = RasterMask(size_.width, size_.height, RasterMask::FULL);
+        return;
+    }
 
     if (!raster.data) {
         // invalid matrix + optimized mode -> whole dataset is valid
@@ -2381,6 +2397,7 @@ void GeoDataset::rasterize(const ::OGRGeometry *geometry
     // invalidate
     data_ = boost::none;
     mask_ = boost::none;
+    fresh_ = false;
 }
 
 GeoDataset::Format GeoDataset::getFormat() const

@@ -9,7 +9,7 @@
 #include <boost/format.hpp>
 #include "dbglog/dbglog.hpp"
 
-#include <gdal/gdal_priv.h>
+#include <gdal_priv.h>
 
 
  

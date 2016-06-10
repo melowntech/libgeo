@@ -10,7 +10,7 @@
  * but any other approach would result in UB (undefined behaviour).
  */
 
-#include <gdal/gdalwarper.h>
+#include <gdalwarper.h>
 
 
 namespace geo { namespace detail {

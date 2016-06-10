@@ -55,18 +55,61 @@ private:
     std::vector<Color> color_;
 };
 
+typedef boost::optional<double> NodataValue;
+typedef boost::optional<NodataValue> OptionalNodataValue;
+typedef boost::optional<int> Overview;
+typedef boost::optional<Overview> OptionalOverview;
+
+/** Various options. Thin wrapper around vector of string pairs.
+ *
+ *  For create-options see:
+ *    * http://www.gdal.org/frmt_gtiff.html for gtiff options
+ *    * http://www.gdal.org/frmt_various.html#PNG for png options
+ *    * http://www.gdal.org/frmt_jpeg.html for jpeg options
+ */
+struct Options {
+    typedef std::pair<std::string, std::string> Option;
+    typedef std::vector<Option> OptionList;
+    OptionList options;
+
+    Options() = default;
+
+    template <typename T>
+    Options(const std::string &name, const T &value) {
+        operator()(name, value);
+    }
+
+    template <typename T>
+    Options operator()(const std::string &name, const T &value) {
+        options.emplace_back
+            (name, boost::lexical_cast<std::string>(value));
+        return *this;
+    }
+
+    /** Special handling for boolean -> YES/NO
+     */
+    Options operator()(const std::string &name, bool value) {
+        options.emplace_back(name, value ? "YES" : "NO");
+        return *this;
+    }
+};
+
 class GeoDataset {
 public:
     typedef imgproc::quadtree::RasterMask Mask;
 
-    typedef boost::optional<double> NodataValue;
-    typedef boost::optional<NodataValue> OptionalNodataValue;
+    typedef geo::NodataValue NodataValue;
+    typedef geo::OptionalNodataValue OptionalNodataValue;
+    typedef geo::Overview Overview;
+    typedef geo::OptionalOverview OptionalOverview;
+    typedef geo::Options Options;
 
     static GeoDataset createFromFS(const boost::filesystem::path &path) {
         return open(path);
     }
 
-    static GeoDataset open(const boost::filesystem::path &path);
+    static GeoDataset open(const boost::filesystem::path &path
+                           , const Options &options = Options());
 
     static GeoDataset use(std::unique_ptr<GDALDataset> &&dset);
 
@@ -179,43 +222,6 @@ public:
 
         static Format dsm(Storage storage = Storage::gtiff) {
             return { GDT_Float32, { GCI_GrayIndex }, storage };
-        }
-    };
-
-    typedef boost::optional<int> Overview;
-    typedef boost::optional<Overview> OptionalOverview;
-
-    /** Various options. Thin wrapper around vector of string pairs.
-     *
-     *  For create-options see:
-     *    * http://www.gdal.org/frmt_gtiff.html for gtiff options
-     *    * http://www.gdal.org/frmt_various.html#PNG for png options
-     *    * http://www.gdal.org/frmt_jpeg.html for jpeg options
-     */
-    struct Options {
-        typedef std::pair<std::string, std::string> Option;
-        typedef std::vector<Option> OptionList;
-        OptionList options;
-
-        Options() = default;
-
-        template <typename T>
-        Options(const std::string &name, const T &value) {
-            operator()(name, value);
-        }
-
-        template <typename T>
-        Options operator()(const std::string &name, const T &value) {
-            options.emplace_back
-                (name, boost::lexical_cast<std::string>(value));
-            return *this;
-        }
-
-        /** Special handling for boolean -> YES/NO
-         */
-        Options operator()(const std::string &name, bool value) {
-            options.emplace_back(name, value ? "YES" : "NO");
-            return *this;
         }
     };
 
@@ -521,6 +527,7 @@ public:
         , channelMapping_(other.channelMapping_)
         , noDataValue_(other.noDataValue_)
         , changed_(other.changed_)
+        , fresh_(other.fresh_)
     {
         // we need to steal content from data and mask :)
         std::swap(data_, other.data_);
@@ -749,6 +756,7 @@ private:
     mutable boost::optional<Mask> mask_;
 
     bool changed_;
+    bool fresh_;
 };
 
 // inline method implementation
@@ -762,18 +770,18 @@ inline math::Point2 GeoDataset::resolution() const
 
 // enum i/o mapping
 UTILITY_GENERATE_ENUM_IO(GeoDataset::Resampling,
-                         ((nearest))
+                         ((nearest)("nearest")("near"))
                          ((bilinear))
                          ((cubic))
                          ((cubicspline))
                          ((lanczos))
                          ((average))
                          ((mode))
-                         ((minimum))
-                         ((maximum))
-                         ((median))
-                         ((q1))
-                         ((q3))
+                         ((minimum)("minimum")("min"))
+                         ((maximum)("maximum")("max"))
+                         ((median)("median")("med"))
+                         ((q1)("q1")("Q1"))
+                         ((q3)("q3")("Q3"))
                          ((texture))
                          ((dem))
                          )

@@ -10,7 +10,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include <gdal/gdal.h>
+#include <gdal.h>
 
 #include "utility/enum-io.hpp"
 

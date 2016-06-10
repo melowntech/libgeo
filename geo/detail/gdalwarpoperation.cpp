@@ -6,7 +6,7 @@
 
 #include "gdalwarpoperation.hpp"
 
-#include <gdal/gdal_priv.h>
+#include <gdal_priv.h>
 
 namespace geo { namespace detail {
 
