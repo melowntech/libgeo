@@ -1218,6 +1218,11 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const CmdlineLogger &l)
             os << " -wo " << *opts;
         }
     }
+
+    if (l.warpOptions->dfWarpMemoryLimit) {
+        os << " -wm " << l.warpOptions->dfWarpMemoryLimit / (1024 * 1024);
+    }
+
     return os;
 }
 
@@ -1376,7 +1381,7 @@ GeoDataset::warpInto(GeoDataset &dst
     GDALDestroyWarpOptions( warpOptions );
 
     if (err != CE_None) {
-        LOGTHROW(err1, std::runtime_error )
+        LOGTHROW(err1, WarpError)
             << "Warp failed: <" << ::CPLGetLastErrorMsg() << ">"
             << " (err=" << err << ").";
     }

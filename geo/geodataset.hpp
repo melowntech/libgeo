@@ -55,6 +55,10 @@ private:
     std::vector<Color> color_;
 };
 
+struct WarpError : public std::runtime_error {
+    WarpError(const std::string &msg) : std::runtime_error(msg) {}
+};
+
 typedef boost::optional<double> NodataValue;
 typedef boost::optional<NodataValue> OptionalNodataValue;
 typedef boost::optional<int> Overview;
