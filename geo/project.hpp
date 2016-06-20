@@ -3,6 +3,7 @@
 
 #include <string>
 #include <memory>
+#include <stdexcept>
 
 #include "math/geometry_core.hpp"
 
@@ -10,6 +11,10 @@
 #include "./srsfactorsfwd.hpp"
 
 namespace geo {
+
+struct ProjectionError : public std::runtime_error {
+    ProjectionError(const std::string &msg) : std::runtime_error(msg) {}
+};
 
 class Projection {
 public:

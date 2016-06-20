@@ -6,6 +6,7 @@
 
 #include "math/geometry_core.hpp"
 
+#include "./project.hpp"
 #include "./srsdef.hpp"
 
 namespace geo {

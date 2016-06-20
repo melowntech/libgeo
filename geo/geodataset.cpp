@@ -814,19 +814,23 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
         }
     }
 
-    auto ps(sourcePixelSize(src, dst));
-    auto s(dst.size());
-    ps *= std::max(s.width, s.height);
+    try {
+        auto ps(sourcePixelSize(src, dst));
+        auto s(dst.size());
+        ps *= std::max(s.width, s.height);
 
-    // TODO: dynamic limit
-    auto se(std::ceil(ps));
-    if (se > 1000) {
-        se = 1000;
+        // TODO: dynamic limit
+        auto se(std::ceil(ps));
+        if (se > 1000) {
+            se = 1000;
+        }
+
+        LOG(info1) << "Setting SOURCE_EXTRA=" << se << " and SAMPLE_GRID=YES.";
+        wo("SOURCE_EXTRA", int(se));
+        wo("SAMPLE_GRID", true);
+    } catch (ProjectionError) {
+        // cannot project point from one SRS to another -> do nothing
     }
-
-    LOG(info1) << "Setting SOURCE_EXTRA=" << se << " and SAMPLE_GRID=YES.";
-    wo("SOURCE_EXTRA", int(se));
-    wo("SAMPLE_GRID", true);
 }
 
 void createTransformer(GDALWarpOptions *wo)
