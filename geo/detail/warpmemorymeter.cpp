@@ -21,10 +21,6 @@ WarpMemoryMeter::WarpMemoryMeter( const GDALWarpOptions *optionsIn )
     // initialize
     Initialize(optionsIn);
  
-    // for memory footprint measurement, we always set resample alg to Lanczos (radius 3)
-    // this is the worst case scenario - we want to take *maximum* readings
-    psOptions->eResampleAlg = GRA_Lanczos;
- 
     // collect chunk List
     WipeChunkList();
     CollectChunkList(0, 0, 
@@ -79,12 +75,12 @@ WarpMemoryMeter::WarpMemoryMeter( const GDALWarpOptions *optionsIn )
         const auto & chunk( pasChunkList[i] );
         
         ulong chunkMeasure = 
-            ( nSrcPixelCostInBits * chunk.ssx * chunk.ssy +
-            nDstPixelCostInBits * chunk.dsx * chunk.dsy ) >> 3;
+            ( static_cast<ulong>(nSrcPixelCostInBits) * chunk.ssx * chunk.ssy +
+            static_cast<ulong>(nDstPixelCostInBits) * chunk.dsx * chunk.dsy ) >> 3;
 
-        //LOG(debug) << boost::format( "ssx: %d, ssy: %d, spixelcost: %d, "
-        //    "dsx: %d, dsy; %d, dpixelcost: %d" ) % chunk.ssx % chunk.ssy %
-        //    nSrcPixelCostInBits % chunk.dsx % chunk.dsy % nDstPixelCostInBits;
+//        LOG(debug) << boost::format( "ssx: %d, ssy: %d, spixelcost: %d, "
+//            "dsx: %d, dsy; %d, dpixelcost: %d" ) % chunk.ssx % chunk.ssy %
+//            nSrcPixelCostInBits % chunk.dsx % chunk.dsy % nDstPixelCostInBits;
      
         measure_ = std::max( chunkMeasure, measure_ );              
     }
