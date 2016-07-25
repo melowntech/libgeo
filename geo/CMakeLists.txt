@@ -19,7 +19,7 @@ else()
 endif()
 
 
-define_module(LIBRARY geo DEPENDS geometry imgproc math utility dbglog
+define_module(LIBRARY geo DEPENDS geometry imgproc math utility dbglog jsoncpp
   Boost_FILESYSTEM PROJ GDAL GEOGRAPHICLIB ${geo_EXTRA_DEPENDS}
   DEFINITIONS ${geo_EXTRA_DEFINITIONS}
   )
@@ -46,6 +46,8 @@ set(geo_SOURCES
     detail/warpmemorymeter.hpp detail/warpmemorymeter.cpp
 
     gdal.hpp gdal.cpp
+
+    heightcoding.hpp heightcoding.cpp
 
     ${geo_OPENCV_SOURCES}
 )
