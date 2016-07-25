@@ -45,7 +45,7 @@ struct HeightCodingConfig {
     Format format;
 
     HeightCodingConfig()
-        : format(Format::geodataJson), outputVerticalAdjust(false)
+        : outputVerticalAdjust(false), format(Format::geodataJson)
     {}
 };
 
