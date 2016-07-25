@@ -17,6 +17,7 @@ namespace geo {
  */
 struct HeightCodingConfig {
     enum class Format { geodataJson };
+    typedef std::vector<std::string> LayerNames;
 
     /** Working spatial reference system. Input data in vector dataset) are
      * expected to be in this dataset. Vector Dataset should have vertical
@@ -38,7 +39,7 @@ struct HeightCodingConfig {
 
     /** List of layer names; none -> all layers present in input dataset
      */
-    boost::optional<std::vector<std::string>> layers;
+    boost::optional<LayerNames> layers;
 
     /** Output format.
      */
