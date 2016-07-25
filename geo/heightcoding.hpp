@@ -32,6 +32,10 @@ struct HeightCodingConfig {
      */
     boost::optional<SrsDefinition> outputSrs;
 
+    /** Perform vertical adjustment of output data.
+     */
+    bool outputVerticalAdjust;
+
     /** List of layer names; none -> all layers present in input dataset
      */
     boost::optional<std::vector<std::string>> layers;
@@ -40,7 +44,9 @@ struct HeightCodingConfig {
      */
     Format format;
 
-    HeightCodingConfig() : format(Format::geodataJson) {}
+    HeightCodingConfig()
+        : format(Format::geodataJson), outputVerticalAdjust(false)
+    {}
 };
 
 /** Height code vector data from vectorDs using height information from
