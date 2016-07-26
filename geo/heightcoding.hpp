@@ -39,6 +39,10 @@ struct HeightCodingConfig {
      */
     boost::optional<LayerNames> layers;
 
+    /** Clipping extents (in workingSrs)
+     */
+    boost::optional<math::Extents2> clipExtents;
+
     /** Output format.
      */
     VectorFormat format;
