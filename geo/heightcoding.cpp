@@ -17,7 +17,7 @@ void heightCode(::GDALDataset &vectorDs
 
     // output
     switch (config.format) {
-    case HeightCodingConfig::Format::geodataJson: {
+    case VectorFormat::geodataJson: {
         Json::Value output(Json::objectValue);
 
         // TODO: fill output from geometries here

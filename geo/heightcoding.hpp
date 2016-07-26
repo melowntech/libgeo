@@ -7,16 +7,14 @@
 
 #include <boost/optional.hpp>
 
-#include "utility/enum-io.hpp"
-
 #include "./geodataset.hpp"
+#include "./vectorformat.hpp"
 
 namespace geo {
 
 /** Height coding.
  */
 struct HeightCodingConfig {
-    enum class Format { geodataJson };
     typedef std::vector<std::string> LayerNames;
 
     /** Working spatial reference system. Input data in vector dataset) are
@@ -43,10 +41,10 @@ struct HeightCodingConfig {
 
     /** Output format.
      */
-    Format format;
+    VectorFormat format;
 
     HeightCodingConfig()
-        : outputVerticalAdjust(false), format(Format::geodataJson)
+        : outputVerticalAdjust(false), format(VectorFormat::geodataJson)
     {}
 };
 
@@ -62,12 +60,6 @@ void heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
                 , std::ostream &os
                 , const HeightCodingConfig &config = HeightCodingConfig());
 
-
-// inlines
-
-UTILITY_GENERATE_ENUM_IO(HeightCodingConfig::Format,
-                      ((geodataJson))
-                      )
 
 } // namespace geo
 
