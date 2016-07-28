@@ -4,16 +4,16 @@
 
 #include "./heightcoding.hpp"
 
-namespace geo {
+namespace geo { namespace heightcoding {
 
-void heightCode(::GDALDataset &vectorDs
-                , const GeoDataset &rasterDs
-                , std::ostream &os
-                , const HeightCodingConfig &config)
+Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
+                    , std::ostream &os, const Config &config)
 {
     // TODO: magic happens here
     (void) vectorDs;
     (void) rasterDs;
+
+    Metadata metadata;
 
     // output
     switch (config.format) {
@@ -32,6 +32,8 @@ void heightCode(::GDALDataset &vectorDs
         LOGTHROW(err1, std::runtime_error)
             << "Unsupported output vector format <" << config.format << ">.";
     }
+
+    return metadata;
 }
 
-} // namespace geo
+} } // namespace geo::heightcoding

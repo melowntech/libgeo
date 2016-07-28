@@ -10,12 +10,21 @@
 #include "./geodataset.hpp"
 #include "./vectorformat.hpp"
 
-namespace geo {
+/** Height-coding-related stuff
+ */
+namespace geo { namespace heightcoding {
 
 /** Height coding.
  */
-struct HeightCodingConfig {
+struct Config {
     typedef std::vector<std::string> LayerNames;
+
+    /** Complete raster DS SRS.
+     *
+     *  If valid, shoukld contains complete SRS, i.e. with proper vertical
+     *  component.
+     */
+    boost::optional<SrsDefinition> rasterDsSrs;
 
     /** Working spatial reference system. Input data in vector dataset) are
      * expected to be in this dataset. Vector Dataset should have vertical
@@ -41,15 +50,22 @@ struct HeightCodingConfig {
 
     /** Clipping extents (in workingSrs)
      */
-    boost::optional<math::Extents2> clipExtents;
+    boost::optional<math::Extents2> clipWorkingExtents;
 
     /** Output format.
      */
     VectorFormat format;
 
-    HeightCodingConfig()
-        : outputVerticalAdjust(false), format(VectorFormat::geodataJson)
-    {}
+    Config()
+        : outputVerticalAdjust(false), format(VectorFormat::geodataJson) {}
+};
+
+/** Metadata of height-coded output.
+ */
+struct Metadata {
+    /** Full 3D extents of generated output in output SRS.
+     */
+    math::Extents3 extents;
 };
 
 /** Height code vector data from vectorDs using height information from
@@ -60,11 +76,10 @@ struct HeightCodingConfig {
  *  \param os output stream result is written to
  *  \param config work configuration
  */
-void heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
-                , std::ostream &os
-                , const HeightCodingConfig &config = HeightCodingConfig());
+Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
+                    , std::ostream &os, const Config &config = Config());
 
 
-} // namespace geo
+} } // namespace geo::heightcoding
 
 #endif // geo_heightcoding_hpp_included_
