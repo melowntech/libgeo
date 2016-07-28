@@ -6,6 +6,7 @@
 #include <string>
 
 #include <boost/optional.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include "./geodataset.hpp"
 #include "./vectorformat.hpp"
@@ -66,6 +67,10 @@ struct Metadata {
     /** Full 3D extents of generated output in output SRS.
      */
     math::Extents3 extents;
+
+    /** Size of data written to the output.
+     */
+    std::size_t fileSize;
 };
 
 /** Height code vector data from vectorDs using height information from
@@ -79,6 +84,23 @@ struct Metadata {
 Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
                     , std::ostream &os, const Config &config = Config());
 
+/** Loads metadata from file.
+ */
+Metadata loadMetadata(const boost::filesystem::path &path);
+
+/** Saves metadata to file.
+ */
+void saveMetadata(const boost::filesystem::path &path
+                  , const Metadata &metadata);
+
+/** Loads metadata from stream.
+ */
+Metadata loadMetadata(std::istream &in, const boost::filesystem::path &path
+                      = "unknown");
+
+/** Saves metadata to stream
+ */
+void saveMetadata(std::ostream &out , const Metadata &metadata);
 
 } } // namespace geo::heightcoding
 

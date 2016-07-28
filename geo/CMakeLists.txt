@@ -48,7 +48,7 @@ set(geo_SOURCES
     gdal.hpp gdal.cpp
 
     vectorformat.hpp vectorformat.cpp
-    heightcoding.hpp heightcoding.cpp
+    heightcoding.hpp heightcoding.cpp heightcoding-io.cpp
 
     ${geo_OPENCV_SOURCES}
 )
