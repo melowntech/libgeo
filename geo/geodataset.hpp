@@ -1,6 +1,7 @@
 /**
   * @file geodataset.hpp
   * @author Ondrej Prochazka <ondrej.prochazka@citationtech.net>
+  * @author Vaclav Blazek <vaclav.blazek@citationtech.net>
   *
   * Access layer for georeferenced datasets, built atop the GDAL and OGR
   * libraries.

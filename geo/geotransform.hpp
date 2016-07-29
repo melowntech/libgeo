@@ -26,7 +26,7 @@ namespace geo {
  * definitions are ESRI world files, etc). We use the same definition.
  * 
  * Note that GeoTransform has nothing to do with transformation betwen 
- * geographic coordinate systems, it merely georeferences a dataset.
+ * spatial reference systems, it merely georeferences a dataset.
  */    
 
 class GeoTransform :  public std::array<double, 6> {
