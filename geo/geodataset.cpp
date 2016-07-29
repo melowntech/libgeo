@@ -2127,6 +2127,8 @@ GeoDataset::Metadata getMetadataFrom(GDALMajorObject *obj
     for (; *md; ++md) {
         auto value(::CPLParseNameValue(*md, &key));
         metadata(key, value);
+        // get rid of key, it was allocated by parse function
+        ::VSIFree(key);
     }
 
     return metadata;
