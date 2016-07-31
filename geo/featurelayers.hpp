@@ -134,8 +134,11 @@ public :
         Features features;
         boost::optional<math::Extents3> featuresBB;
         
+        Layer() {};
         Layer(const std::string & name
               , const SrsDefinition & srs) : name(name), srs(srs) {};
+
+        void updateBB( const math::Point3 & point );        
     };
 
     
