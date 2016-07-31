@@ -1,6 +1,6 @@
 /**
   * @file featurelayers.hpp
-  * @author Ondrej Prochazka <ondrej.prochazka@citationtech.net>
+  * @author Ondrej Prochazka <ondrej.prochazka@melown.com>
   *
   * Feature layers are generic representation of geospatial 2D/3D vector data.
   * 
@@ -12,10 +12,15 @@
 #ifndef vectordataset_hpp_included
 #define vectordataset_hpp_included
 
+#include <math/geometry_core.hpp>
+#include <geo/srs.hpp>
+#include <geo/geodataset.hpp>
+
+
 namespace geo {
 
 
-class FeatureLayers : private std::vector<Layer> Layers {
+class FeatureLayers {
     
 public :
     
@@ -90,8 +95,6 @@ public :
                 const Features::MultiPolygon::Polygon & polygon );
             
         private:
-            typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-            typedef K::Point_3 Point_3;
             
             math::Points3 triangulatePolygon( 
                 const Features::MultiPolygon::Polygon & polygon );
@@ -131,21 +134,21 @@ public :
         Features features;
         boost::optional<math::Extents3> featuresBB;
         
-        Layer(const std::string & name,
-              , const SrsDefinition & srs) : name( name ) {};
+        Layer(const std::string & name
+              , const SrsDefinition & srs) : name(name), srs(srs) {};
     };
 
     
     /**
      * Initialize empty
      */
-    FeatureLayers() {}
+    FeatureLayers() {};
 
     /**
      * @brief Initialize from an OGR-supported dataset
      * @param dataset pre-opened vector dataset 
      */
-    FeatureLayers(GDALDataset * dataset
+    FeatureLayers(::GDALDataset &dataset
         , boost::optional<const SrsDefinition &> sourceSrs = boost::none) { 
         load(dataset, sourceSrs); }
     
@@ -154,7 +157,7 @@ public :
      * @param dataset pre-opened vector dataset
      * @param sourceSrs optional override for srs in dataset
      */
-    load(GDALDataset * dataset
+    void load(::GDALDataset &dataset
         , boost::optional<const SrsDefinition &> sourceSrs = boost::none);
     
     /**
@@ -166,7 +169,7 @@ public :
      */ 
     void transform(const SrsDefinition & targetSrs);
 
-    enum class HeightcodingMode { always, never, auto_ };
+    enum class HeightcodeMode { always, never, auto_ };
     
     /**
      * @brief Transform 2D features to 3D by adding Z coordinate from a DEM
@@ -184,19 +187,41 @@ public :
      *     heightcoding a noop). 
      */    
     void heightcode(const GeoDataset & demDataset
-        , boost::optional<SrsDefinition> workingSrs = boost::none,
-        , bool verticalAdjustment = false,
-        , HeigtcodingMode mode = auto_ );
+        , boost::optional<SrsDefinition> workingSrs = boost::none
+        , bool verticalAdjustment = false
+        , HeightcodeMode mode = HeightcodeMode::auto_ );
 
-    void convert3DPolygonsToSurfaces();    
+    /**
+     * @brief Convert 3D polygons to surfaces.
+     * 
+     * This step is a necessary precondition for serializing geodata formats.
+
+     * The resultant vector layers do not contain any 3D polygon geometries.
+     * This operation has no effect on 2D polygon geometries, which need to
+     * be converted through a call to heightcode.
+     */
+    void convert3DPolygons();    
     
-    void dumpGeodataLegacy(std::ostream & os);
+    /**
+     * @brief serialize into legacy geodata format
+     * @param os where to send output
+     * 
+     * See https://trac.citationtech.net/wiki/vadstena/PlanetGeographyFileFormat
+     * for format description.
+     */
+    void dumpLegacyGeodata(std::ostream & os);
     
+    /**
+     * @brief serialize into VTS free layer geodata format.
+     * @param os where to send output
+     * 
+     * See VTS docs for format spec.
+     */
     void dumpVTSGeodata(std::ostream & os);
     
     
 private :
-    std::vector<Layers> layers;
+    std::vector<Layer> layers;
 };
 
 

@@ -50,6 +50,8 @@ set(geo_SOURCES
     vectorformat.hpp vectorformat.cpp
     heightcoding.hpp heightcoding.cpp heightcoding-io.cpp
 
+    featurelayers.hpp featurelayers.cpp
+
     ${geo_OPENCV_SOURCES}
 )
 
