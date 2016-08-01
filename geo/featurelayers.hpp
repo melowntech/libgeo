@@ -16,6 +16,7 @@
 #include <geo/srs.hpp>
 #include <geo/geodataset.hpp>
 
+#include <algorithm>
 
 namespace geo {
 
@@ -84,7 +85,7 @@ public :
             
             std::string id;
             Properties properties;
-            std::vector<math::Points3> vertices;
+            math::Points3 vertices;
             std::vector<Patch> surface;
             std::vector<Boundary> boundaries;
             
@@ -107,24 +108,31 @@ public :
         std::vector<Surface> surfaces;
         
         bool zAlwaysDefined; /// is z coordinate defined for all features?
+        bool zNeverDefined;  /// is z coordinate defined for none of the features?
         
-        Features(): zAlwaysDefined(true) {}
+        Features(): zAlwaysDefined(true), zNeverDefined(true) {}
         
         void addPoint( const Point & point ) { 
             points.emplace_back( point ); 
-            zAlwaysDefined &= point.zDefined; }
+            zAlwaysDefined &= point.zDefined; 
+            zNeverDefined &= !point.zDefined;
+        }
 
         void addLineString(const LineString & linestring) { 
             linestrings.emplace_back( linestring ); 
-            zAlwaysDefined &= linestring.zDefined; }
+            zAlwaysDefined &= linestring.zDefined;
+            zNeverDefined &= !linestring.zDefined;
+        }
 
         void addMultiPolygon(const MultiPolygon & multipolygon) { 
             multipolygons.emplace_back( multipolygon ); 
-            zAlwaysDefined &= multipolygon.zDefined; }
+            zAlwaysDefined &= multipolygon.zDefined; 
+            zNeverDefined &= !multipolygon.zDefined; 
+        }
         
         void addSurface(const Surface & surface) { 
             surfaces.emplace_back( surface  ); 
-            zAlwaysDefined &= 1; }
+            zAlwaysDefined &= 1; zNeverDefined &= 0; }
     };
     
     struct Layer {
@@ -134,9 +142,11 @@ public :
         Features features;
         boost::optional<math::Extents3> featuresBB;
         
-        Layer() {};
+        Layer() {}
         Layer(const std::string & name
-              , const SrsDefinition & srs) : name(name), srs(srs) {};
+              , const SrsDefinition & srs) : name(name), srs(srs) {}
+        bool is2D() const { return features.zNeverDefined; }
+        bool is3D() const { return features.zAlwaysDefined; }
 
         void updateBB( const math::Point3 & point );        
     };
@@ -163,12 +173,29 @@ public :
     void load(::GDALDataset &dataset
         , boost::optional<const SrsDefinition &> sourceSrs = boost::none);
     
+    
+    /**
+     * @brief are all features in these layers three dimensional?
+     */
+    bool is3D() {
+        return( std::all_of(layers.begin(), layers.end(), 
+           [](const Layer &l) { return l.is3D(); }));
+    }
+    
+    /**
+     * @brief are all features in these layers two dimensional?
+     */
+    bool is2D() {
+        return( std::all_of(layers.begin(), layers.end(), 
+           [](const Layer &l) { return l.is2D(); }));
+    }
+    
     /**
      * @brief Transform feature layers to different SRS.
      * @param targetSrs SRS to transform to.
      * 
-     * This may fail if 3D transformation to a different datum is requested
-     * and 3D geometries are not defined.
+     * If a transformation to a different datum is requested and 3D geometries 
+     * are not defined, the function will complain.
      */ 
     void transform(const SrsDefinition & targetSrs);
 

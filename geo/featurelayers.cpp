@@ -30,7 +30,7 @@ void FeatureLayers::load(::GDALDataset &dataset
         OGRLayer * ilayer = dataset.GetLayer(i);
         
         // extract srs
-        geo::SrsDefinition srcSrs;
+        SrsDefinition srcSrs;
 
         if (sourceSrs) {
             srcSrs = sourceSrs.get();
@@ -44,8 +44,7 @@ void FeatureLayers::load(::GDALDataset &dataset
             ut::expect(ogrsr->exportToProj4(& eogrsr) == OGRERR_NONE,
                 "Failed to convert input layer srs to proj4.");
             
-            srcSrs = geo::SrsDefinition(
-                eogrsr, geo::SrsDefinition::Type::proj4);
+            srcSrs = SrsDefinition( eogrsr, SrsDefinition::Type::proj4);
         } 
         
         LOG( info3 ) 
@@ -199,6 +198,64 @@ void FeatureLayers::load(::GDALDataset &dataset
         
     // all done
 }
+
+void FeatureLayers::transform(const SrsDefinition & targetSrs) {
+    
+    
+    // for each layer
+    for (auto &layer: layers) {
+    
+        SrsDefinition sourceSrs(layer.srs);
+        
+        // sanity checks
+        if ( targetSrs.reference().IsGeocentric() && !layer.is3D()) {
+            LOGTHROW( err2, std::runtime_error ) << "Transformation to "
+                "geocentric SRS requested, but not all features are 3D. "
+                "Need heightcoding?";
+        }
+        
+        if (!areSame(sourceSrs, targetSrs, SrsEquivalence::geographic)
+            && !layer.is2D()) {
+            LOG( warn2 ) << "Source and target SRS have different datums "
+                " and not all features are 3D. Need heightcoding?";
+        }
+        
+        // create converter object
+        CsConvertor csTrafo(sourceSrs, targetSrs);
+        
+        // transform features
+        layer.featuresBB = boost::none;
+        
+        for (auto &point: layer.features.points) {
+            point.point = csTrafo(point.point); layer.updateBB(point.point);
+        }
+        
+        for (auto &linestring: layer.features.linestrings)
+            for (auto &p: linestring.points) { 
+                p = csTrafo(p); layer.updateBB(p); }
+        
+        for (auto &mp: layer.features.multipolygons)
+            for (auto &polygon: mp.polygons) {
+                for (auto &p: polygon.exterior) {
+                    p = csTrafo(p); layer.updateBB(p);
+                }
+                
+                for (auto &interior: polygon.interiors)
+                    for (auto &p: interior) p = csTrafo(p);
+            }
+        
+        for (auto &s: layer.features.surfaces)
+            for (auto &v: s.vertices) {
+                v = csTrafo(v); layer.updateBB(v);
+            }
+            
+        // done with layer
+        layer.srs = targetSrs;
+    }
+    
+    
+}
+
 
 /* Class FeatureLayers::Layer */
 
