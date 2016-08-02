@@ -235,7 +235,8 @@ public :
     /**
      * @brief Convert 3D polygons to surfaces.
      * 
-     * This step is a necessary precondition for serializing geodata formats.
+     * This step is a necessary precondition for serializing feature layers
+     * with 3D polygon geometries in geodata formats.
 
      * The resultant vector layers do not contain any 3D polygon geometries.
      * This operation has no effect on 2D polygon geometries, which need to

@@ -342,6 +342,7 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
             if (verticalAdjustment) point.point = adjuster(point.point);
 
             point.zDefined = true;
+            layer.features.zNeverDefined = false;
         }
         
         for ( auto & linestring : layer.features.linestrings ) {
@@ -371,13 +372,17 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
             }
             
             linestring.zDefined = true;
+            layer.features.zNeverDefined = false;
         }
         
         // heightcode polygons
-        for ( auto multipolygon: layer.features.multipolygons ) {
+        for (auto & multipolygon: layer.features.multipolygons) {
             
-            LOGONCE(warn3) << "2D polygon heightcoding not implemented. "
-                "You may complain to management.";
+            if (!multipolygon.zDefined) {
+            
+                LOGONCE(warn3) << "2D polygon heightcoding not implemented. "
+                    "You may complain to the management.";
+            }
         }
         
         // done with layer
@@ -386,6 +391,44 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
         
     } // loop layers    
 }
+
+void FeatureLayers::convert3DPolygons() {
+    
+    // for each layer
+    for (auto &layer: layers) {
+        
+        uint residual(layer.features.multipolygons.size());
+        
+        // iterate through polygons
+        auto cur = layer.features.multipolygons.begin();
+        auto last = layer.features.multipolygons.end() - 1;
+        
+        for (uint i = 0; i < layer.features.multipolygons.size();i++) {
+            
+            auto & multipolygon(*cur);
+
+            // skip 2D polygons, these need converted through heightcoding
+            if (!multipolygon.zDefined) { cur++; continue; };
+            
+            // build surface from polygon
+            Features::Surface surface(multipolygon.id, multipolygon.properties);
+            
+            for (const auto & polygon : multipolygon.polygons)
+                surface.addPatchesFromPolygon(polygon);
+
+            // save surface
+            layer.features.surfaces.push_back(surface);
+            
+            // mark polygon for removal
+            std::swap(*cur, *last);
+            residual--;
+        }
+        
+        // remove converted polygons
+        layer.features.multipolygons.resize(residual);
+    }
+}    
+
 
 
 /* Class FeatureLayers::Layer */
@@ -404,6 +447,8 @@ void FeatureLayers::Layer::updateBB( const math::Point3 & point ) {
 
 void FeatureLayers::Features::Surface::addPatchesFromPolygon(
     const Features::MultiPolygon::Polygon & ) {
+
+    LOGONCE(warn3) << "3D polygon to surface conversion not implemented yet.";
     
     // find the polygon principal component (plane) and establish trafo
     // transform polygon to xy plane
