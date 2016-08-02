@@ -4,6 +4,7 @@
 
 #include "jsoncpp/json.hpp"
 #include "jsoncpp/as.hpp"
+#include "geo/featurelayers.hpp"
 
 #include "./heightcoding.hpp"
 
@@ -12,26 +13,36 @@ namespace geo { namespace heightcoding {
 Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
                     , std::ostream &os, const Config &config)
 {
+    Metadata metadata;
+    
     // remember start position in the output stream
     const auto startPos(os.tellp());
 
-    // TODO: magic happens here
-    (void) vectorDs;
-    (void) rasterDs;
+    // load feature layers from vectorDs
+    FeatureLayers featureLayers(vectorDs, config.workingSrs);
 
-    Metadata metadata;
-
-    // TODO: update metadata.extents
+    // heightcode
+    featureLayers.heightcode(rasterDs, config.workingSrs 
+                           , config.outputVerticalAdjust
+                           , FeatureLayers::HeightcodeMode::auto_);
+    
+    // convert 3D polygons to surfaces
+    featureLayers.convert3DPolygons();
+    
+    // transform to output srs
+    if (config.outputSrs)
+        featureLayers.transform(config.outputSrs.get());
+    
+    // update metadata.extents
+    auto bb(featureLayers.boundingBox(config.outputSrs));
+    if (bb) metadata.extents = bb.get();
 
     // output
     switch (config.format) {
     case VectorFormat::geodataJson: {
-        Json::Value output(Json::objectValue);
-
-        // TODO: fill output from geometries here
-
+        
         os.precision(15);
-        Json::StyledStreamWriter().write(os, output);
+        featureLayers.dumpVTSGeodata(os);
         break;
     }
 

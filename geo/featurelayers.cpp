@@ -17,7 +17,7 @@ namespace ut = utility;
 /** class FeatureLayers */
 
 void FeatureLayers::load(::GDALDataset &dataset
-    , boost::optional<const SrsDefinition &> sourceSrs) {
+    , const boost::optional<SrsDefinition> & sourceSrs) {
     
     // initialize
     OGRRegisterAll();
@@ -433,8 +433,6 @@ void FeatureLayers::dumpLegacyGeodata(std::ostream & os
             , const std::string & pointStyle
             , const std::string & linestringStyle) {
 
-    Json::StyledWriter writer;
-
     // build json value
     Json::Value root( Json::objectValue );
     
@@ -508,6 +506,7 @@ void FeatureLayers::dumpLegacyGeodata(std::ostream & os
     }
     
     // write output
+    Json::StyledWriter writer;
     os << writer.write(root);
 }
 

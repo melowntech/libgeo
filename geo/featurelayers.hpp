@@ -166,7 +166,7 @@ public :
      * @param dataset pre-opened vector dataset 
      */
     FeatureLayers(::GDALDataset &dataset
-        , boost::optional<const SrsDefinition &> sourceSrs = boost::none) { 
+        , const boost::optional<SrsDefinition> & sourceSrs = boost::none) { 
         load(dataset, sourceSrs); }
     
     /**
@@ -175,7 +175,7 @@ public :
      * @param sourceSrs optional override for srs in dataset
      */
     void load(::GDALDataset &dataset
-        , boost::optional<const SrsDefinition &> sourceSrs = boost::none);
+        , const boost::optional<SrsDefinition> & sourceSrs = boost::none);
     
     
     /**
@@ -230,7 +230,7 @@ public :
      *     heightcoding a noop). 
      */    
     void heightcode(const GeoDataset & demDataset
-        , boost::optional<SrsDefinition> workingSrs = boost::none
+        , const boost::optional<SrsDefinition> workingSrs = boost::none
         , bool verticalAdjustment = false
         , HeightcodeMode mode = HeightcodeMode::auto_ );
 
