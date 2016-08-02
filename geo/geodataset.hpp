@@ -430,6 +430,7 @@ public:
      */
     math::Point2 resolution() const;
 
+    /* start obsolete functions */
     math::Point3 rowcol2geo( int row, int col, double value ) const {
         return geoTransform().rowcol2geo( row, col, value );
     }

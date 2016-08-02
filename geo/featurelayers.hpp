@@ -139,12 +139,14 @@ public :
        
         std::string name;
         SrsDefinition srs;
+        bool adjustVertical;
         Features features;
         boost::optional<math::Extents3> featuresBB;
         
         Layer() {}
         Layer(const std::string & name
-              , const SrsDefinition & srs) : name(name), srs(srs) {}
+              , const SrsDefinition & srs) : 
+              name(name), srs(srs), adjustVertical(false) {}
         bool is2D() const { return features.zNeverDefined; }
         bool is3D() const { return features.zAlwaysDefined; }
 
@@ -191,6 +193,15 @@ public :
     }
     
     /**
+     * @brief return layers bounding box
+     * @param srs SRS to determine bounding box in, if none, taken from the
+     *      first layer
+     * @return bounding box, boost::none if empty
+     */
+    boost::optional<math::Extents3> boundingBox(
+        boost::optional<SrsDefinition> srs = boost::none);
+    
+    /**
      * @brief Transform feature layers to different SRS.
      * @param targetSrs SRS to transform to.
      * 
@@ -204,8 +215,8 @@ public :
     /**
      * @brief Transform 2D features to 3D by adding Z coordinate from a DEM
      * @param demDataset raster dataset used as source of height information
-     * @param workingSrs optional srs providing vertical dataum info fro the 
-     *    raster, if known, also a hint for a suitable horizontal datum in
+     * @param workingSrs optional srs providing vertical dataum info for the 
+     *    raster, if known. Also a hint for a suitable horizontal datum in
      *    which the demDataset should be reconstructed to obtain height. If not
      *    provided, the demDataset srs is used, this likely leads to use
      *    of ellipsoid height.
@@ -251,6 +262,11 @@ public :
     
     
 private :
+    template <class Filter2, class RasterMask>
+    static boost::optional<double> reconstruct( 
+        const cv::Mat & from, const RasterMask & mask, 
+        const math::Point2 & pos, const Filter2 & filter ); 
+        
     std::vector<Layer> layers;
 };
 

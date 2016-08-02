@@ -3,8 +3,10 @@
  */
 
 #include "./featurelayers.hpp"
+#include "./verticaladjuster.hpp"
 
 #include "utility/expect.hpp"
+#include "math/filters.hpp"
 
 #include <ogrsf_frmts.h>
 
@@ -254,6 +256,135 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs) {
     }
     
     
+}
+
+void FeatureLayers::heightcode(const GeoDataset & demDataset
+        , boost::optional<SrsDefinition> workingSrs
+        , bool verticalAdjustment
+        , HeightcodeMode mode ) {
+    
+    // establish working srs if not given
+    if (!workingSrs) {
+        
+        // obtain the geographic datum from dem
+        OGRSpatialReference *ogrsrs = demDataset.srs().reference().CloneGeogCS();        
+        workingSrs = SrsDefinition::fromReference(*ogrsrs);        
+        delete ogrsrs;
+    }
+    
+    // determine extents and pixel size
+    boost::optional<math::Extents3> bb3 = boundingBox(workingSrs);
+    
+    if (!bb3) {
+        LOG(info2) << "Skipping heightcoding for an empty features dataset.";
+        return;
+    }
+    
+    bb3->ll = bb3->ll - 0.05 * (bb3->ur - bb3->ll);
+    bb3->ur = bb3->ur + 0.05 * (bb3->ur - bb3->ll);
+    
+    math::Size2f size(math::size(bb3.get()).width
+                    , math::size(bb3.get()).height);
+    
+    math::Extents2 bb2( 
+        subrange(bb3.get().ll, 0, 2), 
+        subrange(bb3.get().ur, 0, 2));
+
+    math::Point2 psize(
+        std::min(1024.0, size.width / demDataset.resolution()[0]), 
+        std::min(1024.0, size.height / demDataset.resolution()[1]));
+    
+    LOG(info2) ("DEM shall be warped to %dx%d pixels.", psize[0], psize[1]);
+    
+    // warp dem into working srs
+    demDataset.expectGray();
+    
+    auto wdem = geo::GeoDataset::deriveInMemory(demDataset, 
+        workingSrs.get(), psize, bb2, ublas::identity_matrix<double>(2));
+    
+    demDataset.warpInto(wdem, geo::GeoDataset::Resampling::dem);
+    
+    // heightcode 
+    math::CatmullRom2 filter(2,2);
+    
+    for (auto & layer: layers) {
+                
+        if (mode == HeightcodeMode::auto_ 
+            && layer.features.zAlwaysDefined ) continue;
+
+        CsConvertor ltwTrafo(layer.srs, workingSrs.get());
+        CsConvertor wtlTrafo = ltwTrafo.inverse();
+        VerticalAdjuster adjuster(workingSrs.get());
+        
+        for (auto & point: layer.features.points) {
+            
+            if (point.zDefined && mode == HeightcodeMode::auto_ )
+                continue;
+ 
+            // layer srs -> working srs            
+            auto p(point.point);
+            if (layer.adjustVertical) p = adjuster(p, true);
+            p = ltwTrafo(p);
+
+            // z value
+            auto value(
+                reconstruct(wdem.data()
+                          , wdem.mask()
+                          , subrange( 
+                              wdem.geoTransform().iconvert<double>(p)
+                              , 0, 2)
+                          , filter ) );
+            ut::expect(value, "Could not obtain DEM value.");
+            p(2) = value.get(); 
+
+            // working srs -> layer srs
+            point.point = wtlTrafo(p);
+            if (verticalAdjustment) point.point = adjuster(point.point);
+
+            point.zDefined = true;
+        }
+        
+        for ( auto & linestring : layer.features.linestrings ) {
+            
+            if ( linestring.zDefined && mode == HeightcodeMode::auto_ )
+                continue;
+
+            for ( math::Point3 & point : linestring.points ) {
+                
+                // layer srs -> working srs
+                auto p(point);
+                if (layer.adjustVertical) p = adjuster(p, true);
+                p = ltwTrafo(p);
+
+                // z value
+                auto value(reconstruct(wdem.data()
+                    , wdem.mask()
+                    , subrange(
+                        wdem.geoTransform().iconvert<double>(p), 0, 2)
+                    , filter));
+                ut::expect(value, "Could not obtain DEM value.");
+                p(2) = value.get(); 
+                
+                // working srs -> layer srs
+                point = wtlTrafo(p);
+                if (verticalAdjustment) point = adjuster(point);
+            }
+            
+            linestring.zDefined = true;
+        }
+        
+        // heightcode polygons
+        for ( auto multipolygon: layer.features.multipolygons ) {
+            
+            LOGONCE(warn3) << "2D polygon heightcoding not implemented. "
+                "You may complain to management.";
+        }
+        
+        // done with layer
+        layer.features.zAlwaysDefined = true;
+        layer.adjustVertical = verticalAdjustment;
+        
+    } // loop layers    
 }
 
 
