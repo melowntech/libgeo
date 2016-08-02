@@ -429,6 +429,114 @@ void FeatureLayers::convert3DPolygons() {
     }
 }    
 
+void FeatureLayers::dumpLegacyGeodata(std::ostream & os
+            , const std::string & pointStyle
+            , const std::string & linestringStyle) {
+
+    Json::StyledWriter writer;
+
+    // build json value
+    Json::Value root( Json::objectValue );
+    
+    root["version"] = Json::Value(1);
+    
+    auto & jlayers = root["groups"] = Json::Value( Json::arrayValue );
+    
+    // layers
+    for (const auto & layer: layers) {
+
+        math::Point3 origin;
+        
+        if ( layer.featuresBB )
+            origin = subrange(0.5  * (layer.featuresBB->ll 
+                + layer.featuresBB->ur), 0, 2);
+        
+        auto & jlayer = jlayers.append(Json::Value(Json::objectValue));
+        jlayer["id"] = Json::Value(layer.name);
+        jlayer["origin"] = buildPoint3( origin );
+        
+        if ( layer.features.points.size() > 0 ) {
+            
+            auto & jpoints = jlayer["points"] = Json::arrayValue;
+            
+            for (const auto & point: layer.features.points) {
+         
+                auto & jpoint = jpoints.append( Json::objectValue );
+                jpoint["style"] = pointStyle; 
+                jpoint["id"] = point.id;
+                jpoint["html"] = buildHtml( point.properties );
+                jpoint["points"] = Json::arrayValue;
+                jpoint["points"].append(buildPoint3(
+                    point.point - origin));
+                
+                // end point
+            }
+        }
+        
+        
+        if (layer.features.linestrings.size() > 0) {
+            
+            auto & jlinestrings = jlayer["lines"] = Json::arrayValue;
+            
+            for (const auto & linestring: layer.features.linestrings) {
+                
+                auto & jlinestring = jlinestrings.append( Json::objectValue );
+                jlinestring["style"] = linestringStyle;
+                jlinestring["id"] = linestring.id; 
+                jlinestring["html"] = buildHtml( linestring.properties );
+                
+                auto & jpoints = jlinestring["points"] = Json::arrayValue;
+                
+                for ( const auto & point : linestring.points ) 
+                    jpoints.append(buildPoint3(point - origin));
+                
+                // end linestring
+            }
+        }
+        
+        if (layer.features.multipolygons.size() > 0) {
+            LOGTHROW(err4, std::runtime_error ) 
+                << "Polygons may not be serialized to geodata, "
+                << "convert to surfaces first.";
+        }
+    
+        if (layer.features.surfaces.size() > 0) {
+            LOGONCE(warn3) << "Surface serialization not implmented yet.";
+        }
+        
+        // end layer
+    }
+    
+    // write output
+    os << writer.write(root);
+}
+
+Json::Value FeatureLayers::buildPoint3( const math::Point3 & p ) {
+    
+    Json::Value retval = Json::arrayValue;
+    retval.append(p(0)); retval.append(p(1)), retval.append(p(2));
+    return retval;
+}
+
+Json::Value FeatureLayers::buildHtml( const Features::Properties & props ) {
+    
+    using boost::format;
+    
+    std::ostringstream str;
+    
+    str << "<table>";
+    
+    for ( const auto & prop  : props ) {
+        if ( ! prop.second.empty() )
+            str << format( "<tr><td><b>%s</b></td><td>%s</td></tr>" ) 
+                % prop.first % prop.second; 
+    }
+    
+    str << "</table>";
+    
+    return Json::Value( str.str() );
+}
+
 
 
 /* Class FeatureLayers::Layer */

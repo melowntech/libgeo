@@ -12,9 +12,11 @@
 #ifndef vectordataset_hpp_included
 #define vectordataset_hpp_included
 
-#include <math/geometry_core.hpp>
-#include <geo/srs.hpp>
-#include <geo/geodataset.hpp>
+#include "math/geometry_core.hpp"
+#include "geo/srs.hpp"
+#include "geo/geodataset.hpp"
+#include "jsoncpp/json.hpp"
+
 
 #include <algorithm>
 
@@ -251,7 +253,9 @@ public :
      * See https://trac.citationtech.net/wiki/vadstena/PlanetGeographyFileFormat
      * for format description.
      */
-    void dumpLegacyGeodata(std::ostream & os);
+    void dumpLegacyGeodata(std::ostream & os
+            , const std::string & pointStyle = "point-default"
+            , const std::string & linestringStyle = "linestring-default");
     
     /**
      * @brief serialize into VTS free layer geodata format.
@@ -263,6 +267,10 @@ public :
     
     
 private :
+    
+    static Json::Value buildPoint3( const math::Point3 & p );
+    static Json::Value buildHtml( const Features::Properties & props );    
+    
     template <class Filter2, class RasterMask>
     static boost::optional<double> reconstruct( 
         const cv::Mat & from, const RasterMask & mask, 
