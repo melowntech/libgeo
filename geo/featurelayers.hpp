@@ -260,10 +260,11 @@ public :
     /**
      * @brief serialize into VTS free layer geodata format.
      * @param os where to send output
+     * @param resolution output resolution, as defined in VTS geodata spec
      * 
      * See VTS docs for format spec.
      */
-    void dumpVTSGeodata(std::ostream & os);
+    void dumpVTSGeodata(std::ostream & os, const uint resolution = 4096);
     
     
 private :

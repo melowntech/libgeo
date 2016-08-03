@@ -22,9 +22,10 @@ Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
     FeatureLayers featureLayers(vectorDs, config.workingSrs);
 
     // heightcode
-    featureLayers.heightcode(rasterDs, config.workingSrs 
-                           , config.outputVerticalAdjust
-                           , FeatureLayers::HeightcodeMode::auto_);
+    featureLayers.heightcode(rasterDs
+            , config.workingSrs ? config.workingSrs : config.rasterDsSrs
+            , config.outputVerticalAdjust
+            , FeatureLayers::HeightcodeMode::auto_);
     
     // convert 3D polygons to surfaces
     featureLayers.convert3DPolygons();
