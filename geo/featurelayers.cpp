@@ -294,8 +294,6 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
         std::min(1024.0, size.width / demDataset.resolution()[0]), 
         std::min(1024.0, size.height / demDataset.resolution()[1]));
     
-    LOG(info2) ("DEM shall be warped to %dx%d pixels.", psize[0], psize[1]);
-    
     // warp dem into working srs
     demDataset.expectGray();
     
@@ -303,6 +301,10 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
         workingSrs.get(), psize, bb2, ublas::identity_matrix<double>(2));
     
     demDataset.warpInto(wdem, geo::GeoDataset::Resampling::dem);
+
+    LOG(info2) ("Warped DEM to %dx%d pixels at [%.1f,%.1f] resolution."
+        , wdem.size().width, wdem.size().height 
+        , wdem.resolution()[0], wdem.resolution()[1]);
     
     // heightcode 
     math::CatmullRom2 filter(2,2);
