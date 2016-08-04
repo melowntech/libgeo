@@ -525,20 +525,21 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
        
         ToLocal_(const boost::optional<math::Extents3> & extents
                 , const uint resolution):
-            origin(0,0), scale(1,1) {
+            origin(0,0,0), scale(1,1,1) {
                 
-            if (extents) origin=extents->ll;
+            if (extents) origin = extents->ll;
            
             math::Point3 dvect(extents->ur - extents->ll);
-            scale[0] =  dvect[0] / resolution;
-            scale[1] =  dvect[1] / resolution;                      
+            scale[0] = resolution / dvect[0];
+            scale[1] = resolution / dvect[1];
+            scale[2] = resolution / dvect[2];
         }
        
-        math::Point3 operator()( const math::Point3 & p ) const {
+        math::Point3i operator()( const math::Point3 & p ) const {
 
-            return { (p[0] - origin[0]) * scale[0]
-                   , (p[1] - origin[1]) * scale[1]
-                   , (p[2] - origin[2]) * scale[2] };
+            return { static_cast<int>(round((p[0] - origin[0]) * scale[0]))
+                   , static_cast<int>(round((p[1] - origin[1]) * scale[1]))
+                   , static_cast<int>(round((p[2] - origin[2]) * scale[2])) };
         }
     };
    
@@ -700,13 +701,6 @@ boost::optional<math::Extents3> FeatureLayers::boundingBox(
     return retval;
 }
 
-
-Json::Value FeatureLayers::buildPoint3( const math::Point3 & p ) {
-    
-    Json::Value retval = Json::arrayValue;
-    retval.append(p(0)); retval.append(p(1)), retval.append(p(2));
-    return retval;
-}
 
 Json::Value FeatureLayers::buildHtml( const Features::Properties & props ) {
     

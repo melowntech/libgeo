@@ -97,6 +97,8 @@ SrsDefinition::SrsDefinition(int epsg)
     , type(Type::epsg)
 {}
 
+
+
 SrsDefinition SrsDefinition::longlat() {
     
     return SrsDefinition(
@@ -168,6 +170,16 @@ SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
     ::OGRSpatialReference sr;
     detail::import(sr, *this);
     return sr;
+}
+
+SrsDefinition SrsDefinition::geographic() const {
+
+   ::OGRSpatialReference ret;
+   ::OGRSpatialReference ours = reference();
+   if (ret.CopyGeogCSFrom(& ours) != OGRERR_NONE)
+       LOGTHROW(err1, std::runtime_error)
+           << "Could not extract geographic cs from definition";
+   return fromReference(ret);
 }
 
 bool areSame(const SrsDefinition &def1, const SrsDefinition &def2

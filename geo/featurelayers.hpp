@@ -270,7 +270,9 @@ public :
     
 private :
     
-    static Json::Value buildPoint3( const math::Point3 & p );
+    template <class TPoint3>
+    static Json::Value buildPoint3( const TPoint3 & p );
+    
     static Json::Value buildHtml( const Features::Properties & props );    
     
     template <class Filter2, class RasterMask>
@@ -318,6 +320,15 @@ boost::optional<double> FeatureLayers::reconstruct(
     else
        return boost::none;
 }    
+
+template <class TPoint3>
+Json::Value FeatureLayers::buildPoint3( const TPoint3 & p ) {
+    
+    Json::Value retval = Json::arrayValue;
+    retval.append(p(0)); retval.append(p(1)), retval.append(p(2));
+    return retval;
+}
+
 
 } // namespace geo
 

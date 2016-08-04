@@ -33,6 +33,8 @@ struct SrsDefinition {
     static SrsDefinition fromReference(const OGRSpatialReference &src
                                        , Type type = Type::proj4);
 
+    SrsDefinition geographic() const;
+
     /** Creates SRS efinition from any string. Detects SRS from string:
      *
      *  starts with '+': Type::proj4
@@ -40,6 +42,7 @@ struct SrsDefinition {
      *  other: Type::wkt
      */
     static SrsDefinition fromString(std::string value);
+
 
     static SrsDefinition longlat();
     static SrsDefinition utm(uint zone, bool isNorth = true );
