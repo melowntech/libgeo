@@ -211,6 +211,9 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs) {
     
         SrsDefinition sourceSrs(layer.srs);
         
+        // optimization
+        if (areSame(sourceSrs,targetSrs)) continue;
+        
         // sanity checks
         if ( targetSrs.reference().IsGeocentric() && !layer.is3D()) {
             LOGTHROW( err2, std::runtime_error ) << "Transformation to "
@@ -671,6 +674,30 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
     Json::StyledWriter writer;
     os << writer.write(root);    
 }
+
+boost::optional<math::Extents3> FeatureLayers::boundingBox(
+    boost::optional<SrsDefinition> srs) {
+    
+    SrsDefinition srs_;
+    
+    if (!srs && layers.size() == 0) return boost::none;
+    
+    srs_ = srs ? srs.get() : layers[0].srs;
+    
+    FeatureLayers lcopy(*this);
+    lcopy.transform(srs_);
+    
+    boost::optional<math::Extents3> retval;
+    
+    for (auto & layer: lcopy.layers) {
+        
+        if (retval && layer.featuresBB)
+            retval = unite(retval.get(), layer.featuresBB.get());
+    }
+    
+    return retval;
+}
+
 
 Json::Value FeatureLayers::buildPoint3( const math::Point3 & p ) {
     

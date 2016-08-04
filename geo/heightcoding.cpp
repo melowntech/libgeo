@@ -11,7 +11,7 @@
 namespace geo { namespace heightcoding {
 
 Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
-                    , std::ostream &os, const Config &config)
+                   , std::ostream &os, const Config &config)
 {
     Metadata metadata;
     

@@ -266,6 +266,7 @@ public :
      */
     void dumpVTSGeodata(std::ostream & os, const uint resolution = 4096);
     
+    std::vector<Layer> layers;
     
 private :
     
@@ -275,13 +276,49 @@ private :
     template <class Filter2, class RasterMask>
     static boost::optional<double> reconstruct( 
         const cv::Mat & from, const RasterMask & mask, 
-        const math::Point2 & pos, const Filter2 & filter ); 
-        
-    std::vector<Layer> layers;
+        const math::Point2 & pos, const Filter2 & filter );         
 };
 
 
-} // namespace geo
+UTILITY_GENERATE_ENUM_IO(geo::FeatureLayers::HeightcodeMode,
+    ((always))
+    ((never))
+    ((auto_)("auto"))
+)
 
+
+// template method implementation
+template <class Filter2, class RasterMask>
+boost::optional<double> FeatureLayers::reconstruct( 
+     const cv::Mat & from, const RasterMask & mask, 
+     const math::Point2 & pos, const Filter2 & filter ) {
+    
+    math::Point2i ll, ur;
+
+    ll[0] = (int) floor( pos[0] - filter.halfwinx() );
+    ll[1] = (int) floor( pos[1] - filter.halfwiny() );
+    ur[0] = (int) ceil( pos[0] + filter.halfwinx() );
+    ur[1] = (int) ceil( pos[1] + filter.halfwiny() );
+
+    double weightSum( 0.0 ), valueSum(0);
+
+    for ( int i = ll[1]; i <= ur[1]; i++ )
+        for ( int j = ll[0]; j <= ur[0]; j++ )
+             if ( math::ccinterval( 0, (int) from.cols - 1, j ) &&
+                  math::ccinterval( 0, (int) from.rows - 1, i ) && 
+                  mask.get( j, i ) ) {
+ 
+                 double weight = filter( j - pos[0], i - pos[1] );
+                 valueSum += weight * from.at<double>(i,j);
+                 weightSum += weight;
+             }
+ 
+    if ( weightSum > 0 )
+        return boost::optional<double>( valueSum / weightSum );
+    else
+       return boost::none;
+}    
+
+} // namespace geo
 
 #endif // vectordataset_hpp_included
