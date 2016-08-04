@@ -22,7 +22,6 @@ void FeatureLayers::load(::GDALDataset &dataset
     , const boost::optional<SrsDefinition> & sourceSrs) {
     
     // initialize
-    OGRRegisterAll();
     layers.resize(0);
     
     // cycle through layers
@@ -295,15 +294,15 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
         subrange(bb3.get().ll, 0, 2), 
         subrange(bb3.get().ur, 0, 2));
 
-    math::Point2 psize(
-        std::min(1024.0, size.width / demDataset.resolution()[0]), 
-        std::min(1024.0, size.height / demDataset.resolution()[1]));
+    math::Size2i psize(
+        std::min(1024.0, 4 * size.width / demDataset.resolution()[0]), 
+        std::min(1024.0, 4 * size.height / demDataset.resolution()[1]));
     
     // warp dem into working srs
     demDataset.expectGray();
     
     auto wdem = geo::GeoDataset::deriveInMemory(demDataset, 
-        workingSrs.get(), psize, bb2, ublas::identity_matrix<double>(2));
+        workingSrs.get(), psize, bb2);
     
     demDataset.warpInto(wdem, geo::GeoDataset::Resampling::dem);
 
@@ -693,6 +692,9 @@ boost::optional<math::Extents3> FeatureLayers::boundingBox(
         
         if (retval && layer.featuresBB)
             retval = unite(retval.get(), layer.featuresBB.get());
+        
+        if (!retval && layer.featuresBB)
+            retval = layer.featuresBB;
     }
     
     return retval;
