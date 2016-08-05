@@ -44,17 +44,19 @@ public :
                   zDefined(zDefined) {}
         };
         
-        struct LineString {
+        struct MultiLineString {
             
             std::string id;
             Properties properties;
-            math::Points3 points;
+            std::vector<math::Points3> lines;
             bool zDefined;
 
-            LineString( const std::string & id, const math::Points3 & points, 
-                        const Properties & properties, const bool zDefined )
-                : id(id), properties(properties), points(points),
-                  zDefined(zDefined) {}
+            MultiLineString(const std::string & id
+                , const std::vector<math::Points3> & lines
+                , const Properties & properties
+                , const bool zDefined)
+                    : id(id), properties(properties), lines(lines),
+                      zDefined(zDefined) {}
         };
         
         struct MultiPolygon {
@@ -105,7 +107,7 @@ public :
         };
         
         std::vector<Point> points;
-        std::vector<LineString> linestrings;
+        std::vector<MultiLineString> multilinestrings;
         std::vector<MultiPolygon> multipolygons;
         std::vector<Surface> surfaces;
         
@@ -120,10 +122,10 @@ public :
             zNeverDefined &= !point.zDefined;
         }
 
-        void addLineString(const LineString & linestring) { 
-            linestrings.emplace_back( linestring ); 
-            zAlwaysDefined &= linestring.zDefined;
-            zNeverDefined &= !linestring.zDefined;
+        void addMultiLineString(const MultiLineString & multilinestring) { 
+            multilinestrings.emplace_back( multilinestring ); 
+            zAlwaysDefined &= multilinestring.zDefined;
+            zNeverDefined &= !multilinestring.zDefined;
         }
 
         void addMultiPolygon(const MultiPolygon & multipolygon) { 

@@ -116,20 +116,19 @@ void FeatureLayers::load(::GDALDataset &dataset
                
                 OGRLineString * ilinestring = (OGRLineString *) igeometry;
                 math::Points3 points;
-                
-                
+                                
                 for (int k = 0; k < ilinestring->getNumPoints(); k++) {
                     
-                        OGRPoint ipoint;
-                        ilinestring->getPoint(k, & ipoint);
-                        points.push_back(math::Point3(ipoint.getX()
-                            , ipoint.getY(), ipoint.getZ()));
-                        layer.updateBB(points.back());
+                    OGRPoint ipoint;
+                    ilinestring->getPoint(k, & ipoint);
+                    points.push_back(math::Point3(ipoint.getX()
+                        , ipoint.getY(), ipoint.getZ()));
+                    layer.updateBB(points.back());
                 }
                 
-                layer.features.addLineString(
+                layer.features.addMultiLineString(
                         {(format( "%s-%d" ) % layer.name % id++ ).str(), 
-                        points, properties, zDefined});
+                            { points }, properties, zDefined});
                 
                 continue;
            }
@@ -173,8 +172,6 @@ void FeatureLayers::load(::GDALDataset &dataset
                 continue;
            }
                
-           /* multipolygon, multilinestring - META */
-                   
            /* unknown */        
            LOG(warn2) ("Unsupported feature type 0x%X, skipping.", 
               igeometry->getGeometryType());
@@ -184,18 +181,18 @@ void FeatureLayers::load(::GDALDataset &dataset
         // end layer
         if (!unsupported) {
             LOG(info2) << format( 
-                "%s: %5d points, %5d linestrings, %5d (multi)polygons." ) 
+                "%s: %5d points, %5d (multi)linestrings, %5d (multi)polygons." ) 
                 % layer.name
                 % layer.features.points.size()
-                % layer.features.linestrings.size()
+                % layer.features.multilinestrings.size()
                 % layer.features.multipolygons.size();
         } else {
             LOG(info2) << format( 
-                "%s: %5d points, %5d linestrings, %5d (multi)polygons, "
+                "%s: %5d points, %5d (multi)linestrings, %5d (multi)polygons, "
                 "%5d unsupported features." ) 
                 % layer.name
                 % layer.features.points.size()
-                % layer.features.linestrings.size()
+                % layer.features.multilinestrings.size()
                 % layer.features.multipolygons.size()
                 % unsupported;            
         }
@@ -238,9 +235,9 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs) {
             point.point = csTrafo(point.point); layer.updateBB(point.point);
         }
         
-        for (auto &linestring: layer.features.linestrings)
-            for (auto &p: linestring.points) { 
-                p = csTrafo(p); layer.updateBB(p); }
+        for (auto &multilinestring: layer.features.multilinestrings)
+            for (auto &linestring: multilinestring.lines)
+                for (auto &p: linestring) { p = csTrafo(p); layer.updateBB(p); }
         
         for (auto &mp: layer.features.multipolygons)
             for (auto &polygon: mp.polygons) {
@@ -353,33 +350,34 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
             layer.features.zNeverDefined = false;
         }
         
-        for ( auto & linestring : layer.features.linestrings ) {
+        for ( auto & multilinestring : layer.features.multilinestrings ) {
             
-            if ( linestring.zDefined && mode == HeightcodeMode::auto_ )
+            if ( multilinestring.zDefined && mode == HeightcodeMode::auto_ )
                 continue;
 
-            for ( math::Point3 & point : linestring.points ) {
+            for (auto & linestring: multilinestring.lines) 
+                for (math::Point3 & point : linestring) {
                 
-                // layer srs -> working srs
-                auto p(point);
-                if (layer.adjustVertical) p = adjuster(p, true);
-                p = ltwTrafo(p);
+                    // layer srs -> working srs
+                    auto p(point);
+                    if (layer.adjustVertical) p = adjuster(p, true);
+                    p = ltwTrafo(p);
 
-                // z value
-                auto value(reconstruct(wdem.data()
-                    , wdem.mask()
-                    , subrange(
-                        wdem.geoTransform().iconvert<double>(p), 0, 2)
-                    , filter));
-                ut::expect(value, "Could not obtain DEM value.");
-                p(2) = value.get(); 
+                    // z value
+                    auto value(reconstruct(wdem.data()
+                        , wdem.mask()
+                        , subrange(
+                            wdem.geoTransform().iconvert<double>(p), 0, 2)
+                        , filter));
+                    ut::expect(value, "Could not obtain DEM value.");
+                    p(2) = value.get(); 
                 
-                // working srs -> layer srs
-                point = wtlTrafo(p);
-                if (verticalAdjustment) point = adjuster(point);
-            }
+                    // working srs -> layer srs
+                    point = wtlTrafo(p);
+                    if (verticalAdjustment) point = adjuster(point);
+                }
             
-            linestring.zDefined = true;
+            multilinestring.zDefined = true;
             layer.features.zNeverDefined = false;
         }
         
@@ -479,24 +477,25 @@ void FeatureLayers::dumpLegacyGeodata(std::ostream & os
             }
         }
         
-        
-        if (layer.features.linestrings.size() > 0) {
+        if (layer.features.multilinestrings.size() > 0) {
             
             auto & jlinestrings = jlayer["lines"] = Json::arrayValue;
             
-            for (const auto & linestring: layer.features.linestrings) {
+            for (const auto & multilinestring: layer.features.multilinestrings) {
+                for (const auto & linestring: multilinestring.lines) {
                 
-                auto & jlinestring = jlinestrings.append( Json::objectValue );
-                jlinestring["style"] = linestringStyle;
-                jlinestring["id"] = linestring.id; 
-                jlinestring["html"] = buildHtml( linestring.properties );
+                    auto & jlinestring = jlinestrings.append( Json::objectValue );
+                    jlinestring["style"] = linestringStyle;
+                    jlinestring["id"] = multilinestring.id; 
+                    jlinestring["html"] = buildHtml( multilinestring.properties );
                 
-                auto & jpoints = jlinestring["points"] = Json::arrayValue;
+                    auto & jpoints = jlinestring["points"] = Json::arrayValue;
                 
-                for ( const auto & point : linestring.points ) 
-                    jpoints.append(buildPoint3(point - origin));
-                
-                // end linestring
+                    for (const auto & point : linestring) 
+                        jpoints.append(buildPoint3(point - origin));
+                                
+                }
+                // end multi linestring
             }
         }
         
@@ -598,29 +597,35 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
         } // end points
        
         // linestrings
-        if (layer.features.linestrings.size() > 0) {
+        if (layer.features.multilinestrings.size() > 0) {
         
-            auto & jlinestrings = jlayer["lines"] = Json::arrayValue;
+            auto & jmultilinestrings = jlayer["lines"] = Json::arrayValue;
            
-            for (const auto & linestring: layer.features.linestrings) {
+            for (const auto &multilinestring: layer.features.multilinestrings) {
                 
-                auto &jlinestring = jlinestrings.append(Json::objectValue);
+                auto &jmultilinestring 
+                    = jmultilinestrings.append(Json::objectValue);
 
                 // id and properties
-                jlinestring["id"] = linestring.id;
+                jmultilinestring["id"] = multilinestring.id;
 
                 auto & properties
-                    = jlinestring["properties"] = Json::objectValue;
+                    = jmultilinestring["properties"] = Json::objectValue;
            
-                for (const auto & property: linestring.properties)
+                for (const auto & property: multilinestring.properties)
                     properties[property.first] = property.second;
-
-                // geometry
-                jlinestring["lines"] = Json::arrayValue;
-                auto &jline = jlinestring["lines"].append(Json::arrayValue);
                 
-                for (const auto & point: linestring.points)
-                    jline.append(buildPoint3(tolocal(point)));                
+                // geometries
+                jmultilinestring["lines"] = Json::arrayValue;
+                
+                for (const auto &linestring: multilinestring.lines) {
+                
+                    auto &jline 
+                        = jmultilinestring["lines"].append(Json::arrayValue);
+                
+                    for (const auto & point: linestring)
+                        jline.append(buildPoint3(tolocal(point)));
+                }
             }
         } // end linestrings
        
