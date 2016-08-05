@@ -50,7 +50,7 @@ void FeatureLayers::load(::GDALDataset &dataset
             srcSrs = SrsDefinition( eogrsr, SrsDefinition::Type::proj4);
         } 
         
-        LOG( info3 ) 
+        LOG( info1 ) 
             << "Layer " << i << " srs: \""  << srcSrs.string() << "\".";
 
         // initialize layer
@@ -174,21 +174,21 @@ void FeatureLayers::load(::GDALDataset &dataset
            /* multipolygon, multilinestring - META */
                    
            /* unknown */        
-           LOG(warn2) << format( "Unsupported feature type 0x%X, skipping." ) 
-              % igeometry->getGeometryType();
+           LOG(warn2) ("Unsupported feature type 0x%X, skipping.", 
+              igeometry->getGeometryType());
            unsupported++;
         }
         
         // end layer
         if (!unsupported) {
-            LOG( info3 ) << format( 
+            LOG(info2) << format( 
                 "%s: %5d points, %5d linestrings, %5d (multi)polygons." ) 
                 % layer.name
                 % layer.features.points.size()
                 % layer.features.linestrings.size()
                 % layer.features.multipolygons.size();
         } else {
-            LOG( info3 ) << format( 
+            LOG(info2) << format( 
                 "%s: %5d points, %5d linestrings, %5d (multi)polygons, "
                 "%5d unsupported features." ) 
                 % layer.name
@@ -614,8 +614,8 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
                     properties[property.first] = property.second;
 
                 // geometry
-                jlayer["lines"] = Json::arrayValue;
-                auto &jline = jlayer["lines"].append(Json::arrayValue);
+                jlinestring["lines"] = Json::arrayValue;
+                auto &jline = jlinestring["lines"].append(Json::arrayValue);
                 
                 for (const auto & point: linestring.points)
                     jline.append(buildPoint3(tolocal(point)));                
@@ -624,7 +624,7 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
        
         // polygons
         if (layer.features.multipolygons.size() > 0) {
-            LOGTHROW(err3, std::runtime_error ) 
+            LOG(warn3) 
                 << "Polygons may not be serialized to geodata, "
                 << "please convert to surfaces first.";
         } 
