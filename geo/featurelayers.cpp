@@ -369,7 +369,7 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
 
             // z value
             auto value(
-                reconstruct(wdem.data()
+                reconstruct(wdem.cdata()
                           , wdem.mask()
                           , subrange( 
                               wdem.geoTransform().iconvert<double>(p)
