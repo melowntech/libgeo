@@ -19,7 +19,7 @@ Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
     const auto startPos(os.tellp());
 
     // load feature layers from vectorDs
-    FeatureLayers featureLayers(vectorDs, config.workingSrs);
+    FeatureLayers featureLayers(vectorDs);
 
     // heightcode
     featureLayers.heightcode(rasterDs
