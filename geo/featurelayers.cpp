@@ -64,7 +64,7 @@ void FeatureLayers::load(::GDALDataset &dataset
         ilayer->ResetReading();
         uint id = 0;
         
-        OGRFeatureDefn *ilayerDefn = ilayer->GetLayerDefn();
+        //OGRFeatureDefn *ilayerDefn = ilayer->GetLayerDefn();
         
         while ((ifeature = ilayer->GetNextFeature()) != 0x0) {
             
@@ -73,8 +73,10 @@ void FeatureLayers::load(::GDALDataset &dataset
             // extract properties
             Features::Properties properties;
             
-            for (int j = 0; j < ilayerDefn->GetFieldCount(); j++)
-                properties[ilayerDefn->GetFieldDefn(j)->GetNameRef()] 
+            OGRFeatureDefn *ifeatureDefn = ifeature->GetDefnRef();
+            
+            for (int j = 0; j < ifeatureDefn->GetFieldCount(); j++)
+                properties[ifeatureDefn->GetFieldDefn(j)->GetNameRef()] 
                     = ifeature->GetFieldAsString(j);
         
            // extract geometry
