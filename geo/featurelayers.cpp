@@ -299,7 +299,7 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
         std::min(1024.0, 4 * size.height / demDataset.resolution()[1]));
     
     // warp dem into working srs
-    demDataset.expectGray();
+    // demDataset.expectGray();
     
     auto wdem = geo::GeoDataset::deriveInMemory(demDataset, 
         workingSrs.get(), psize, bb2);
