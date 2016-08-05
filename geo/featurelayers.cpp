@@ -79,25 +79,25 @@ void FeatureLayers::load(::GDALDataset &dataset
                 properties[ifeatureDefn->GetFieldDefn(j)->GetNameRef()] 
                     = ifeature->GetFieldAsString(j);
         
-           // extract geometry
-           OGRGeometry *igeometry = ifeature->GetGeometryRef();
+            // extract geometry
+            OGRGeometry *igeometry = ifeature->GetGeometryRef();
            
-           if ( igeometry == 0x0 ) {
-               LOG(warn2) << "Geometry-less feature encountered, skipping.";
-               continue;
-           }
+            if ( igeometry == 0x0 ) {
+                LOG(warn2) << "Geometry-less feature encountered, skipping.";
+                continue;
+            }
            
-           if (igeometry->getCoordinateDimension() != 2 
-               && igeometry->getCoordinateDimension() != 3) {
+            if (igeometry->getCoordinateDimension() != 2 
+                && igeometry->getCoordinateDimension() != 3) {
                
-               LOG(warn2) << "Unknown feature dimension, skipping.";
-               continue;
-           } 
+                LOG(warn2) << "Unknown feature dimension, skipping.";
+                continue;
+            } 
            
-           zDefined = (igeometry->getCoordinateDimension() == 3 );
+            zDefined = (igeometry->getCoordinateDimension() == 3 );
            
-           /* point */
-           if (wkbFlatten(igeometry->getGeometryType()) == wkbPoint ) {
+            /* point */
+            if (wkbFlatten(igeometry->getGeometryType()) == wkbPoint ) {
                
                 OGRPoint * ipoint = (OGRPoint *) igeometry;
                 
@@ -109,10 +109,10 @@ void FeatureLayers::load(::GDALDataset &dataset
                     
                 layer.updateBB(layer.features.points.back().point);
                 continue;
-           }
+            }
            
-           /* line string */
-           if (wkbFlatten(igeometry->getGeometryType()) == wkbLineString) {
+            /* line string */
+            if (wkbFlatten(igeometry->getGeometryType()) == wkbLineString) {
                
                 OGRLineString * ilinestring = (OGRLineString *) igeometry;
                 math::Points3 points;
@@ -127,14 +127,50 @@ void FeatureLayers::load(::GDALDataset &dataset
                 }
                 
                 layer.features.addMultiLineString(
-                        {(format( "%s-%d" ) % layer.name % id++ ).str(), 
+                        {(format("%s-%d") % layer.name % id++ ).str(), 
                             { points }, properties, zDefined});
                 
                 continue;
-           }
+            }
+           
+            /* multi line string */
+            if (wkbFlatten(igeometry->getGeometryType()) == wkbMultiLineString) {
+               
+                auto imultilinestring = static_cast<OGRMultiLineString *> 
+                    (igeometry);
+                std::vector<math::Points3> lines;
+                
+                for (int j = 0; j < imultilinestring->getNumGeometries(); j++) {
+                    
+                    lines.push_back(math::Points3());
+                    auto & points( lines.back());
+                    
+                    ut::expect(wkbFlatten
+                        (imultilinestring->getGeometryRef(j)->getGeometryType())
+                        == wkbLineString, "Malformed multilinestring?");
+                    
+                    auto ilinestring = static_cast<OGRLineString *>
+                        (imultilinestring->getGeometryRef(j));
+                        
+                    for (int k = 0; k < ilinestring->getNumPoints(); k++) {
+                    
+                        OGRPoint ipoint;
+                        ilinestring->getPoint(k, & ipoint);
+                        points.push_back(math::Point3(ipoint.getX()
+                            , ipoint.getY(), ipoint.getZ()));
+                        layer.updateBB(points.back());
+                    }
+                }
+                
+                layer.features.addMultiLineString(
+                        {(format("%s-%d") % layer.name % id++ ).str(), 
+                            lines, properties, zDefined});
+                
+                continue;
+            }
                    
-           /* polygon */        
-           if (wkbFlatten(igeometry->getGeometryType()) == wkbPolygon ) {
+            /* polygon */        
+            if (wkbFlatten(igeometry->getGeometryType()) == wkbPolygon ) {
                
                 OGRPolygon * ipolygon = (OGRPolygon *) igeometry;
                 Features::MultiPolygon::Polygon polygon;
@@ -170,12 +206,12 @@ void FeatureLayers::load(::GDALDataset &dataset
                     (format( "%s-%d" ) % layer.name % id++ ).str(),
                     properties, { polygon }, zDefined });
                 continue;
-           }
+            }
                
-           /* unknown */        
-           LOG(warn2) ("Unsupported feature type 0x%X, skipping.", 
-              igeometry->getGeometryType());
-           unsupported++;
+            /* unknown */        
+            LOG(warn2) ("Unsupported feature type 0x%X, skipping.", 
+                igeometry->getGeometryType());
+            unsupported++;
         }
         
         // end layer
@@ -500,13 +536,13 @@ void FeatureLayers::dumpLegacyGeodata(std::ostream & os
         }
         
         if (layer.features.multipolygons.size() > 0) {
-            LOGTHROW(err3, std::runtime_error ) 
+            LOG(warn3) 
                 << "Polygons may not be serialized to geodata, "
                 << "please convert to surfaces first.";
         }
     
         if (layer.features.surfaces.size() > 0) {
-            LOGONCE(warn3) << "Surface serialization not implmented yet.";
+            LOG(warn3) << "Surface serialization not implmented yet.";
         }
         
         // end layer
