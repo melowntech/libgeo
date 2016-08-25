@@ -24,14 +24,9 @@ public:
 
     // return extents containing original extents
     math::Extents2 operator()(const math::Extents2 &p) const;
-    math::Extents3 operator()( const math::Extents3 &p
-                             , bool adjVertical ) const;
+    math::Extents3 operator()( const math::Extents3 &p ) const;
 
     CsConvertor inverse() const;
-
-    /** Adjust vertical coordinate by lenght dilation.
-     */
-    math::Point3 adjustVertical(math::Point3 point) const;
 
     /** Is destination SRS projected?
      */
@@ -57,23 +52,17 @@ inline math::Extents2 CsConvertor::operator()(const math::Extents2 &e) const
     return res;
 }
 
-inline math::Extents3 CsConvertor::operator()( const math::Extents3 &e
-                                             , bool adjVertical ) const
+inline math::Extents3 CsConvertor::operator()( const math::Extents3 &e) const
 {
-    auto adj([&](const math::Point3 &p) -> math::Point3 {
-        if (adjVertical) { return adjustVertical(p); }
-        return p;
-    });
+    math::Extents3 res(operator()( bll(e) ));
+    update(res, operator()( bul(e) ));
+    update(res, operator()( bur(e) ));
+    update(res, operator()( blr(e) ));
 
-    math::Extents3 res(operator()( adj(bll(e)) ));
-    update(res, operator()( adj(bul(e)) ));
-    update(res, operator()( adj(bur(e)) ));
-    update(res, operator()( adj(blr(e)) ));
-
-    update(res, operator()( adj(tll(e)) ));
-    update(res, operator()( adj(tul(e)) ));
-    update(res, operator()( adj(tur(e)) ));
-    update(res, operator()( adj(tlr(e)) ));
+    update(res, operator()( tll(e) ));
+    update(res, operator()( tul(e) ));
+    update(res, operator()( tur(e) ));
+    update(res, operator()( tlr(e) ));
 
     return res;
 }
