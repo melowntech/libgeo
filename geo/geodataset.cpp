@@ -2501,7 +2501,43 @@ GeoDataset GeoDataset::createCopy(const boost::filesystem::path &path
                               , OptionsWrapper(options)
                               , ::GDALDummyProgress
                               , nullptr));
+    if (!ds) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Failed to copy dataset to " << path << ".";
+    }
+
     return GeoDataset(std::move(ds));
+}
+
+void GeoDataset::copy(const boost::filesystem::path &path
+                      , const std::string &storageFormat
+                      , const Options &options)
+{
+    auto *driver
+        (GetGDALDriverManager()->GetDriverByName(storageFormat.c_str()));
+    if (!driver) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Cannot find GDAL driver for <" << storageFormat << ">.";
+    }
+
+    auto metadata(driver->GetMetadata());
+    if (!CSLFetchBoolean(metadata, GDAL_DCAP_CREATECOPY, FALSE)) {
+        LOGTHROW(err2, std::runtime_error)
+            << "GDAL driver for <" << storageFormat
+            << "> format doesn't know how to crete a copy.";
+    }
+
+    auto ds(driver->CreateCopy(path.c_str(), dset_.get()
+                               , true // strict
+                               , OptionsWrapper(options)
+                               , ::GDALDummyProgress
+                               , nullptr));
+    if (!ds) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Failed to copy dataset to " << path << ".";
+    }
+
+    delete ds;
 }
 
 } // namespace geo

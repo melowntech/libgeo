@@ -273,6 +273,12 @@ public:
                                  , const geo::GeoDataset &src
                                  , const Options &options = Options());
 
+    /** Creates copy of this dataset.
+     */
+    void copy(const boost::filesystem::path &path
+              , const std::string &storageFormat
+              , const Options &options = Options());
+
     enum class Type { custom, grayscale, rgb, rgba, alpha };
     Type type() const { return type_; }
 
