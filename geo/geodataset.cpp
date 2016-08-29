@@ -2503,7 +2503,8 @@ GeoDataset GeoDataset::createCopy(const boost::filesystem::path &path
                               , nullptr));
     if (!ds) {
         LOGTHROW(err2, std::runtime_error)
-            << "Failed to copy dataset to " << path << ".";
+            << "Failed to copy dataset to " << path << ": <"
+            << ::CPLGetLastErrorMsg() << ">";
     }
 
     return GeoDataset(std::move(ds));
@@ -2534,7 +2535,8 @@ void GeoDataset::copy(const boost::filesystem::path &path
                                , nullptr));
     if (!ds) {
         LOGTHROW(err2, std::runtime_error)
-            << "Failed to copy dataset to " << path << ".";
+            << "Failed to copy dataset to " << path << ": <"
+            << ::CPLGetLastErrorMsg() << ">";
     }
 
     delete ds;
