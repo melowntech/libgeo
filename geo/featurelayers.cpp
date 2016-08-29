@@ -375,7 +375,7 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
                               wdem.geoTransform().iconvert<double>(p)
                               , 0, 2)
                           , filter ) );
-            ut::expect(value, "Could not obtain DEM value.");
+            ut::expect(bool(value), "Could not obtain DEM value.");
             p(2) = value.get(); 
 
             // working srs -> layer srs
@@ -405,7 +405,7 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
                         , subrange(
                             wdem.geoTransform().iconvert<double>(p), 0, 2)
                         , filter));
-                    ut::expect(value, "Could not obtain DEM value.");
+                    ut::expect(bool(value), "Could not obtain DEM value.");
                     p(2) = value.get(); 
                 
                     // working srs -> layer srs
