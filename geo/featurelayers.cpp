@@ -306,10 +306,15 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
     if (!workingSrs) {
         
         // obtain the geographic datum from dem
-        OGRSpatialReference *ogrsrs = demDataset.srs().reference().CloneGeogCS();        
-        workingSrs = SrsDefinition::fromReference(*ogrsrs);        
-        delete ogrsrs;
+        /*OGRSpatialReference *ogrsrs = demDataset.srs().reference().CloneGeogCS();        
+        workingSrs = SrsDefinition::fromReference(*ogrsrs);*/
+        workingSrs = demDataset.srs();        
+        // delete ogrsrs;
     }
+    
+    LOG(info1) 
+        << "Heightcoding SRS: \"" 
+        << workingSrs->as(SrsDefinition::Type::proj4).string() << "\"";
     
     // determine extents and pixel size
     boost::optional<math::Extents3> bb3 = boundingBox(workingSrs);
@@ -318,16 +323,18 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
         LOG(info2) << "Skipping heightcoding for an empty features dataset.";
         return;
     }
+
+    math::Extents3 bb;
     
-    bb3->ll = bb3->ll - 0.05 * (bb3->ur - bb3->ll);
-    bb3->ur = bb3->ur + 0.05 * (bb3->ur - bb3->ll);
+    bb.ll = bb3->ll - 0.05 * (bb3->ur - bb3->ll);
+    bb.ur = bb3->ur + 0.05 * (bb3->ur - bb3->ll);
     
-    math::Size2f size(math::size(bb3.get()).width
-                    , math::size(bb3.get()).height);
+    math::Size2f size(math::size(bb).width
+                    , math::size(bb).height);
     
     math::Extents2 bb2( 
-        subrange(bb3.get().ll, 0, 2), 
-        subrange(bb3.get().ur, 0, 2));
+        subrange(bb.ll, 0, 2), 
+        subrange(bb.ur, 0, 2));
 
     math::Size2i psize(
         std::min(1024.0, 4 * size.width / demDataset.resolution()[0]), 

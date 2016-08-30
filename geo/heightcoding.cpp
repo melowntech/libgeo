@@ -22,8 +22,17 @@ Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
     FeatureLayers featureLayers(vectorDs);
 
     // heightcode
+    auto workingSrs(config.workingSrs ? config.workingSrs : config.rasterDsSrs);
+
+    if (workingSrs) {
+        LOG(info2) << "The following SRS shall be used in heightcoding: \""
+                   <<  workingSrs->string() << "\"";        
+    } else {
+        LOG(info2) << "No hint given as to what SRS to use in heightcoding.";
+    }
+    
     featureLayers.heightcode(rasterDs
-            , config.workingSrs ? config.workingSrs : config.rasterDsSrs
+            , workingSrs
             , config.outputVerticalAdjust
             , FeatureLayers::HeightcodeMode::auto_);
     
