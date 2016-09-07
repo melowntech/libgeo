@@ -407,8 +407,8 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
                     p = ltwTrafo(p);
 
                     // z value
-                    auto value(reconstruct(wdem.data()
-                        , wdem.mask()
+                    auto value(reconstruct(wdem.cdata()
+                        , wdem.cmask()
                         , subrange(
                             wdem.geoTransform().iconvert<double>(p), 0, 2)
                         , filter));
