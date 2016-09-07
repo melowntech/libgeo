@@ -2542,4 +2542,19 @@ void GeoDataset::copy(const boost::filesystem::path &path
     delete ds;
 }
 
+GeoDataset::Descriptor GeoDataset::descriptor() const
+{
+    Descriptor d;
+    d.extents = extents();
+    d.size = size();
+    d.srs = srs();
+
+    d.bands = numChannels_;
+    if (d.bands) {
+        auto *b(dset_->GetRasterBand(1));
+        d.overviews = b->GetOverviewCount();
+    }
+    return d;
+}
+
 } // namespace geo
