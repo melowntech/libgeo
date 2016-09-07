@@ -556,7 +556,7 @@ void FeatureLayers::dumpLegacyGeodata(std::ostream & os
     }
     
     // write output
-    Json::StyledWriter writer;
+    Json::FastWriter writer;
     os << writer.write(root);
 }
 
@@ -721,7 +721,7 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
     } // end layer
    
     // write output
-    Json::StyledWriter writer;
+    Json::FastWriter writer;
     os << writer.write(root);    
 }
 
