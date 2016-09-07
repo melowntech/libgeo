@@ -320,7 +320,9 @@ public:
     
         WarpOptions(): 
             warpMemoryLimit(0x10000000), // 256 MB
-            safeChunks(true) {}
+            safeChunks(true)
+            , noInit(false)
+        {}
 
         template <typename T>
         WarpOptions(const std::string &name, const T &value) {
@@ -348,7 +350,11 @@ public:
         /** Use overviews agressively to restrict memory usage (and prevent overflows).
           * There is some performance penalty when this option is set, resulting from  
           * the chunking code being run (at least) twice. */
-        bool safeChunks; 
+        bool safeChunks;
+
+        /** Do not init output with no-data value.
+         */
+        bool noInit;
     };
 
     /** \brief Warp data from this dataset to destination dataset.

@@ -1351,7 +1351,10 @@ GeoDataset::warpInto(GeoDataset &dst
 
     // update options and grab options since it is destroyed by
     // GDALDestroyWarpOptions
-    wo("INIT_DEST", "NO_DATA");
+    if (!options.noInit) {
+        // tell gdal to initilize output with no-data value
+        wo("INIT_DEST", "NO_DATA");
+    }
     warpOptions->papszWarpOptions = wo.release();
 
     // choose resampling
