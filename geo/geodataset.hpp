@@ -730,6 +730,20 @@ public:
 
     Format getFormat() const;
 
+    /** Dataset descriptor: overall dataset information.
+     */
+    struct Descriptor {
+        math::Extents2 extents;
+        math::Size2 size;
+        SrsDefinition srs;
+        std::size_t bands;
+        std::size_t overviews;
+
+        Descriptor() : bands(), overviews() {}
+    };
+
+    Descriptor descriptor() const;
+
 private:
     static bool initialized_;
     static void initialize();
