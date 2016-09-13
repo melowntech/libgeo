@@ -721,6 +721,7 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
     } // end layer
    
     // write output
+    // Json::StyledWriter writer; // uncomment when debugging
     Json::FastWriter writer;
     os << writer.write(root);    
 }
@@ -747,7 +748,22 @@ boost::optional<math::Extents3> FeatureLayers::boundingBox(
         if (!retval && layer.featuresBB)
             retval = layer.featuresBB;
     }
-    
+
+    if (!retval) { return retval; }
+
+    // inflate extents a bit if size is zero
+    // TODO: use sane value for geographic srs
+    auto &e(*retval);
+    auto es(math::size(e));
+    auto fix([&](int axis)
+    {
+        e.ll(axis) -= 0.1;
+        e.ur(axis) += 0.1;
+    });
+    if (!es.width) { fix(0); }
+    if (!es.height) { fix(1); }
+    if (!es.depth) { fix(2); }
+
     return retval;
 }
 
