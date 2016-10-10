@@ -10,7 +10,8 @@
 
 namespace geo { namespace heightcoding {
 
-Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
+Metadata heightCode(::GDALDataset &vectorDs
+                    , const std::vector<const GeoDataset*> &rasterDs
                    , std::ostream &os, const Config &config)
 {
     Metadata metadata;
@@ -30,8 +31,9 @@ Metadata heightCode(::GDALDataset &vectorDs, const GeoDataset &rasterDs
     } else {
         LOG(info2) << "No hint given as to what SRS to use in heightcoding.";
     }
-    
-    featureLayers.heightcode(rasterDs
+
+    // TODO: use full stack to heightcode result
+    featureLayers.heightcode(*rasterDs.back()
             , workingSrs
             , config.outputVerticalAdjust
             , FeatureLayers::HeightcodeMode::auto_);

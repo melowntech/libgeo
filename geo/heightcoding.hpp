@@ -73,11 +73,23 @@ struct Metadata {
     std::size_t fileSize;
 };
 
-/** Height code vector data from vectorDs using height information from
- *  raster dataset rasterDs.
+/** Height code vector data from vectorDs using height information from raster
+ *  dataset stack rasterDs.
  *
  *  \param vectorDs input vector dataset
- *  \param rasterDs raster dataset used to height code vector data
+ *  \param rasterDs stack of raster datasets used to height code vector data
+ *  \param os output stream result is written to
+ *  \param config work configuration
+ */
+Metadata heightCode(::GDALDataset &vectorDs
+                    , const std::vector<const GeoDataset*> &rasterDs
+                    , std::ostream &os, const Config &config = Config());
+
+/** Height code vector data from vectorDs using height information from raster
+ *  dataset rasterDs.
+ *
+ *  \param vectorDs input vector dataset
+ *  \param rasterDs stack of raster datasets used to height code vector data
  *  \param os output stream result is written to
  *  \param config work configuration
  */
@@ -101,6 +113,16 @@ Metadata loadMetadata(std::istream &in, const boost::filesystem::path &path
 /** Saves metadata to stream
  */
 void saveMetadata(std::ostream &out , const Metadata &metadata);
+
+
+// inlines
+
+inline Metadata heightCode(::GDALDataset &vectorDs
+                           , const GeoDataset &rasterDs
+                           , std::ostream &os, const Config &config)
+{
+    return heightCode(vectorDs, { &rasterDs }, os, config);
+}
 
 } } // namespace geo::heightcoding
 
