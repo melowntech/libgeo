@@ -1177,6 +1177,8 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const CmdlineLogger &l)
     os << " -r " << l.wri.resampling;
     if (l.wri.overview) {
         os << " -ovr " << *l.wri.overview;
+    } else {
+        os << " -ovr NONE";
     }
 
     auto extents(l.dst.extents());
