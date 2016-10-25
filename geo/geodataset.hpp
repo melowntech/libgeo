@@ -696,6 +696,18 @@ public:
      */
     BlockInfo::list getBlocking() const;
 
+    /** Write cv::Mat at given block offset.
+     *  Matrix must have the same number of channels as dataset.
+     */
+    void writeBlock(const math::Point2i &blockOffset
+                    , const cv::Mat &block);
+
+    /** Write cv::Mat at given block offset into mask.
+     *  Matrix must have 1 channel.
+     */
+    void writeMaskBlock(const math::Point2i &blockOffset
+                        , const cv::Mat &block);
+
     /** Checks whether this dataset is valid dataset (i.e. is backed by valid
      *  GDAL dataset. Returns false for placeholder.
      */

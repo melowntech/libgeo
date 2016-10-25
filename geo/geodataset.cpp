@@ -26,6 +26,7 @@
 #include "./csconvertor.hpp"
 #include "./io.hpp"
 #include "./detail/warpmemorymeter.hpp"
+#include "./gdal.hpp"
 
 
 extern "C" {
@@ -89,11 +90,28 @@ int gdal2cv(GDALDataType gdalDataType, int numChannels)
 
     default:
         LOGTHROW(err2, std::logic_error)
-            << "Unsupported datatype " << gdalDataType << "in raster.";
+            << "Unsupported datatype " << gdalDataType << " in raster.";
     }
     return 0; // never reached
 }
 
+::GDALDataType cv2gdal(int cvDataType)
+{
+    // determine output datatype automatically
+    switch (cvDataType) {
+    case CV_8UC1:  return GDT_Byte;
+    case CV_16UC1: return GDT_UInt16;
+    case CV_16SC1: return GDT_Int16;
+    case CV_32SC1: return GDT_UInt32;
+    case CV_32FC1: return GDT_Float32;
+    case CV_64FC1: return GDT_Float64;
+
+    default:
+        LOGTHROW(err2, std::logic_error)
+            << "Unsupported datatype " << cvDataType << " in raster.";
+    }
+    return GDT_Byte; // never reached
+}
 
 
 bool areIdenticalButForShift( const GeoTransform & trafo1,
@@ -2297,6 +2315,70 @@ GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset
     ut::expect(err == CE_None, "Reading of raster data failed.");
 
     return block;
+}
+
+void GeoDataset::writeBlock(const math::Point2i &blockOffset
+                            , const cv::Mat &block)
+{
+    int numChannels(dset_->GetRasterCount());
+
+    ut::expect((numChannels == block.channels())
+               , "Invalid number of channels in block to write.");
+
+    const int valueSize(block.elemSize() / block.channels());
+    const auto type(cv2gdal(block.depth()));
+
+    for (int i = 1; i <= numChannels; ++i) {
+        int bandMap(i);
+        auto err = dset_->RasterIO
+            (GF_Write // GDALRWFlag  eRWFlag,
+             , blockOffset(0) // int nXOff
+             , blockOffset(1) // int nYOff
+             , block.cols, block.rows // int nXSize, int nYSize,
+             , (void *) (block.data
+                         + (channelMapping_[i]  * valueSize))  // void * pData,
+             , block.cols, block.rows // int nBufXSize, int nBufYSize,
+             , type // GDALDataType  eBufType,
+             , 1                      //  int nBandCount,
+             , &bandMap               // int * panBandMap,
+             , block.elemSize()       // int nPixelSpace,
+             , block.cols * block.elemSize(), 0); // int nLineSpace
+
+        ut::expect(err == CE_None, "Writing of raster data failed.");
+    }
+}
+
+void GeoDataset::writeMaskBlock(const math::Point2i &blockOffset
+                                , const cv::Mat &block)
+{
+    ut::expect((block.channels() == 1)
+               , "Invalid number of channels in mask block to write.");
+
+    auto *band(dset_->GetRasterBand(1));
+    auto flags(band->GetMaskFlags());
+    if (flags & GMF_ALL_VALID) {
+        // no mask band
+        dset_->CreateMaskBand(GMF_PER_DATASET);
+    }
+
+    auto *mask(band->GetMaskBand());
+
+    const auto type(cv2gdal(block.depth()));
+
+    auto err = mask->RasterIO
+        (GF_Write // GDALRWFlag  eRWFlag,
+         , blockOffset(0) // int nXOff
+         , blockOffset(1) // int nYOff
+         , block.cols, block.rows // int nXSize, int nYSize,
+         , (void *) block.data  // void * pData,
+         , block.cols, block.rows         // int nBufXSize, int nBufYSize
+         , type                          // GDALDataType eBufType
+         , block.elemSize()              // int nPixelSpace
+         , block.cols * block.elemSize() // int nLineSpace
+         , 0)                            // psExtraArg
+        ;
+
+    ut::expect(err == CE_None, "Writing of raster data failed.");
 }
 
 math::Size2 GeoDataset::blockSize() const
