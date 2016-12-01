@@ -36,8 +36,11 @@ public:
      */
     bool areSrsEqual() const;
 
+    class Impl;
+
 private:
-    std::shared_ptr<void> trans_;
+    CsConvertor(const std::shared_ptr<Impl> &trans);
+    std::shared_ptr<Impl> trans_;
 };
 
 // inline method implementation

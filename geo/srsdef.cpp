@@ -1,6 +1,6 @@
 #include <stdexcept>
 #include <vector>
-
+#include <sstream>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
@@ -8,7 +8,9 @@
 
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
-#include <sstream>
+
+#include <GeographicLib/LocalCartesian.hpp>
+#include <GeographicLib/Geocentric.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -144,6 +146,11 @@ SrsDefinition SrsDefinition::as(Type dstType) const
         LOGTHROW(err1, std::runtime_error)
             << "EPSG reference cannot be constructed from "
             << type << " representation.";
+
+    case SrsDefinition::Type::enu:
+        LOGTHROW(err1, std::runtime_error)
+            << "ENU reference cannot be constructed from "
+            << type << " representation.";
     }
 
     // never reached
@@ -161,8 +168,35 @@ SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
         LOGTHROW(err1, std::runtime_error)
             << "OGRSpatialReference cannot be exported into EPSG "
             "representation.";
+
+    case SrsDefinition::Type::enu:
+        LOGTHROW(err1, std::runtime_error)
+            << "OGRSpatialReference cannot be exported into ENU "
+            "representation.";
     }
     throw;
+}
+
+SrsDefinition
+SrsDefinition::fromLocalCartesian(const GeographicLib::LocalCartesian &src)
+{
+    SrsDefinition dst;
+    dst.type = Type::enu;
+    std::ostringstream os;
+    os << '[' << src.LongitudeOrigin() << ',' << src.LongitudeOrigin()
+       << ',' << src.HeightOrigin() << ']';
+
+    typedef GeographicLib::Geocentric Geocentric;
+
+    if ((src.MajorRadius() != Geocentric::WGS84.MajorRadius())
+        || (src.Flattening() != Geocentric::WGS84.Flattening()))
+    {
+        os << '[' << ',' << src.MajorRadius()
+           << ',' << (1.0 / src.Flattening()) << ']';
+    }
+
+    dst.srs = os.str();
+    return dst;
 }
 
 ::OGRSpatialReference SrsDefinition::reference() const
@@ -172,19 +206,33 @@ SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
     return sr;
 }
 
-SrsDefinition SrsDefinition::geographic() const {
+GeographicLib::LocalCartesian SrsDefinition::localCartesian() const
+{
+    GeographicLib::LocalCartesian lc;
+    detail::import(lc, *this);
+    return lc;
+}
 
-   ::OGRSpatialReference ret;
-   ::OGRSpatialReference ours = reference();
-   if (ret.CopyGeogCSFrom(& ours) != OGRERR_NONE)
+SrsDefinition SrsDefinition::geographic() const
+{
+    ::OGRSpatialReference ours(reference());
+    ::OGRSpatialReference ret;
+    if (ret.CopyGeogCSFrom(&ours) != OGRERR_NONE) {
        LOGTHROW(err1, std::runtime_error)
            << "Could not extract geographic cs from definition";
+    }
    return fromReference(ret);
 }
 
 bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
              , SrsEquivalence type)
 {
+    if (def1.is(SrsDefinition::Type::enu)
+        && def2.is(SrsDefinition::Type::enu))
+    {
+        return (def1.srs == def2.srs);
+    }
+
     OGRSpatialReference sr1;
     detail::import(sr1, def1);
 
@@ -302,6 +350,9 @@ SrsDefinition SrsDefinition::fromString(std::string value)
     } else if (ba::istarts_with(value, "epsg:")) {
         // epsg
         return SrsDefinition(value.substr(5), SrsDefinition::Type::epsg);
+    } else if (ba::istarts_with(value, "enu:")) {
+        // epsg
+        return SrsDefinition(value.substr(4), SrsDefinition::Type::enu);
     }
 
     return SrsDefinition(value, SrsDefinition::Type::wkt);

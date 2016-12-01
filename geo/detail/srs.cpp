@@ -54,7 +54,57 @@ void import(OGRSpatialReference &sr, const SrsDefinition &def)
         }
         break;
     }
+
+    case SrsDefinition::Type::enu:
+        LOGTHROW(err1, std::runtime_error)
+            << "ENU SRS is not supported by ORG library.";
     }
+}
+
+void import(GeographicLib::LocalCartesian &lc, const SrsDefinition &def)
+{
+    if (!def.is(SrsDefinition::Type::enu)) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Only ENU SRS is not supported by GeographicLib library.";
+    }
+
+    std::istringstream is(def.srs);
+    GeographicLib::Math::real lat, lon, h;
+
+    is >> utility::expect('[')
+       >> lon >> utility::expect(',') >> lat >> utility::expect(',') >> h
+       >> utility::expect(']');
+
+    auto comma(utility::match(','));
+    is >> comma;
+    if (!comma.matched) {
+        if (!is) {
+            LOGTHROW(err1, std::runtime_error)
+                << "Error parsing ENU definition (input = " << def.srs << ").";
+        }
+
+        if (!is.eof()) {
+            LOGTHROW(err1, std::runtime_error)
+                << "Error parsing ENU definition (input = " << def.srs << ").";
+        }
+
+        // OK, default WGS84 speroid
+        lc = GeographicLib::LocalCartesian(lat, lon, h);
+        return;
+    }
+
+    // parse sphereoid
+    GeographicLib::Math::real major, flattening;
+    is >> utility::expect('[') >> major >> utility::expect(',')
+       >> flattening >> utility::expect(']');
+
+    if (!is) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Error parsing ENU definition (input = " << def.srs <<").";
+    }
+
+    lc = GeographicLib::LocalCartesian
+        (lat, lon, h, GeographicLib::Geocentric(major, 1.0 / flattening));
 }
 
 

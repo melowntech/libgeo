@@ -8,7 +8,7 @@
 #include "utility/gccversion.hpp"
 #include "utility/buildsys.hpp"
 
-#include "geo/srsdef.hpp"
+#include "geo/csconvertor.hpp"
 #include "geo/po.hpp"
 
 namespace po = boost::program_options;
@@ -16,11 +16,11 @@ namespace fs = boost::filesystem;
 
 namespace {
 
-class SrsConv : public service::Cmdline
+class Cs2Cs : public service::Cmdline
 {
 public:
-    SrsConv()
-        : Cmdline("geo-srsconv", BUILD_TARGET_VERSION
+    Cs2Cs()
+        : Cmdline("geo-cs2cs", BUILD_TARGET_VERSION
                   , service::DISABLE_EXCESSIVE_LOGGING)
     {
     }
@@ -40,46 +40,55 @@ private:
     virtual int run() UTILITY_OVERRIDE;
 
     geo::SrsDefinition srcSrs_;
-    geo::SrsDefinition::Type dstType_;
+    geo::SrsDefinition dstSrs_;
 };
 
-void SrsConv::configuration(po::options_description &cmdline
+void Cs2Cs::configuration(po::options_description &cmdline
                            , po::options_description &config
                            , po::positional_options_description &pd)
 {
     cmdline.add_options()
-        ("srcSrs", po::value(&srcSrs_)->required()
+        ("src", po::value(&srcSrs_)->required()
          , "Source SRS definition.")
-        ("dstType",  po::value(&dstType_)->required()
-         , "Type of destination SRS definition.")
+        ("dst", po::value(&dstSrs_)->required()
+         , "Destination SRS definition.")
     ;
 
     pd
-        .add("srcSrs", 1)
-        .add("dstType", 1)
+        .add("src", 1)
+        .add("dst", 1)
         ;
 
     (void) config;
 }
 
-void SrsConv::configure(const po::variables_map &vars)
+void Cs2Cs::configure(const po::variables_map &vars)
 {
     (void) vars;
 }
 
-bool SrsConv::help(std::ostream &out, const std::string &what) const
+bool Cs2Cs::help(std::ostream &out, const std::string &what) const
 {
     if (what.empty()) {
-        out << R"RAW(geo-srsconv: Spatial Reference System convertor
+        out << R"RAW(geo-cs2cs: SRS convertor
 )RAW";
     }
     return false;
 }
 
-int SrsConv::run()
+int Cs2Cs::run()
 {
-    std::cout << geo::SrsDefinition(srcSrs_).as(dstType_).string()
-              << std::endl;
+    const geo::CsConvertor conv(srcSrs_, dstSrs_);
+
+    double x, y, z;
+    while (std::cin >> x >> y >> z) {
+        const auto res(conv(math::Point3(x, y, z)));
+        std::cout << std::fixed << res(0)
+                  << " " << res(1)
+                  << " " << res(2)
+                  << std::endl;
+    }
+
     return EXIT_SUCCESS;
 }
 
@@ -87,5 +96,5 @@ int SrsConv::run()
 
 int main(int argc, char *argv[])
 {
-    return SrsConv()(argc, argv);
+    return Cs2Cs()(argc, argv);
 }
