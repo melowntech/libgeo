@@ -21,3 +21,35 @@ Tips:
 
       Variable must be set during program start, later changes (by user code)
       have no effect.
+
+SRS syntax:
+
+    * Proj.4 string: anything starting with +proj
+
+    * EPSG: string starting with "epsg:"
+
+    * enu: string starting with "enu", supported arguments (with
+      defaults if missing):
+
+      * origin:
+          "lat0=number" (=0)
+              latitude of origin (degrees on ellipsoid)
+          "lon0=number" (=0)
+              longitude of origin (degrees on ellipsoid)
+          "h0=number" (=0)
+              height of origin (in meters above ellipsoid)
+
+      * spheroid:
+          "a=number" (WGS84 semimajor)
+              sheroid semimajor
+          "b=number" (WGS84 semiminor)
+              sheroid semiminor
+
+          NB: either none or both a and b must be specified
+
+      * to WGS84 transformation
+          "wgs84=comma-separated-list" (unset)
+              either: DX,DY,DZ
+              or: DX,DY,DZ,EX,EY,EZ,PPM
+
+          See ::OSRSetTOWGS84 OGR function for details
