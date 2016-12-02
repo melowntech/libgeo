@@ -9,13 +9,15 @@
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
 
-#include <GeographicLib/LocalCartesian.hpp>
 #include <GeographicLib/Geocentric.hpp>
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/streams.hpp"
+
 #include "./srsdef.hpp"
 #include "./srs.hpp"
+#include "./enu.hpp"
 #include "./detail/srs.hpp"
 
 namespace geo {
@@ -177,22 +179,27 @@ SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
     throw;
 }
 
-SrsDefinition
-SrsDefinition::fromLocalCartesian(const GeographicLib::LocalCartesian &src)
+SrsDefinition SrsDefinition::fromEnu(const Enu &src)
 {
     SrsDefinition dst;
     dst.type = Type::enu;
+
     std::ostringstream os;
-    os << '[' << src.LongitudeOrigin() << ',' << src.LongitudeOrigin()
-       << ',' << src.HeightOrigin() << ']';
 
-    typedef GeographicLib::Geocentric Geocentric;
+    os << "enu";
 
-    if ((src.MajorRadius() != Geocentric::WGS84.MajorRadius())
-        || (src.Flattening() != Geocentric::WGS84.Flattening()))
-    {
-        os << '[' << ',' << src.MajorRadius()
-           << ',' << (1.0 / src.Flattening()) << ']';
+    // os << std::scientific << std::setprecision(16);
+
+    if (src.lat0) { os << " lat0=" << src.lat0; }
+    if (src.lon0) { os << " lon0=" << src.lon0; }
+    if (src.h0) { os << " h0=" << src.h0; }
+
+    if (src.spheroid) {
+        os << " a=" << src.spheroid->a << " b=" << src.spheroid->b;
+    }
+
+    if (!src.towgs84.empty()) {
+        os << " towgs84=" << utility::join(src.towgs84, ",");
     }
 
     dst.srs = os.str();
@@ -206,11 +213,11 @@ SrsDefinition::fromLocalCartesian(const GeographicLib::LocalCartesian &src)
     return sr;
 }
 
-GeographicLib::LocalCartesian SrsDefinition::localCartesian() const
+Enu SrsDefinition::enu() const
 {
-    GeographicLib::LocalCartesian lc;
-    detail::import(lc, *this);
-    return lc;
+    Enu enu;
+    detail::import(enu, *this);
+    return enu;
 }
 
 SrsDefinition SrsDefinition::geographic() const
@@ -350,9 +357,9 @@ SrsDefinition SrsDefinition::fromString(std::string value)
     } else if (ba::istarts_with(value, "epsg:")) {
         // epsg
         return SrsDefinition(value.substr(5), SrsDefinition::Type::epsg);
-    } else if (ba::istarts_with(value, "enu:")) {
+    } else if (ba::istarts_with(value, "enu")) {
         // epsg
-        return SrsDefinition(value.substr(4), SrsDefinition::Type::enu);
+        return SrsDefinition(value, SrsDefinition::Type::enu);
     }
 
     return SrsDefinition(value, SrsDefinition::Type::wkt);

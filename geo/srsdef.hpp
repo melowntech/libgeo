@@ -6,11 +6,14 @@
 
 #include "utility/enum-io.hpp"
 
-// forward declarations
+// forward declaration
 class OGRSpatialReference;
-namespace GeographicLib { class LocalCartesian; }
+
 
 namespace geo {
+
+// forward decalration
+struct Enu;
 
 struct SrsDefinition {
     enum class Type { proj4, wkt, epsg, enu };
@@ -33,12 +36,11 @@ struct SrsDefinition {
     bool is(Type t) const { return type == t; }
 
     OGRSpatialReference reference() const;
-    GeographicLib::LocalCartesian localCartesian() const;
+    Enu enu() const;
 
     static SrsDefinition fromReference(const OGRSpatialReference &src
                                        , Type type = Type::proj4);
-    static SrsDefinition
-    fromLocalCartesian(const GeographicLib::LocalCartesian &src);
+    static SrsDefinition fromEnu(const Enu &src);
 
     SrsDefinition geographic() const;
 
@@ -83,7 +85,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const SrsDefinition &s)
 {
     switch (s.type) {
     case SrsDefinition::Type::epsg: os << "epsg:"; break;
-    case SrsDefinition::Type::enu: os << "enu:"; break;
     default: break;
     }
     return os << s.srs;

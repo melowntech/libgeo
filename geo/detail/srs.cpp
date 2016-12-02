@@ -1,13 +1,16 @@
 #include <string>
 #include <vector>
 
-#include "boost/lexical_cast.hpp"
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #include <ogr_spatialref.h>
 
 #include "dbglog/dbglog.hpp"
 
 #include "./srs.hpp"
+
+namespace ba = boost::algorithm;
 
 namespace geo { namespace detail {
 
@@ -61,51 +64,124 @@ void import(OGRSpatialReference &sr, const SrsDefinition &def)
     }
 }
 
-void import(GeographicLib::LocalCartesian &lc, const SrsDefinition &def)
+namespace {
+typedef boost::iterator_range<std::string::const_iterator> SubString;
+typedef std::vector<SubString> Args;
+typedef std::pair<SubString, SubString> KeyValue;
+
+inline KeyValue splitArgument(const SubString &arg)
+{
+    auto b(std::begin(arg));
+    auto e(std::end(arg));
+    for (auto i(b); i != e; ++i) {
+        if (*i == '=') {
+            return KeyValue(SubString(b, i), SubString(std::next(i), e));
+        }
+    }
+    return KeyValue(SubString(b, e), SubString());
+}
+
+inline std::string asString(const SubString &arg)
+{
+    return std::string(std::begin(arg), std::end(arg));
+}
+
+inline double asDouble(const SubString &arg, const SubString &what)
+{
+    try {
+        return boost::lexical_cast<double>(asString(arg));
+    } catch (boost::bad_lexical_cast) {
+        LOGTHROW(err1, std::runtime_error)
+            << "ENU SRS: Value <" << asString(arg)
+            << "> of key <" << asString(what)
+            << "> is not a real number.";
+    }
+    return .0;
+}
+
+} // namespace
+
+void import(Enu &enu, const SrsDefinition &def)
 {
     if (!def.is(SrsDefinition::Type::enu)) {
         LOGTHROW(err1, std::runtime_error)
-            << "Only ENU SRS is not supported by GeographicLib library.";
+            << "Only ENU SRS is supported by GeographicLib library.";
     }
 
-    std::istringstream is(def.srs);
-    GeographicLib::Math::real lat, lon, h;
+    enu = Enu();
+    boost::optional<double> a;
+    boost::optional<double> b;
 
-    is >> utility::expect('[')
-       >> lon >> utility::expect(',') >> lat >> utility::expect(',') >> h
-       >> utility::expect(']');
+    Args args;
+    ba::split(args, def.srs, ba::is_any_of(" \t\v\r\n\f")
+              , ba::token_compress_on);
 
-    auto comma(utility::match(','));
-    is >> comma;
-    if (!comma.matched) {
-        if (!is) {
-            LOGTHROW(err1, std::runtime_error)
-                << "Error parsing ENU definition (input = " << def.srs << ").";
+    for (auto bargs(args.begin()), iargs(bargs), eargs(args.end());
+         iargs != eargs; ++iargs)
+    {
+        if (iargs == bargs) {
+            if (!ba::equals(*iargs, "enu")) {
+                LOGTHROW(err1, std::runtime_error)
+                    << "ENU SRS not starting with \"enu\" keyword.";
+            }
+
+            continue;
         }
 
-        if (!is.eof()) {
-            LOGTHROW(err1, std::runtime_error)
-                << "Error parsing ENU definition (input = " << def.srs << ").";
+        auto kv(splitArgument(*iargs));
+
+        if (ba::equals(kv.first, "lat0")) {
+            enu.lat0 = asDouble(kv.second, kv.first);
+            continue;
         }
 
-        // OK, default WGS84 speroid
-        lc = GeographicLib::LocalCartesian(lat, lon, h);
-        return;
-    }
+        if (ba::equals(kv.first, "lon0")) {
+            enu.lon0 = asDouble(kv.second, kv.first);
+            continue;
+        }
 
-    // parse sphereoid
-    GeographicLib::Math::real major, flattening;
-    is >> utility::expect('[') >> major >> utility::expect(',')
-       >> flattening >> utility::expect(']');
+        if (ba::equals(kv.first, "h0")) {
+            enu.h0 = asDouble(kv.second, kv.first);
+            continue;
+        }
 
-    if (!is) {
+        if (ba::equals(kv.first, "a")) {
+            a = asDouble(kv.second, kv.first);
+            continue;
+        }
+
+        if (ba::equals(kv.first, "b")) {
+            b = asDouble(kv.second, kv.first);
+            continue;
+        }
+
+        if (ba::equals(kv.first, "towgs84")) {
+            Args wgs84;
+            ba::split(wgs84, kv.second, ba::is_any_of(","));
+            if ((wgs84.size() != 3) && (wgs84.size() != 7)) {
+                LOGTHROW(err1, std::runtime_error)
+                    << "ENU SRS: towgs84 must have either 3 or 7 elements.";
+            }
+
+            for (const auto &element : wgs84) {
+                enu.towgs84.push_back(asDouble(element, kv.first));
+            }
+
+            continue;
+        }
+
         LOGTHROW(err1, std::runtime_error)
-            << "Error parsing ENU definition (input = " << def.srs <<").";
+            << "ENU SRS: unknown key<" << asString(kv.first) << ">.";
     }
 
-    lc = GeographicLib::LocalCartesian
-        (lat, lon, h, GeographicLib::Geocentric(major, 1.0 / flattening));
-}
+    if (bool(a) != bool(b)) {
+        LOGTHROW(err1, std::runtime_error)
+            << "ENU SRS: either both or none of a and b must be specified.";
+    }
 
+    if (a) {
+        enu.spheroid = boost::in_place(*a, *b);
+    }
+}
 
 } } // namespace geo::detail

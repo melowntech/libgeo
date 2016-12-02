@@ -39,6 +39,12 @@ std::string asName(const OGRSpatialReference &ref
     return boost::lexical_cast<std::string>(SrsDefinition::fromReference(ref));
 }
 
+std::string asName(const Enu &enu, const OptName &name = boost::none)
+{
+    if (name) { return *name; }
+    return boost::lexical_cast<std::string>(SrsDefinition::fromEnu(enu));
+}
+
 std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr(const OGRSpatialReference &from, const OptName &fromName
         , const OGRSpatialReference &to, const OptName &toName)
@@ -129,19 +135,47 @@ private:
 
 std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr2Enu(const OGRSpatialReference &from, const OptName &fromName
-            , const GeographicLib::LocalCartesian &lc
-            , bool inverse)
+            , const Enu &enu, bool inverse)
 {
     ::OGRSpatialReference ll;
-    // TODO: use some better names
-    if (OGRERR_NONE
-        != ll.SetGeogCS("lonlat", "lonlat", "sphereoid", lc.MajorRadius()
-                        , 1.0 / lc.Flattening()))
-    {
+    if (!enu.spheroid) {
+        // WGS84
+        ll = *OGRSpatialReference::GetWGS84SRS();
+    } else {
+        // another ellipsoid
+        // TODO: use some better names
+        if (OGRERR_NONE
+            != ll.SetGeogCS("lonlat", "lonlat", "sphereoid"
+                            , enu.spheroid->a
+                            , enu.spheroid->f1()))
+        {
+            LOGTHROW(err1, std::runtime_error)
+                << "Cannot initialize coordinate system transformation ("
+                << asName(from, fromName) <<  " -> latlon): <"
+                << ::CPLGetLastErrorMsg() << ">.";
+        }
+    }
+
+    // apply toWGS84 params
+    switch (enu.towgs84.size()) {
+    case 0:
+        // force proper vertical datum
+        ll.SetTOWGS84(0.0, 0.0, 0.0);
+        break;
+
+    case 3:
+        ll.SetTOWGS84(enu.towgs84[0], enu.towgs84[1], enu.towgs84[2]);
+        break;
+    case 7:
+        ll.SetTOWGS84(enu.towgs84[0], enu.towgs84[1], enu.towgs84[2]
+                      , enu.towgs84[3], enu.towgs84[4], enu.towgs84[5]
+                      , enu.towgs84[6]);
+        break;
+
+    default:
         LOGTHROW(err1, std::runtime_error)
-            << "Cannot initialize coordinate system transformation ("
-            << asName(from, fromName) <<  " -> latlon): <"
-            << ::CPLGetLastErrorMsg() << ">.";
+            << "Cannot initialize coordinate system transformation for ENU:"
+            " towgs84 must have either 3 or 7 elements.";
     }
 
     std::unique_ptr< ::OGRCoordinateTransformation>
@@ -169,20 +203,34 @@ initOgr2Enu(const OGRSpatialReference &from, const OptName &fromName
     return trans;
 }
 
+GeographicLib::LocalCartesian initLc(const Enu &enu)
+{
+    if (!enu.spheroid) {
+        return GeographicLib::LocalCartesian(enu.lat0, enu.lon0, enu.h0);
+    }
+
+    return GeographicLib::LocalCartesian
+        (enu.lat0, enu.lon0, enu.h0
+         , GeographicLib::Geocentric(enu.spheroid->a
+                                     , enu.spheroid->f()));
+}
+
 class Ogr2EnuImpl : public CsConvertor::Impl
 {
 public:
     Ogr2EnuImpl(const SrsDefinition &from, const SrsDefinition &to
                 , bool inverse)
-        : lc_(to.localCartesian())
-        , trans_(initOgr2Enu(from.reference(), from.srs, lc_, inverse))
+        : enu_(to.enu())
+        , lc_(initLc(enu_))
+        , trans_(initOgr2Enu(from.reference(), from.srs, enu_, inverse))
         , inverse_(inverse)
     {}
 
     Ogr2EnuImpl(const OGRSpatialReference &from, const SrsDefinition &to
                 , bool inverse)
-        : lc_(to.localCartesian())
-        , trans_(initOgr2Enu(from, boost::none, lc_, inverse))
+        : enu_(to.enu())
+        , lc_(initLc(enu_))
+        , trans_(initOgr2Enu(from, boost::none, enu_, inverse))
         , inverse_(inverse)
     {}
 
@@ -234,16 +282,16 @@ public:
     virtual pointer inverse() const {
         return  std::make_shared<Ogr2EnuImpl>
             (*trans_->GetTargetCS(), *trans_->GetSourceCS()
-             , lc_, !inverse_);
+             , enu_, !inverse_);
     }
 
     Ogr2EnuImpl(const OGRSpatialReference &src
                 , const OGRSpatialReference &dst
-                , const GeographicLib::LocalCartesian &lc
+                , const Enu &enu
                 , bool inverse)
-        : lc_(lc), trans_(::OGRCreateCoordinateTransformation
-                          (const_cast<OGRSpatialReference*>(&src)
-                           , const_cast<OGRSpatialReference*>(&dst)))
+        : enu_(enu), trans_(::OGRCreateCoordinateTransformation
+                            (const_cast<OGRSpatialReference*>(&src)
+                             , const_cast<OGRSpatialReference*>(&dst)))
         , inverse_(inverse)
     {
         if (!trans_) {
@@ -255,6 +303,7 @@ public:
     }
 
 private:
+    Enu enu_;
     GeographicLib::LocalCartesian lc_;
     std::unique_ptr< ::OGRCoordinateTransformation> trans_;
     bool inverse_;

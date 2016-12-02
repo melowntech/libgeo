@@ -5,12 +5,13 @@
 #include <GeographicLib/LocalCartesian.hpp>
 
 #include "../srsdef.hpp"
+#include "../enu.hpp"
 
 namespace geo { namespace detail {
 
 void import(OGRSpatialReference &sr, const SrsDefinition &def);
 
-void import(GeographicLib::LocalCartesian &lc, const SrsDefinition &def);
+void import(Enu &enu, const SrsDefinition &def);
 
 } } // namespace geo::detail
 
