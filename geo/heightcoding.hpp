@@ -22,10 +22,17 @@ struct Config {
 
     /** Complete raster DS SRS.
      *
-     *  If valid, shoukld contains complete SRS, i.e. with proper vertical
+     *  If valid, should contain complete SRS, i.e. with proper vertical
      *  component.
      */
     boost::optional<SrsDefinition> rasterDsSrs;
+
+    /** Complete vector DS SRS.
+     *
+     *  If valid, should contain complete SRS, i.e. with proper vertical
+     *  component.
+     */
+    boost::optional<SrsDefinition> vectorDsSrs;
 
     /** Working spatial reference system. Input data in vector dataset) are
      * expected to be in this dataset. Vector Dataset should have vertical

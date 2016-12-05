@@ -4,8 +4,8 @@
 
 #include "jsoncpp/json.hpp"
 #include "jsoncpp/as.hpp"
-#include "geo/featurelayers.hpp"
 
+#include "./featurelayers.hpp"
 #include "./heightcoding.hpp"
 
 namespace geo { namespace heightcoding {
@@ -20,7 +20,7 @@ Metadata heightCode(::GDALDataset &vectorDs
     const auto startPos(os.tellp());
 
     // load feature layers from vectorDs
-    FeatureLayers featureLayers(vectorDs);
+    FeatureLayers featureLayers(vectorDs, config.vectorDsSrs);
 
     // heightcode
     auto workingSrs(config.workingSrs ? config.workingSrs : config.rasterDsSrs);
