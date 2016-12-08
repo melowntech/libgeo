@@ -19,6 +19,8 @@ public:
     CsConvertor(const SrsDefinition &from, const OGRSpatialReference &to);
     CsConvertor(const OGRSpatialReference &from, const SrsDefinition &to);
 
+    CsConvertor(const SrsDefinition &from, const Enu &to);
+
     math::Point2 operator()(const math::Point2 &p) const;
     math::Point3 operator()(const math::Point3 &p) const;
 

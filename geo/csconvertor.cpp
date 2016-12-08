@@ -234,6 +234,14 @@ public:
         , inverse_(inverse)
     {}
 
+    Ogr2EnuImpl(const SrsDefinition &from, const Enu &to
+                , bool inverse)
+        : enu_(to)
+        , lc_(initLc(enu_))
+        , trans_(initOgr2Enu(from.reference(), from.srs, enu_, inverse))
+        , inverse_(inverse)
+    {}
+
     virtual math::Point2 convert(const math::Point2 &p) const {
         return convert(math::Point3(p(0), p(1), 0.0));
     }
@@ -354,6 +362,12 @@ initTrans(const OGRSpatialReference &from, const SrsDefinition &to)
     return std::make_shared<OgrImpl>(from, to);
 }
 
+std::shared_ptr<CsConvertor::Impl>
+initTrans(const SrsDefinition &from, const Enu &to)
+{
+    return std::make_shared<Ogr2EnuImpl>(from, to, false);
+}
+
 } // namespace
 
 CsConvertor::CsConvertor(const SrsDefinition &from, const SrsDefinition &to)
@@ -385,6 +399,13 @@ CsConvertor::CsConvertor(const OGRSpatialReference &from
 {
     LOG(info1) << "Coordinate system transformation ("
                << asName(from) << " -> " << to << ").";
+}
+
+CsConvertor::CsConvertor(const SrsDefinition &from, const Enu &to)
+    : trans_(initTrans(from, to))
+{
+    LOG(info1) << "Coordinate system transformation ("
+               << from << " -> " << asName(to) << ").";
 }
 
 CsConvertor::CsConvertor(const std::shared_ptr<Impl> &trans)
