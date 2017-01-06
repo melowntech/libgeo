@@ -66,11 +66,9 @@ target_link_libraries(geo ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(geo ${MODULE_DEFINITIONS})
 
 # test stuff
-if (COMPILE_TESTS)
-  add_subdirectory(test-hconv)
-  add_subdirectory(test-srs)
-endif()
-
 if(MODULE_service_FOUND)
   add_subdirectory(test-factors)
+  add_subdirectory(test-hconv)
+  add_subdirectory(test-srs)
+  add_subdirectory(test-geoid)
 endif()
