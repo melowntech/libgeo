@@ -67,8 +67,8 @@ buildsys_target_compile_definitions(geo ${MODULE_DEFINITIONS})
 
 # test stuff
 if(MODULE_service_FOUND)
-  add_subdirectory(test-factors)
-  add_subdirectory(test-hconv)
-  add_subdirectory(test-srs)
-  add_subdirectory(test-geoid)
+  add_subdirectory(test-factors EXCLUDE_FROM_ALL)
+  add_subdirectory(test-hconv EXCLUDE_FROM_ALL)
+  add_subdirectory(test-srs EXCLUDE_FROM_ALL)
+  add_subdirectory(test-geoid EXCLUDE_FROM_ALL)
 endif()

@@ -9,10 +9,14 @@
 // forward declaration
 class OGRSpatialReference;
 
+
 namespace geo {
 
+// forward decalration
+struct Enu;
+
 struct SrsDefinition {
-    enum class Type { proj4, wkt, epsg };
+    enum class Type { proj4, wkt, epsg, enu };
 
     std::string srs;
     Type type;
@@ -29,9 +33,14 @@ struct SrsDefinition {
 
     bool empty() const { return srs.empty(); }
 
+    bool is(Type t) const { return type == t; }
+
     OGRSpatialReference reference() const;
+    Enu enu() const;
+
     static SrsDefinition fromReference(const OGRSpatialReference &src
                                        , Type type = Type::proj4);
+    static SrsDefinition fromEnu(const Enu &src);
 
     SrsDefinition geographic() const;
 
@@ -67,14 +76,16 @@ UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((proj4))
     ((wkt))
     ((epsg))
+    ((enu))
 )
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const SrsDefinition &s)
 {
-    if (s.type == SrsDefinition::Type::epsg) {
-        os << "epsg:";
+    switch (s.type) {
+    case SrsDefinition::Type::epsg: os << "epsg:"; break;
+    default: break;
     }
     return os << s.srs;
 }
