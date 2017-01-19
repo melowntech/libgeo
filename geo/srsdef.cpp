@@ -183,26 +183,7 @@ SrsDefinition SrsDefinition::fromEnu(const Enu &src)
 {
     SrsDefinition dst;
     dst.type = Type::enu;
-
-    std::ostringstream os;
-
-    os << "enu";
-
-    // os << std::scientific << std::setprecision(16);
-
-    if (src.lat0) { os << " lat0=" << src.lat0; }
-    if (src.lon0) { os << " lon0=" << src.lon0; }
-    if (src.h0) { os << " h0=" << src.h0; }
-
-    if (src.spheroid) {
-        os << " a=" << src.spheroid->a << " b=" << src.spheroid->b;
-    }
-
-    if (!src.towgs84.empty()) {
-        os << " towgs84=" << utility::join(src.towgs84, ",");
-    }
-
-    dst.srs = os.str();
+    dst.srs = boost::lexical_cast<std::string>(src);
     return dst;
 }
 
