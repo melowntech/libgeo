@@ -756,8 +756,9 @@ public:
         SrsDefinition srs;
         std::size_t bands;
         std::size_t overviews;
+        ::GDALDataType dataType;
 
-        Descriptor() : bands(), overviews() {}
+        Descriptor() : bands(), overviews(), dataType() {}
     };
 
     Descriptor descriptor() const;

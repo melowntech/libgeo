@@ -2640,6 +2640,7 @@ GeoDataset::Descriptor GeoDataset::descriptor() const
     if (d.bands) {
         auto *b(dset_->GetRasterBand(1));
         d.overviews = b->GetOverviewCount();
+        d.dataType = b->GetRasterDataType();
     }
     return d;
 }
