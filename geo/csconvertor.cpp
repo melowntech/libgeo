@@ -90,7 +90,7 @@ public:
     virtual math::Point2 convert(const math::Point2 &p) const {
         double x(p(0)), y(p(1));
         if (!(trans_->Transform(1, &x, &y))) {
-            LOGTHROW(err1, std::runtime_error)
+            LOGTHROW(err1, ProjectionError)
                 << "Cannot convert point between coordinate systems: <"
                 << ::CPLGetLastErrorMsg() << ">.";
         }
@@ -100,7 +100,7 @@ public:
     virtual math::Point3 convert(const math::Point3 &p) const {
         double x(p(0)), y(p(1)), z(p(2));
         if (!(trans_->Transform(1, &x, &y, &z))) {
-            LOGTHROW(err1, std::runtime_error)
+            LOGTHROW(err1, ProjectionError)
                 << "Cannot convert point between coordinate systems: <"
                 << ::CPLGetLastErrorMsg() << ">.";
         }
