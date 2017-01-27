@@ -42,7 +42,7 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Enu &e)
 {
     os << "enu";
 
-    os << std::fixed;
+    os << std::fixed << std::setprecision(12);
 
     if (e.lat0) { os << " lat0=" << e.lat0; }
     if (e.lon0) { os << " lon0=" << e.lon0; }
