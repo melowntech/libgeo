@@ -2212,7 +2212,8 @@ void GeoDataset::setMetadata(int band, const Metadata &metadata
 
 // rawish interface
 
-GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset)
+GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset
+                                        , bool native)
     const
 {
     auto bs(blockSize());
@@ -2234,8 +2235,14 @@ GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset)
 
     math::Size2 size(end(0) - offset(0), end(1) - offset(1));
 
+    ::GDALDataType gdalDataType
+          (native
+           ? dset_->GetRasterBand(1)->GetRasterDataType()
+           : GDT_Float64);
+    int cvDataType(gdal2cv(gdalDataType, numChannels_));
+
     Block block;
-    block.data.create(size.height, size.width, CV_64FC(numChannels_));
+    block.data.create(size.height, size.width, cvDataType);
     int valueSize(block.data.elemSize() / block.data.channels());
 
     for (int i = 1; i <= numChannels; ++i) {
@@ -2249,7 +2256,7 @@ GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset)
                          + (channelMapping_[i]  * valueSize))  // void * pData,
              , size.width, size.height // int nBufXSize, int
                                                  // nBufYSize,
-             , GDT_Float64 // GDALDataType  eBufType,
+             , gdalDataType // GDALDataType  eBufType,
              , 1 //  int nBandCount,
              , &bandMap  // int * panBandMap,
              , block.data.elemSize() // int nPixelSpace,
@@ -2262,15 +2269,23 @@ GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset)
 }
 
 GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset
-                                        , unsigned int band
-                                        , bool native)
+                                        , int band, bool native)
     const
 {
     auto bs(blockSize());
-    unsigned int numChannels(dset_->GetRasterCount());
-    ut::expect((band < numChannels), "Band out of bounds.");
+    int numChannels(dset_->GetRasterCount());
+    ut::expect((band < numChannels) && (band >= -numChannels)
+               , "Band out of bounds.");
     // convert band to 1-based
-    ++band;
+    bool useMaskBand(false);
+    if (band >= 0) {
+        // band start at 1
+        ++band;
+    } else {
+        // use mask band
+        band = -band;
+        useMaskBand = true;
+    }
 
     ut::expect(((blockOffset(0) >= 0) && (blockOffset(1) >= 0))
                , "Block out of raster.");
@@ -2288,17 +2303,20 @@ GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset
 
     math::Size2 size(end(0) - offset(0), end(1) - offset(1));
 
+    // use either band or first band's mask band
+    GDALRasterBand *rb(useMaskBand
+                       ? dset_->GetRasterBand(band)->GetMaskBand()
+                       : dset_->GetRasterBand(band));
+    ut::expect(rb, "No such band.");
+
     ::GDALDataType gdalDataType
-          (native
-           ? dset_->GetRasterBand(band)->GetRasterDataType()
-           : GDT_Float64);
+          (native ? rb->GetRasterDataType() : GDT_Float64);
     int cvDataType(gdal2cv(gdalDataType, 1));
 
     Block block;
     block.data.create(size.height, size.width, cvDataType);
 
-    int bandMap(band);
-    auto err = dset_->RasterIO
+    auto err = rb->RasterIO
         (GF_Read // GDALRWFlag  eRWFlag,
          , offset(0) // int nXOff
          , offset(1) // int nYOff
@@ -2307,8 +2325,6 @@ GeoDataset::Block GeoDataset::readBlock(const math::Point2i &blockOffset
          , size.width, size.height // int nBufXSize, int
                                                  // nBufYSize,
          , gdalDataType // GDALDataType  eBufType,
-         , 1 //  int nBandCount,
-         , &bandMap  // int * panBandMap,
          , block.data.elemSize() // int nPixelSpace,
          , size.width * block.data.elemSize(), 0); // int nLineSpace
 
@@ -2597,9 +2613,9 @@ GeoDataset GeoDataset::createCopy(const boost::filesystem::path &path
     return GeoDataset(std::move(ds));
 }
 
-void GeoDataset::copy(const boost::filesystem::path &path
-                      , const std::string &storageFormat
-                      , const Options &options)
+GeoDataset GeoDataset::copy(const boost::filesystem::path &path
+                            , const std::string &storageFormat
+                            , const Options &options) const
 {
     auto *driver
         (GetGDALDriverManager()->GetDriverByName(storageFormat.c_str()));
@@ -2615,18 +2631,19 @@ void GeoDataset::copy(const boost::filesystem::path &path
             << "> format doesn't know how to crete a copy.";
     }
 
-    auto ds(driver->CreateCopy(path.c_str(), dset_.get()
-                               , true // strict
-                               , OptionsWrapper(options)
-                               , ::GDALDummyProgress
-                               , nullptr));
+    std::unique_ptr<GDALDataset>
+        ds(driver->CreateCopy(path.c_str(), dset_.get()
+                              , true // strict
+                              , OptionsWrapper(options)
+                              , ::GDALDummyProgress
+                              , nullptr));
     if (!ds) {
         LOGTHROW(err2, std::runtime_error)
             << "Failed to copy dataset to " << path << ": <"
             << ::CPLGetLastErrorMsg() << ">";
     }
 
-    delete ds;
+    return GeoDataset(std::move(ds));
 }
 
 GeoDataset::Descriptor GeoDataset::descriptor() const
@@ -2641,8 +2658,15 @@ GeoDataset::Descriptor GeoDataset::descriptor() const
         auto *b(dset_->GetRasterBand(1));
         d.overviews = b->GetOverviewCount();
         d.dataType = b->GetRasterDataType();
+        d.maskType = b->GetMaskFlags();
     }
     return d;
+}
+
+GDALRasterBand* GeoDataset::createPerDatasetMaskImpl()
+{
+    dset_->CreateMaskBand(GMF_PER_DATASET);
+    return dset_->GetRasterBand(1)->GetMaskBand();
 }
 
 } // namespace geo

@@ -99,6 +99,7 @@ struct Options {
     }
 };
 
+
 class GeoDataset {
 public:
     typedef imgproc::quadtree::RasterMask Mask;
@@ -275,9 +276,9 @@ public:
 
     /** Creates copy of this dataset.
      */
-    void copy(const boost::filesystem::path &path
-              , const std::string &storageFormat
-              , const Options &options = Options());
+    GeoDataset copy(const boost::filesystem::path &path
+                    , const std::string &storageFormat
+                    , const Options &options = Options()) const;
 
     enum class Type { custom, grayscale, rgb, rgba, alpha };
     Type type() const { return type_; }
@@ -662,14 +663,21 @@ public:
     };
 
     /** Reads block that contains given point.
-     */
-    Block readBlock(const math::Point2i &blockOffset) const;
-
-    /** Reads block fron single band that contains given point.
      *
      *  Data are returned in a double matrix unless native is true.
      */
-    Block readBlock(const math::Point2i &blockOffset, unsigned int band
+    Block readBlock(const math::Point2i &blockOffset
+                    , bool native = false) const;
+
+    /** Reads block from single band that contains given point.
+     *
+     *  Data are returned in a double matrix unless native is true.
+     *
+     * \param blockOffset point inside a block
+     * \param band band index, zero based; <0 means mask band
+     * \param native load in dataset's type if true
+     */
+    Block readBlock(const math::Point2i &blockOffset, int band
                     , bool native = false) const;
 
     /** Size of IO block.
@@ -757,11 +765,19 @@ public:
         std::size_t bands;
         std::size_t overviews;
         ::GDALDataType dataType;
+        int maskType;
 
-        Descriptor() : bands(), overviews(), dataType() {}
+        Descriptor()
+            : bands(), overviews(), dataType(), maskType()
+        {}
     };
 
     Descriptor descriptor() const;
+
+    template <typename BandType = GDALRasterBand>
+    BandType* createPerDatasetMask() {
+        return dynamic_cast<BandType*>(createPerDatasetMaskImpl());
+    }
 
 private:
     static bool initialized_;
@@ -787,6 +803,8 @@ private:
 
     bool valid( int i, int j ) const;
     bool validf( double i, double j ) const;
+
+    GDALRasterBand* createPerDatasetMaskImpl();
 
     Type type_;
     math::Size2i size_;
