@@ -217,8 +217,7 @@ public:
         }
 
         static Format jpegRGBPhoto() {
-            return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand
-                                 , GCI_AlphaBand }
+            return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand }
                 , Format::Storage::jpeg };
         }
 
