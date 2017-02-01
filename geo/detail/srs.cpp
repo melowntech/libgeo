@@ -109,8 +109,8 @@ void import(Enu &enu, const SrsDefinition &def)
     }
 
     enu = Enu();
-    boost::optional<double> a;
-    boost::optional<double> b;
+    auto a = boost::make_optional(false, 0.0);
+    auto b = boost::make_optional(false, 0.0);
 
     Args args;
     ba::split(args, def.srs, ba::is_any_of(" \t\v\r\n\f")
