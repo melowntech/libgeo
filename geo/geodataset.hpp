@@ -778,6 +778,10 @@ public:
         return dynamic_cast<BandType*>(createPerDatasetMaskImpl());
     }
 
+    /** Returns a list of files believed to be part of this dataset.
+     */
+    std::vector<boost::filesystem::path> files() const;
+
 private:
     static bool initialized_;
     static void initialize();

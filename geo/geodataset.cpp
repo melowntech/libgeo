@@ -2669,4 +2669,20 @@ GDALRasterBand* GeoDataset::createPerDatasetMaskImpl()
     return dset_->GetRasterBand(1)->GetMaskBand();
 }
 
+std::vector<fs::path> GeoDataset::files() const
+{
+    struct CSLDestroyDeleter {
+        void operator()(char **ptr) const { ::CSLDestroy(ptr); }
+    };
+    std::unique_ptr<char*, CSLDestroyDeleter> tmp(dset_->GetFileList());
+
+    std::vector<fs::path> files;
+
+    for (auto head(tmp.get()); *head; ++head) {
+        files.emplace_back(*head);
+    }
+
+    return files;
+}
+
 } // namespace geo
