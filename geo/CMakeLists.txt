@@ -1,3 +1,6 @@
+# bump version here
+set(geo_VERSION 1.24)
+
 set(geo_EXTRA_DEPENDS)
 set(geo_EXTRA_DEFINITIONS)
 if(Boost_PROGRAM_OPTIONS_FOUND)
@@ -19,7 +22,11 @@ else()
 endif()
 
 
-define_module(LIBRARY geo DEPENDS geometry imgproc math utility dbglog jsoncpp
+define_module(LIBRARY geo=${geo_VERSION}
+  DEPENDS
+  jsoncpp>=1.1 geometry>=1.7 imgproc>=1.17 math>=1.2
+  utility>=1.11 dbglog>=1.4
+
   Boost_FILESYSTEM PROJ GDAL GEOGRAPHICLIB ${geo_EXTRA_DEPENDS}
   DEFINITIONS ${geo_EXTRA_DEFINITIONS}
   )
