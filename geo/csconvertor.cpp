@@ -2,6 +2,7 @@
 
 #include <boost/lexical_cast.hpp>
 
+#include <proj_api.h>
 #include <ogr_spatialref.h>
 #include <cpl_error.h>
 
@@ -131,7 +132,17 @@ public:
 
 private:
     std::unique_ptr< ::OGRCoordinateTransformation> trans_;
+    static bool pjMutexInitialized;
 };
+
+// force proj internal lock initialization before main() kicks in
+bool OgrImpl::pjMutexInitialized = []() -> bool
+{
+    // force lock creation
+    ::pj_acquire_lock();
+    ::pj_release_lock();
+    return true;
+}();
 
 std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr2Enu(const OGRSpatialReference &from, const OptName &fromName
