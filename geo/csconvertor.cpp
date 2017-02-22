@@ -132,17 +132,16 @@ public:
 
 private:
     std::unique_ptr< ::OGRCoordinateTransformation> trans_;
-    static bool pjMutexInitialized;
 };
 
-// force proj internal lock initialization before main() kicks in
-bool OgrImpl::pjMutexInitialized = []() -> bool
-{
-    // force lock creation
-    ::pj_acquire_lock();
-    ::pj_release_lock();
-    return true;
-}();
+namespace {
+static struct Initializer {
+    Initializer() {
+        ::pj_acquire_lock();
+        ::pj_release_lock();
+    }
+} initializer;
+}
 
 std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr2Enu(const OGRSpatialReference &from, const OptName &fromName
