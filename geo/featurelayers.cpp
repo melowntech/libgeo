@@ -705,7 +705,7 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
                 auto & jpatches = jsurface["surface"] = Json::arrayValue;
                 
                 for (const auto &patch: surface.surface)
-                    for ( int i; i < 3; i++) jpatches.append(patch[i]);
+                    for ( int i(0); i < 3; i++) jpatches.append(patch[i]);
                 
                 auto & jboundaries = jsurface["borders"] = Json::arrayValue;
                 
