@@ -99,6 +99,14 @@ struct Options {
     }
 };
 
+/** Pixel value linear transformation
+ * dst_value = (raw_value * scale) + offset
+ */
+struct ValueTransformation {
+    double offset;
+    double scale;
+    typedef std::vector<ValueTransformation> list;
+};
 
 class GeoDataset {
 public:
@@ -781,6 +789,12 @@ public:
     /** Returns a list of files believed to be part of this dataset.
      */
     std::vector<boost::filesystem::path> files() const;
+
+    // Returns ValueTransformation for specified band (index is zero-based)
+    ValueTransformation valueTransformation(int bandIndex) const;
+
+    // Returns value transformations for all bands
+    ValueTransformation::list valueTransformation() const;
 
 private:
     static bool initialized_;

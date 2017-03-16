@@ -2685,4 +2685,24 @@ std::vector<fs::path> GeoDataset::files() const
     return files;
 }
 
+ValueTransformation GeoDataset::valueTransformation(int bandIndex) const
+{
+    auto band(dset_->GetRasterBand(bandIndex + 1));
+    ValueTransformation t;
+    t.offset = band->GetOffset();
+    t.scale = band->GetScale();
+    return t;
+}
+
+ValueTransformation::list GeoDataset::valueTransformation() const
+{
+    int count = dset_->GetRasterCount();
+    ValueTransformation::list list(count);
+    for(int i = 0; i < count; ++i) {
+        list[i] = valueTransformation(i);
+    }
+
+    return list;
+}
+
 } // namespace geo
