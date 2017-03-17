@@ -92,7 +92,8 @@ public:
         double x(p(0)), y(p(1));
         if (!(trans_->Transform(1, &x, &y))) {
             LOGTHROW(err1, ProjectionError)
-                << "Cannot convert point between coordinate systems: <"
+                << "Cannot convert point " << std::fixed << p
+                << " between coordinate systems: <"
                 << ::CPLGetLastErrorMsg() << ">.";
         }
         return { x, y };
@@ -102,7 +103,8 @@ public:
         double x(p(0)), y(p(1)), z(p(2));
         if (!(trans_->Transform(1, &x, &y, &z))) {
             LOGTHROW(err1, ProjectionError)
-                << "Cannot convert point between coordinate systems: <"
+                << "Cannot convert point " << std::fixed << p
+                << " between coordinate systems: <"
                 << ::CPLGetLastErrorMsg() << ">.";
         }
         return { x, y, z };
@@ -266,7 +268,8 @@ public:
             double xx(lon), yy(lat), zz(z);
             if (!(trans_->Transform(1, &xx, &yy, &zz))) {
                 LOGTHROW(err1, std::runtime_error)
-                    << "Cannot convert point between coordinate systems: <"
+                    << "Cannot convert point " << std::fixed << p
+                    << " between coordinate systems (inverse): <"
                     << ::CPLGetLastErrorMsg() << ">.";
             }
             return { xx, yy, zz };
@@ -276,7 +279,8 @@ public:
         double x(p(0)), y(p(1)), z(p(2));
         if (!(trans_->Transform(1, &x, &y, &z))) {
             LOGTHROW(err1, std::runtime_error)
-                << "Cannot convert point between coordinate systems: <"
+                << "Cannot convert point " << std::fixed << p
+                << " between coordinate systems: <"
                 << ::CPLGetLastErrorMsg() << ">.";
         }
 
