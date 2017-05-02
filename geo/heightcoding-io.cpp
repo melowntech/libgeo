@@ -27,6 +27,7 @@
 
 #include "jsoncpp/json.hpp"
 #include "jsoncpp/as.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "./heightcoding.hpp"
 
@@ -75,7 +76,7 @@ Metadata loadMetadata(std::istream &in
 {
     // load json
     auto content(Json::read<std::runtime_error>
-                 (in, path, heightcoding::Metadata));
+                 (in, path, "heightcoding::Metadata"));
 
     Metadata metadata;
     parse(metadata, content);
