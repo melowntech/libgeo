@@ -67,20 +67,15 @@ void saveMetadata(std::ostream &out, const Metadata &metadata)
     Json::Value content;
     build(content, metadata);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 Metadata loadMetadata(std::istream &in
                       , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, std::runtime_error)
-            << "Unable to parse heightcoding::Metadata file " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<std::runtime_error>
+                 (in, path, heightcoding::Metadata));
 
     Metadata metadata;
     parse(metadata, content);
