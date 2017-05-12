@@ -29,6 +29,7 @@
 
 #include <cassert>
 #include <sstream>
+#include <numeric>
 
 #include <boost/utility/in_place_factory.hpp>
 #include <boost/filesystem/path.hpp>
