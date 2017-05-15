@@ -16,7 +16,11 @@ if(OpenCV_FOUND)
 
   # OpenCV sources go here
   set(geo_OPENCV_SOURCES
-    geodataset.hpp geodataset.cpp)
+    geodataset.hpp geodataset.cpp
+    dem.hpp dem.cpp
+    heightcoding.hpp heightcoding.cpp heightcoding-io.cpp
+    featurelayers.hpp featurelayers.cpp
+  )
 else()
   message(STATUS "geo: compiling without OpenCV support")
 endif()
@@ -32,7 +36,6 @@ define_module(LIBRARY geo=${geo_VERSION}
   )
 
 set(geo_SOURCES
-    dem.hpp dem.cpp
     srsdef.hpp srsdef.cpp
     srs.hpp
     project.hpp project.cpp
@@ -55,9 +58,6 @@ set(geo_SOURCES
     gdal.hpp gdal.cpp
 
     vectorformat.hpp vectorformat.cpp
-    heightcoding.hpp heightcoding.cpp heightcoding-io.cpp
-
-    featurelayers.hpp featurelayers.cpp
 
     ${geo_OPENCV_SOURCES}
 )
