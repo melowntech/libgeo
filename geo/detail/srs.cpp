@@ -28,6 +28,8 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/utility/in_place_factory.hpp>
+
 
 #include <ogr_spatialref.h>
 
