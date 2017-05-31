@@ -126,7 +126,10 @@ SrsDefinition::SrsDefinition(int epsg)
     , type(Type::epsg)
 {}
 
-
+SrsDefinition::SrsDefinition(int epsg1, int epsg2)
+    : srs(str(boost::format("%s+%s") % epsg1 % epsg2))
+    , type(Type::epsg)
+{}
 
 SrsDefinition SrsDefinition::longlat() {
     
