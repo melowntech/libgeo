@@ -69,25 +69,19 @@ void import(OGRSpatialReference &sr, const SrsDefinition &def)
     }
 
     case SrsDefinition::Type::epsg: {
-        try {
-            auto err(sr.importFromEPSG(boost::lexical_cast<int>(def.srs)));
-            if (err != OGRERR_NONE) {
-                LOGTHROW(err1, std::runtime_error)
-                    << "Error parsing EPSG definition: <"
+        auto err(sr.SetFromUserInput(("EPSG:" + def.srs).c_str()));
+        if (err != OGRERR_NONE) {
+            LOGTHROW(err1, std::runtime_error)
+                << "Error parsing EPSG definition: <"
                     << err << "> (input = "
-                    << def.srs << ").";
-            }
-        } catch (const boost::bad_lexical_cast &e) {
-                LOGTHROW(err1, std::runtime_error)
-                    << "Error parsing EPSG definition: not a number (input = "
-                    << def.srs << ").";
+                << def.srs << ").";
         }
         break;
     }
 
     case SrsDefinition::Type::enu:
         LOGTHROW(err1, std::runtime_error)
-            << "ENU SRS is not supported by ORG library.";
+            << "ENU SRS is not supported by OGR library.";
     }
 }
 
