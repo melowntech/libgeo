@@ -33,12 +33,22 @@
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include "utility/enum-io.hpp"
+
 #include "./geodataset.hpp"
 #include "./vectorformat.hpp"
 
 /** Height-coding-related stuff
  */
 namespace geo { namespace heightcoding {
+
+/** Heightcoding mode.
+ */
+UTILITY_GENERATE_ENUM(Mode,
+                      ((always)) // always use Z coordinate from DEM
+                      ((never))  // never touch Z coordinate
+                      ((auto_)("auto")) // touch only 2d points
+                      )
 
 /** Height coding.
  */
@@ -89,8 +99,14 @@ struct Config {
      */
     VectorFormat format;
 
+    /** Heightcoding mode
+     */
+    Mode mode;
+
     Config()
-        : outputVerticalAdjust(false), format(VectorFormat::geodataJson) {}
+        : outputVerticalAdjust(false), format(VectorFormat::geodataJson)
+        , mode(Mode::auto_)
+    {}
 };
 
 /** Metadata of height-coded output.

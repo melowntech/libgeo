@@ -57,11 +57,26 @@ Metadata heightCode(::GDALDataset &vectorDs
         LOG(info2) << "No hint given as to what SRS to use in heightcoding.";
     }
 
+    auto mode([&]() -> FeatureLayers::HeightcodeMode
+    {
+        switch (config.mode) {
+        case Mode::always: return FeatureLayers::HeightcodeMode::always;
+        case Mode::never: return FeatureLayers::HeightcodeMode::never;
+        case Mode::auto_: return FeatureLayers::HeightcodeMode::auto_;
+
+        default:
+            LOGTHROW(err1, std::runtime_error)
+                << "Unknown heightcoding mode (int value: <"
+                << static_cast<int>(config.mode) << ">).";
+        }
+        throw;
+    }());
+
     // TODO: use full stack to heightcode result
     featureLayers.heightcode(*rasterDs.back()
-            , workingSrs
-            , config.outputVerticalAdjust
-            , FeatureLayers::HeightcodeMode::auto_);
+                             , workingSrs
+                             , config.outputVerticalAdjust
+                             , mode);
     
     // convert 3D polygons to surfaces
     featureLayers.convert3DPolygons();
