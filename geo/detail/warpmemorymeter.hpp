@@ -39,10 +39,10 @@ public:
     WarpMemoryMeter(const GDALWarpOptions *optionsIn);
         
     // return meter reading
-    ulong measure() const { return measure_; };
+    unsigned long measure() const { return measure_; };
         
 private:
-    ulong measure_;
+    unsigned long measure_;
 };
 
 

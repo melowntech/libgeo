@@ -99,9 +99,9 @@ WarpMemoryMeter::WarpMemoryMeter( const GDALWarpOptions *optionsIn )
  
         const auto & chunk( pasChunkList[i] );
         
-        ulong chunkMeasure = 
-            ( static_cast<ulong>(nSrcPixelCostInBits) * chunk.ssx * chunk.ssy +
-            static_cast<ulong>(nDstPixelCostInBits) * chunk.dsx * chunk.dsy ) >> 3;
+        unsigned long chunkMeasure = 
+            ( static_cast<unsigned long>(nSrcPixelCostInBits) * chunk.ssx * chunk.ssy +
+            static_cast<unsigned long>(nDstPixelCostInBits) * chunk.dsx * chunk.dsy ) >> 3;
 
 //        LOG(debug) << boost::format( "ssx: %d, ssy: %d, spixelcost: %d, "
 //            "dsx: %d, dsy; %d, dpixelcost: %d" ) % chunk.ssx % chunk.ssy %
