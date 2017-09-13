@@ -98,6 +98,15 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert);
  */
 SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoidGrid);
 
+/** Extracts geographic system from given SRS definition.
+ *  Fails if there is no GeogCS node present.
+ */
+SrsDefinition geographic(const SrsDefinition &srs);
+
+/** Derives geocentric system from given SRS definition.
+ */
+SrsDefinition geocentric(const SrsDefinition &srs);
+
 UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((proj4))
     ((wkt))
@@ -114,6 +123,11 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const SrsDefinition &s)
     default: break;
     }
     return os << s.srs;
+}
+
+inline SrsDefinition SrsDefinition::geographic() const
+{
+    return geo::geographic(*this);
 }
 
 } // namespace geo

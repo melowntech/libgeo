@@ -229,15 +229,33 @@ Enu SrsDefinition::enu() const
     return enu;
 }
 
-SrsDefinition SrsDefinition::geographic() const
+SrsDefinition geographic(const SrsDefinition &srs)
 {
-    ::OGRSpatialReference ours(reference());
+    ::OGRSpatialReference ours(srs.reference());
     ::OGRSpatialReference ret;
     if (ret.CopyGeogCSFrom(&ours) != OGRERR_NONE) {
        LOGTHROW(err1, std::runtime_error)
            << "Could not extract geographic cs from definition";
     }
-   return fromReference(ret);
+    return SrsDefinition::fromReference(ret);
+}
+
+SrsDefinition geocentric(const SrsDefinition &srs)
+{
+    ::OGRSpatialReference ref(srs.reference());
+
+    double towgs84[7];
+    ref.GetTOWGS84(towgs84, 7);
+
+    std::ostringstream os;
+    os << std::setprecision(12);
+    os << "+proj=geocent +units=m +no_defs +a=" << ref.GetSemiMajor()
+       << " +b=" << ref.GetSemiMinor()
+       << " +towgs84=" << towgs84[0] << "," << towgs84[1] << "," << towgs84[2]
+       << "," << towgs84[3] << "," << towgs84[4] << "," << towgs84[5]
+       << "," << towgs84[6];
+
+    return { os.str() };
 }
 
 bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
