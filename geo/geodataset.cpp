@@ -30,6 +30,7 @@
 #include <cassert>
 #include <sstream>
 #include <numeric>
+#include <limits>
 
 #include <boost/utility/in_place_factory.hpp>
 #include <boost/filesystem/path.hpp>
@@ -452,8 +453,12 @@ GeoDataset GeoDataset::deriveInMemory(
         case GDT_Int16 :
             dstDataType = GDT_Int32; dstNoDataValue = 1 << 16; break;
 
-        case GDT_Float32 :
-            dstDataType = GDT_Float64; dstNoDataValue = 1.0E40; break;
+        case GDT_Float32:
+        case GDT_Float64:
+            // float/double -> double, and use insanely large negative number
+            dstDataType = GDT_Float64;
+            dstNoDataValue = std::numeric_limits<double>::lowest();
+            break;
 
         default :
             LOGTHROW( err2, std::runtime_error )
