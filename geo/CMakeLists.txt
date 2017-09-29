@@ -38,6 +38,7 @@ define_module(LIBRARY geo=${geo_VERSION}
 set(geo_SOURCES
     srsdef.hpp srsdef.cpp
     srs.hpp
+    enu.hpp enu.cpp
     project.hpp project.cpp
     csconvertor.hpp csconvertor.cpp
     heightconvertor.hpp heightconvertor.cpp

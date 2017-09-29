@@ -35,6 +35,8 @@
 
 namespace geo {
 
+struct SrsDefinition;
+
 struct Enu {
     struct Spheroid {
         double a;
@@ -59,6 +61,10 @@ struct Enu {
     Enu(const math::Point3 &origin)
         : lat0(origin(1)), lon0(origin(0)), h0(origin(2))
     {}
+
+    /** Constructs ENU from origin in given SRS.
+     */
+    Enu(const math::Point3 &origin, const SrsDefinition &srs);
 };
 
 template<typename CharT, typename Traits>

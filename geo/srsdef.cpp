@@ -235,7 +235,8 @@ SrsDefinition geographic(const SrsDefinition &srs)
     ::OGRSpatialReference ret;
     if (ret.CopyGeogCSFrom(&ours) != OGRERR_NONE) {
        LOGTHROW(err1, std::runtime_error)
-           << "Could not extract geographic cs from definition";
+           << "Could not extract geographic cs from definition \""
+           << srs << "\".";
     }
     return SrsDefinition::fromReference(ret);
 }
