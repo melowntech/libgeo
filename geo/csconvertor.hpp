@@ -45,13 +45,20 @@ public:
     CsConvertor(const OGRSpatialReference &from, const SrsDefinition &to);
 
     CsConvertor(const SrsDefinition &from, const Enu &to);
+    CsConvertor(const Enu &from, const SrsDefinition &to);
+
+    /** Creates no-op CS convertor. No conversion takes place.
+     *  Useful when we have API that expects CS convertor instance but we have
+     *  data in the proper SRS already.
+     */
+    CsConvertor();
 
     math::Point2 operator()(const math::Point2 &p) const;
     math::Point3 operator()(const math::Point3 &p) const;
 
     // return extents containing original extents
     math::Extents2 operator()(const math::Extents2 &p) const;
-    math::Extents3 operator()( const math::Extents3 &p ) const;
+    math::Extents3 operator()(const math::Extents3 &p) const;
 
     CsConvertor inverse() const;
 
