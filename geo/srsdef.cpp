@@ -393,4 +393,10 @@ SrsDefinition SrsDefinition::fromString(std::string value)
     return SrsDefinition(value, SrsDefinition::Type::wkt);
 }
 
+bool isProjected(const SrsDefinition &srs)
+{
+    if (srs.type == SrsDefinition::Type::enu) { return false; }
+    return srs.reference().IsProjected();
+}
+
 } // namespace geo
