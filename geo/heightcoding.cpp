@@ -40,19 +40,31 @@ Metadata heightCode(::GDALDataset &vectorDs
                    , std::ostream &os, const Config &config)
 {
     Metadata metadata;
-    
+
     // remember start position in the output stream
     const auto startPos(os.tellp());
 
+    FeatureLayers::LoadOptions lo;
+    lo.sourceSrs = config.vectorDsSrs;
+
+    if (config.clipWorkingExtents) {
+        // we need to pass clip extents and working srs only if clipping
+        lo.clipExtents = config.clipWorkingExtents;
+        lo.destinationSrs = config.workingSrs;
+    }
+
+    lo.layers = config.layers;
+
     // load feature layers from vectorDs
-    FeatureLayers featureLayers(vectorDs, config.vectorDsSrs);
+    FeatureLayers featureLayers(vectorDs, lo);
 
     // heightcode
-    auto workingSrs(config.workingSrs ? config.workingSrs : config.rasterDsSrs);
+    auto workingSrs(config.workingSrs
+                    ? config.workingSrs : config.rasterDsSrs);
 
     if (workingSrs) {
         LOG(info2) << "The following SRS shall be used in heightcoding: \""
-                   <<  workingSrs->string() << "\"";        
+                   <<  workingSrs->string() << "\"";
     } else {
         LOG(info2) << "No hint given as to what SRS to use in heightcoding.";
     }
@@ -72,27 +84,29 @@ Metadata heightCode(::GDALDataset &vectorDs
         throw;
     }());
 
-    // TODO: use full stack to heightcode result
+    // TODO: use dataset full stack to heightcode result
     featureLayers.heightcode(*rasterDs.back()
                              , workingSrs
                              , config.outputVerticalAdjust
                              , mode);
-    
+
     // convert 3D polygons to surfaces
     featureLayers.convert3DPolygons();
-    
+
     // transform to output srs
-    if (config.outputSrs)
+    if (config.outputSrs) {
         featureLayers.transform(config.outputSrs.get());
-    
+    }
+
     // update metadata.extents
-    auto bb(featureLayers.boundingBox(config.outputSrs));
-    if (bb) metadata.extents = bb.get();
+    if (auto bb = featureLayers.boundingBox(config.outputSrs)) {
+        metadata.extents = bb.get();
+    }
 
     // output
     switch (config.format) {
     case VectorFormat::geodataJson: {
-        
+
         os.precision(15);
         featureLayers.dumpVTSGeodata(os);
         break;

@@ -28,9 +28,9 @@
   * @author Ondrej Prochazka <ondrej.prochazka@melown.com>
   *
   * Feature layers are generic representation of geospatial 2D/3D vector data.
-  * 
-  * They are similar to OGC simple features (as modeled by the OGR library) with 
-  * some deviations. Not all OGR geometry types are supported. We define a 
+  *
+  * They are similar to OGC simple features (as modeled by the OGR library) with
+  * some deviations. Not all OGR geometry types are supported. We define a
   * non-standard 'surface' geometry type for mesh-like 3D features.
   */
 
@@ -49,15 +49,15 @@ namespace geo {
 
 
 class FeatureLayers {
-    
+
 public :
-    
+
     struct Features {
-        
+
         typedef std::map<std::string, std::string> Properties;
-        
+
         struct Point {
-            
+
             std::string id;
             Properties properties;
             math::Point3 point;
@@ -68,9 +68,9 @@ public :
                 : id(id),  properties(properties), point(point),
                   zDefined(zDefined) {}
         };
-        
+
         struct MultiLineString {
-            
+
             std::string id;
             Properties properties;
             std::vector<math::Points3> lines;
@@ -83,144 +83,179 @@ public :
                     : id(id), properties(properties), lines(lines),
                       zDefined(zDefined) {}
         };
-        
+
         struct MultiPolygon {
-            
+
             std::string id;
             Properties properties;
             bool zDefined;
-            
+
             struct Polygon {
-                
+
                 math::Points3 exterior;     // exterior ring
                 std::vector<math::Points3> interiors; // hole rings
             };
-            
+
             std::vector<Polygon> polygons;
 
             MultiPolygon() {};
-            
-            MultiPolygon( const std::string & id, const Properties & properties, 
+
+            MultiPolygon( const std::string & id, const Properties & properties,
                           const std::vector<Polygon> & polygons,
                           const bool zDefined )
                 : id(id), properties( properties ), zDefined(zDefined),
                   polygons(polygons) {};
         };
-        
+
         struct Surface {
-            
+
             struct Patch : math::Point3i {};
             typedef std::vector<uint> Boundary;
-            
+
             std::string id;
             Properties properties;
             math::Points3 vertices;
             std::vector<Patch> surface;
             std::vector<Boundary> boundaries;
-            
-            Surface(const std::string & id, const Properties & properties) 
+
+            Surface(const std::string & id, const Properties & properties)
                 : id(id), properties(properties) {};
-                
-            void addPatchesFromPolygon( 
+
+            void addPatchesFromPolygon(
                 const Features::MultiPolygon::Polygon & polygon );
-            
+
         private:
-            
-            math::Points3 triangulatePolygon( 
+
+            math::Points3 triangulatePolygon(
                 const Features::MultiPolygon::Polygon & polygon );
-                
+
         };
-        
+
+        // NB: if new type of features is added update empty() function.
         std::vector<Point> points;
         std::vector<MultiLineString> multilinestrings;
         std::vector<MultiPolygon> multipolygons;
         std::vector<Surface> surfaces;
-        
+
         bool zAlwaysDefined; /// is z coordinate defined for all features?
         bool zNeverDefined;  /// is z coordinate defined for none of the features?
-        
+
         Features(): zAlwaysDefined(true), zNeverDefined(true) {}
-        
-        void addPoint( const Point & point ) { 
-            points.emplace_back( point ); 
-            zAlwaysDefined &= point.zDefined; 
+
+        void addPoint( const Point & point ) {
+            points.emplace_back( point );
+            zAlwaysDefined &= point.zDefined;
             zNeverDefined &= !point.zDefined;
         }
 
-        void addMultiLineString(const MultiLineString & multilinestring) { 
-            multilinestrings.emplace_back( multilinestring ); 
+        void addMultiLineString(const MultiLineString & multilinestring) {
+            multilinestrings.emplace_back( multilinestring );
             zAlwaysDefined &= multilinestring.zDefined;
             zNeverDefined &= !multilinestring.zDefined;
         }
 
-        void addMultiPolygon(const MultiPolygon & multipolygon) { 
-            multipolygons.emplace_back( multipolygon ); 
-            zAlwaysDefined &= multipolygon.zDefined; 
-            zNeverDefined &= !multipolygon.zDefined; 
+        void addMultiPolygon(const MultiPolygon & multipolygon) {
+            multipolygons.emplace_back( multipolygon );
+            zAlwaysDefined &= multipolygon.zDefined;
+            zNeverDefined &= !multipolygon.zDefined;
         }
-        
-        void addSurface(const Surface & surface) { 
-            surfaces.emplace_back( surface  ); 
+
+        void addSurface(const Surface & surface) {
+            surfaces.emplace_back( surface  );
             zAlwaysDefined &= 1; zNeverDefined &= 0; }
+
+        bool empty() const;
     };
-    
+
     struct Layer {
-       
+
         std::string name;
         SrsDefinition srs;
         bool adjustVertical;
         Features features;
         boost::optional<math::Extents3> featuresBB;
-        
+
         Layer() {}
         Layer(const std::string & name
-              , const SrsDefinition & srs) : 
+              , const SrsDefinition & srs) :
               name(name), srs(srs), adjustVertical(false) {}
         bool is2D() const { return features.zNeverDefined; }
         bool is3D() const { return features.zAlwaysDefined; }
 
-        void updateBB( const math::Point3 & point );        
+        void updateBB( const math::Point3 & point );
+
+        /** Layer is empty if it has no feature.
+         */
+        bool empty() { return features.empty(); }
     };
 
-    
+
     /**
      * Initialize empty
      */
     FeatureLayers() {};
 
+    /** Dataset load options.
+     */
+    struct LoadOptions {
+        typedef std::vector<std::string> LayerNames;
+
+        /** Overrides dataset's SRS if set . Can be used to provided SRS wtihb
+         *  vertical datum since GDAL sucks at vertical datum support in
+         *  datasets.
+         */
+        boost::optional<SrsDefinition> sourceSrs;
+
+        /** All geometries are transformed to given given SRS if set.
+         */
+        boost::optional<SrsDefinition> destinationSrs;
+
+        /** Clips all geometries by given rectangles and output only features
+         *  with valid geometries. Clip is performed after any coordinate system
+         *  stransformation.
+         */
+        boost::optional<math::Extents2> clipExtents;
+
+        /** Only named layers will be loaded if set.
+         */
+        boost::optional<LayerNames> layers;
+    };
+
     /**
      * @brief Initialize from an OGR-supported dataset
-     * @param dataset pre-opened vector dataset 
+     * @param dataset pre-opened vector dataset
      */
     FeatureLayers(::GDALDataset &dataset
-        , const boost::optional<SrsDefinition> & sourceSrs = boost::none) { 
-        load(dataset, sourceSrs); }
-    
+                  , const LoadOptions &loadOptions = LoadOptions())
+    {
+        load(dataset, loadOptions);
+    }
+
     /**
      * @brief Load data from an OGR-supported dataset
      * @param dataset pre-opened vector dataset
      * @param sourceSrs optional override for srs in dataset
      */
     void load(::GDALDataset &dataset
-        , const boost::optional<SrsDefinition> & sourceSrs = boost::none);
-    
-    
+              , const LoadOptions &loadOptions = LoadOptions());
+
+
     /**
      * @brief are all features in these layers three dimensional?
      */
     bool is3D() {
-        return( std::all_of(layers.begin(), layers.end(), 
+        return( std::all_of(layers.begin(), layers.end(),
            [](const Layer &l) { return l.is3D(); }));
     }
-    
+
     /**
      * @brief are all features in these layers two dimensional?
      */
     bool is2D() {
-        return( std::all_of(layers.begin(), layers.end(), 
+        return( std::all_of(layers.begin(), layers.end(),
            [](const Layer &l) { return l.is2D(); }));
     }
-    
+
     /**
      * @brief return layers bounding box
      * @param srs SRS to determine bounding box in, if none, taken from the
@@ -229,33 +264,33 @@ public :
      */
     boost::optional<math::Extents3> boundingBox(
         boost::optional<SrsDefinition> srs = boost::none);
-    
+
     /**
      * @brief Transform feature layers to different SRS.
      * @param targetSrs SRS to transform to.
-     * 
-     * If a transformation to a different datum is requested and 3D geometries 
+     *
+     * If a transformation to a different datum is requested and 3D geometries
      * are not defined, the function will complain.
-     */ 
+     */
     void transform(const SrsDefinition & targetSrs);
 
     enum class HeightcodeMode { always, never, auto_ };
-    
+
     /**
      * @brief Transform 2D features to 3D by adding Z coordinate from a DEM
      * @param demDataset raster dataset used as source of height information
-     * @param workingSrs optional srs providing vertical dataum info for the 
+     * @param workingSrs optional srs providing vertical dataum info for the
      *    raster, if known. Also a hint for a suitable horizontal datum in
      *    which the demDataset should be reconstructed to obtain height. If not
      *    provided, the demDataset srs is used, this likely leads to use
      *    of ellipsoid height.
-     * @param verticalAdjustment if set, vertical adjustment is performed on 
+     * @param verticalAdjustment if set, vertical adjustment is performed on
      *    the height values.
-     * @param mode heightcoding mode, one of always (use DEM to override any 
-     *     existing z coordinates), auto_ (use DEM to fill in missing z 
+     * @param mode heightcoding mode, one of always (use DEM to override any
+     *     existing z coordinates), auto_ (use DEM to fill in missing z
      *     coordinates), or never (never change or fill z coordinates, rendering
-     *     heightcoding a noop). 
-     */    
+     *     heightcoding a noop).
+     */
     void heightcode(const GeoDataset & demDataset
         , const boost::optional<SrsDefinition> workingSrs = boost::none
         , bool verticalAdjustment = false
@@ -263,7 +298,7 @@ public :
 
     /**
      * @brief Convert 3D polygons to surfaces.
-     * 
+     *
      * This step is a necessary precondition for serializing feature layers
      * with 3D polygon geometries in geodata formats.
 
@@ -271,41 +306,41 @@ public :
      * This operation has no effect on 2D polygon geometries, which need to
      * be converted through a call to heightcode.
      */
-    void convert3DPolygons();    
-    
+    void convert3DPolygons();
+
     /**
      * @brief serialize into legacy geodata format
      * @param os where to send output
-     * 
+     *
      * See https://trac.citationtech.net/wiki/vadstena/PlanetGeographyFileFormat
      * for format description.
      */
     void dumpLegacyGeodata(std::ostream & os
             , const std::string & pointStyle = "point-default"
             , const std::string & linestringStyle = "linestring-default");
-    
+
     /**
      * @brief serialize into VTS free layer geodata format.
      * @param os where to send output
      * @param resolution output resolution, as defined in VTS geodata spec
-     * 
+     *
      * See VTS docs for format spec.
      */
     void dumpVTSGeodata(std::ostream & os, const uint resolution = 4096);
-    
+
     std::vector<Layer> layers;
-    
+
 private :
-    
+
     template <class TPoint3>
     static Json::Value buildPoint3( const TPoint3 & p );
-    
-    static Json::Value buildHtml( const Features::Properties & props );    
-    
+
+    static Json::Value buildHtml( const Features::Properties & props );
+
     template <class Filter2, class RasterMask>
-    static boost::optional<double> reconstruct( 
-        const cv::Mat & from, const RasterMask & mask, 
-        const math::Point2 & pos, const Filter2 & filter );         
+    static boost::optional<double> reconstruct(
+        const cv::Mat & from, const RasterMask & mask,
+        const math::Point2 & pos, const Filter2 & filter );
 };
 
 
@@ -318,10 +353,10 @@ UTILITY_GENERATE_ENUM_IO(geo::FeatureLayers::HeightcodeMode,
 
 // template method implementation
 template <class Filter2, class RasterMask>
-boost::optional<double> FeatureLayers::reconstruct( 
-     const cv::Mat & from, const RasterMask & mask, 
+boost::optional<double> FeatureLayers::reconstruct(
+     const cv::Mat & from, const RasterMask & mask,
      const math::Point2 & pos, const Filter2 & filter ) {
-    
+
     math::Point2i ll, ur;
 
     ll[0] = (int) floor( pos[0] - filter.halfwinx() );
@@ -334,26 +369,32 @@ boost::optional<double> FeatureLayers::reconstruct(
     for ( int i = ll[1]; i <= ur[1]; i++ )
         for ( int j = ll[0]; j <= ur[0]; j++ )
              if ( math::ccinterval( 0, (int) from.cols - 1, j ) &&
-                  math::ccinterval( 0, (int) from.rows - 1, i ) && 
+                  math::ccinterval( 0, (int) from.rows - 1, i ) &&
                   mask.get( j, i ) ) {
- 
+
                  double weight = filter( j - pos[0], i - pos[1] );
                  valueSum += weight * from.at<double>(i,j);
                  weightSum += weight;
              }
- 
+
     if ( weightSum > 0 )
         return boost::optional<double>( valueSum / weightSum );
     else
        return boost::none;
-}    
+}
 
 template <class TPoint3>
 Json::Value FeatureLayers::buildPoint3( const TPoint3 & p ) {
-    
+
     Json::Value retval = Json::arrayValue;
     retval.append(p(0)); retval.append(p(1)), retval.append(p(2));
     return retval;
+}
+
+inline bool FeatureLayers::Features::empty() const
+{
+    return (points.empty() && multilinestrings.empty()
+            && multipolygons.empty() && surfaces.empty());
 }
 
 
