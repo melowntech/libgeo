@@ -1,5 +1,5 @@
 # bump version here
-set(geo_VERSION 1.26)
+set(geo_VERSION 1.27)
 
 set(geo_EXTRA_DEPENDS)
 set(geo_EXTRA_DEFINITIONS)
@@ -38,6 +38,7 @@ define_module(LIBRARY geo=${geo_VERSION}
 set(geo_SOURCES
     srsdef.hpp srsdef.cpp
     srs.hpp
+    enu.hpp enu.cpp
     project.hpp project.cpp
     csconvertor.hpp csconvertor.cpp
     heightconvertor.hpp heightconvertor.cpp
@@ -78,4 +79,5 @@ if(MODULE_service_FOUND)
   add_subdirectory(test-hconv EXCLUDE_FROM_ALL)
   add_subdirectory(test-srs EXCLUDE_FROM_ALL)
   add_subdirectory(test-geoid EXCLUDE_FROM_ALL)
+  add_subdirectory(test-heightmodel EXCLUDE_FROM_ALL)
 endif()

@@ -107,6 +107,10 @@ SrsDefinition geographic(const SrsDefinition &srs);
  */
 SrsDefinition geocentric(const SrsDefinition &srs);
 
+/** Returns true if SRS is a projected spatial reference system.
+ */
+bool isProjected(const SrsDefinition &srs);
+
 UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((proj4))
     ((wkt))

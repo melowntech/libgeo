@@ -235,7 +235,8 @@ SrsDefinition geographic(const SrsDefinition &srs)
     ::OGRSpatialReference ret;
     if (ret.CopyGeogCSFrom(&ours) != OGRERR_NONE) {
        LOGTHROW(err1, std::runtime_error)
-           << "Could not extract geographic cs from definition";
+           << "Could not extract geographic cs from definition \""
+           << srs << "\".";
     }
     return SrsDefinition::fromReference(ret);
 }
@@ -390,6 +391,12 @@ SrsDefinition SrsDefinition::fromString(std::string value)
     }
 
     return SrsDefinition(value, SrsDefinition::Type::wkt);
+}
+
+bool isProjected(const SrsDefinition &srs)
+{
+    if (srs.type == SrsDefinition::Type::enu) { return false; }
+    return srs.reference().IsProjected();
 }
 
 } // namespace geo

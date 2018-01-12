@@ -52,6 +52,18 @@ public:
     virtual pointer inverse() const = 0;
 };
 
+class NoOpConvertor : public CsConvertor::Impl
+{
+public:
+    virtual math::Point2 convert(const math::Point2 &p) const { return p; }
+    virtual math::Point3 convert(const math::Point3 &p) const { return p; }
+    virtual bool isProjected() const { return false; }
+    virtual bool areSrsEqual() const { return true; }
+    virtual pointer inverse() const {
+        return std::make_shared<NoOpConvertor>();
+    }
+};
+
 namespace {
 
 namespace ublas = boost::numeric::ublas;
@@ -407,6 +419,12 @@ initTrans(const SrsDefinition &from, const Enu &to)
     return std::make_shared<Ogr2EnuImpl>(from, to, false);
 }
 
+std::shared_ptr<CsConvertor::Impl>
+initTrans(const Enu &from, const SrsDefinition &to)
+{
+    return std::make_shared<Ogr2EnuImpl>(to, from, true);
+}
+
 } // namespace
 
 CsConvertor::CsConvertor(const SrsDefinition &from, const SrsDefinition &to)
@@ -445,6 +463,19 @@ CsConvertor::CsConvertor(const SrsDefinition &from, const Enu &to)
 {
     LOG(info1) << "Coordinate system transformation ("
                << from << " -> " << asName(to) << ").";
+}
+
+CsConvertor::CsConvertor(const Enu &from, const SrsDefinition &to)
+    : trans_(initTrans(from, to))
+{
+    LOG(info1) << "Coordinate system transformation ("
+               << asName(from) << " -> " << to << ").";
+}
+
+CsConvertor::CsConvertor()
+    : trans_(std::make_shared<NoOpConvertor>())
+{
+    LOG(info1) << "Coordinate system transformation: no-op.";
 }
 
 CsConvertor::CsConvertor(const std::shared_ptr<Impl> &trans)
