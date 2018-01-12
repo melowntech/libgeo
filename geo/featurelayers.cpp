@@ -133,8 +133,6 @@ void FeatureLayers::load(::GDALDataset &dataset
     boost::optional<ClipGeometry> clipper;
 
     if (loadOptions.clipExtents) {
-        LOG(info4) << "Clipping to " << std::fixed
-                   << *loadOptions.clipExtents;
         clipper = boost::in_place(*loadOptions.clipExtents);
     }
 
