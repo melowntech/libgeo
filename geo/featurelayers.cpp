@@ -75,7 +75,7 @@ GeometryWrapper wrap(::OGRGeometryH g
 template <typename T>
 T* as(const GeometryWrapper &g)
 {
-    return dynamic_cast<T*>(g.get());
+    return static_cast<T*>(g.get());
 }
 
 inline ::OGRRawPoint rawPoint(double x, double y)
@@ -302,7 +302,7 @@ void FeatureLayers::load(::GDALDataset &dataset
                         (imultilinestring->getGeometryRef(j)->getGeometryType())
                         == wkbLineString, "Malformed multilinestring?");
 
-                    auto ilinestring = dynamic_cast<OGRLineString*>
+                    auto ilinestring = static_cast<OGRLineString*>
                         (imultilinestring->getGeometryRef(j));
 
                     for (int k = 0; k < ilinestring->getNumPoints(); k++) {
