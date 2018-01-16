@@ -56,6 +56,17 @@ public :
 
         typedef std::map<std::string, std::string> Properties;
 
+        class PropertyManipulator {
+        public:
+            virtual ~PropertyManipulator() {}
+            void operator()(Properties &properties) const {
+                update_impl(properties);
+            }
+
+        private:
+            virtual void update_impl(Properties &properties) const = 0;
+        };
+        
         struct Point {
 
             std::string id;
@@ -165,6 +176,10 @@ public :
             zAlwaysDefined &= 1; zNeverDefined &= 0; }
 
         bool empty() const;
+
+        /** Update properties of all features.
+         */
+        void updateProperties(const PropertyManipulator &manipulator);
     };
 
     struct Layer {

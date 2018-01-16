@@ -30,7 +30,6 @@
 #include "jsoncpp/json.hpp"
 #include "jsoncpp/as.hpp"
 
-#include "./featurelayers.hpp"
 #include "./heightcoding.hpp"
 
 namespace geo { namespace heightcoding {
@@ -96,6 +95,11 @@ Metadata heightCode(::GDALDataset &vectorDs
     // transform to output srs
     if (config.outputSrs) {
         featureLayers.transform(config.outputSrs.get());
+    }
+
+    // call postprocess
+    if (config.postprocess) {
+        config.postprocess(featureLayers);
     }
 
     // update metadata.extents

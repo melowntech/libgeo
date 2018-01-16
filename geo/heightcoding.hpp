@@ -29,6 +29,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <functional>
 
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
@@ -37,6 +38,7 @@
 
 #include "./geodataset.hpp"
 #include "./vectorformat.hpp"
+#include "./featurelayers.hpp"
 
 /** Height-coding-related stuff
  */
@@ -103,10 +105,9 @@ struct Config {
      */
     Mode mode;
 
-    Config()
-        : outputVerticalAdjust(false), format(VectorFormat::geodataJson)
-        , mode(Mode::auto_)
-    {}
+    /** Called just before serialization if non-null.
+     */
+    std::function<void(FeatureLayers&)> postprocess;
 };
 
 /** Metadata of height-coded output.

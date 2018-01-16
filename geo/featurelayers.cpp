@@ -973,4 +973,14 @@ void FeatureLayers::Features::Surface::addPatchesFromPolygon(
     // done
 }
 
+
+void FeatureLayers::Features
+::updateProperties(const PropertyManipulator &manipulator)
+{
+    for (auto &f : points) {  manipulator(f.properties); }
+    for (auto &f : multilinestrings) {  manipulator(f.properties); }
+    for (auto &f : multipolygons) {  manipulator(f.properties); }
+    for (auto &f : surfaces) {  manipulator(f.properties); }
+}
+
 } // namespace geo
