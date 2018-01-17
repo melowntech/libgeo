@@ -56,17 +56,6 @@ public :
 
         typedef std::map<std::string, std::string> Properties;
 
-        class PropertyManipulator {
-        public:
-            virtual ~PropertyManipulator() {}
-            void operator()(Properties &properties) const {
-                update_impl(properties);
-            }
-
-        private:
-            virtual void update_impl(Properties &properties) const = 0;
-        };
-        
         struct Point {
 
             std::string id;
@@ -177,9 +166,8 @@ public :
 
         bool empty() const;
 
-        /** Update properties of all features.
-         */
-        void updateProperties(const PropertyManipulator &manipulator);
+        template <typename Manipulator>
+        void updateProperties(const Manipulator &manipulator);
     };
 
     struct Layer {
@@ -412,6 +400,14 @@ inline bool FeatureLayers::Features::empty() const
             && multipolygons.empty() && surfaces.empty());
 }
 
+template <typename Manipulator>
+void FeatureLayers::Features::updateProperties(const Manipulator &manipulator)
+{
+    for (auto &f : points) {  manipulator(f.properties); }
+    for (auto &f : multilinestrings) {  manipulator(f.properties); }
+    for (auto &f : multipolygons) {  manipulator(f.properties); }
+    for (auto &f : surfaces) {  manipulator(f.properties); }
+}
 
 } // namespace geo
 
