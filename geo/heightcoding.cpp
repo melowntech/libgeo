@@ -94,7 +94,8 @@ Metadata heightCode(::GDALDataset &vectorDs
 
     // transform to output srs
     if (config.outputSrs) {
-        featureLayers.transform(config.outputSrs.get());
+        featureLayers.transform
+            (config.outputSrs->srs, config.outputSrs->adjustVertical);
     }
 
     // call postprocess
@@ -103,8 +104,14 @@ Metadata heightCode(::GDALDataset &vectorDs
     }
 
     // update metadata.extents
-    if (auto bb = featureLayers.boundingBox(config.outputSrs)) {
-        metadata.extents = bb.get();
+    if (config.outputSrs) {
+        if (auto bb = featureLayers.boundingBox(config.outputSrs->srs)) {
+            metadata.extents = bb.get();
+        }
+    } else {
+        if (auto bb = featureLayers.boundingBox()) {
+            metadata.extents = bb.get();
+        }
     }
 
     // output

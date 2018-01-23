@@ -275,7 +275,8 @@ public :
      * If a transformation to a different datum is requested and 3D geometries
      * are not defined, the function will complain.
      */
-    void transform(const SrsDefinition & targetSrs);
+    void transform(const SrsDefinition & targetSrs
+                   , bool verticalAdjustment = false);
 
     enum class HeightcodeMode { always, never, auto_ };
 

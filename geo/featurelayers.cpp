@@ -393,9 +393,9 @@ void FeatureLayers::load(::GDALDataset &dataset
     // all done
 }
 
-void FeatureLayers::transform(const SrsDefinition & targetSrs) {
-
-
+void FeatureLayers::transform(const SrsDefinition & targetSrs
+                              , bool verticalAdjustment)
+{
     // for each layer
     for (auto &layer: layers) {
 
@@ -419,31 +419,40 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs) {
 
         // create converter object
         CsConvertor csTrafo(sourceSrs, targetSrs);
+        // create conditional adjuster
+        VerticalAdjuster adjuster(verticalAdjustment, targetSrs);
 
         // transform features
         layer.featuresBB = boost::none;
 
+        // helper for point/vertex conversion
+        const auto convert([&](math::Point3 &p) -> void
+        {
+            p = adjuster(csTrafo(p));
+            layer.updateBB(p);
+        });
+
         for (auto &point: layer.features.points) {
-            point.point = csTrafo(point.point); layer.updateBB(point.point);
+            convert(point.point);
         }
 
         for (auto &multilinestring: layer.features.multilinestrings)
             for (auto &linestring: multilinestring.lines)
-                for (auto &p: linestring) { p = csTrafo(p); layer.updateBB(p); }
+                for (auto &p: linestring) { convert(p); }
 
         for (auto &mp: layer.features.multipolygons)
             for (auto &polygon: mp.polygons) {
                 for (auto &p: polygon.exterior) {
-                    p = csTrafo(p); layer.updateBB(p);
+                    convert(p);
                 }
 
                 for (auto &interior: polygon.interiors)
-                    for (auto &p: interior) p = csTrafo(p);
+                    for (auto &p: interior) convert(p);
             }
 
         for (auto &s: layer.features.surfaces)
             for (auto &v: s.vertices) {
-                v = csTrafo(v); layer.updateBB(v);
+                convert(v);
             }
 
         // done with layer

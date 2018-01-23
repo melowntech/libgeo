@@ -52,6 +52,15 @@ UTILITY_GENERATE_ENUM(Mode,
                       ((auto_)("auto")) // touch only 2d points
                       )
 
+struct OutputSrs {
+    SrsDefinition srs;
+    bool adjustVertical;
+
+    OutputSrs(const SrsDefinition &srs, bool adjustVertical = false)
+        : srs(srs), adjustVertical(adjustVertical)
+    {}
+};
+
 /** Height coding.
  */
 struct Config {
@@ -83,7 +92,7 @@ struct Config {
     /** Spatial reference system of generated output. No conversion is performed
      *  if invalid.
      */
-    boost::optional<SrsDefinition> outputSrs;
+    boost::optional<OutputSrs> outputSrs;
 
     /** Perform vertical adjustment of output data.
      */
