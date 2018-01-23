@@ -199,8 +199,6 @@ void FeatureLayers::load(::GDALDataset &dataset
         ilayer->ResetReading();
         uint id = 0;
 
-        //OGRFeatureDefn *ilayerDefn = ilayer->GetLayerDefn();
-
         while (auto ifeature = ilayer->GetNextFeature()) {
 
             // extract properties

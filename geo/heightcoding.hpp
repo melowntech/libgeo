@@ -108,6 +108,11 @@ struct Config {
     /** Called just before serialization if non-null.
      */
     std::function<void(FeatureLayers&)> postprocess;
+
+    Config()
+        : outputVerticalAdjust(false), format(VectorFormat::geodataJson)
+        , mode(Mode::auto_)
+    {}
 };
 
 /** Metadata of height-coded output.
