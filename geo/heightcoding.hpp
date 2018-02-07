@@ -29,6 +29,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <functional>
 
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
@@ -37,6 +38,7 @@
 
 #include "./geodataset.hpp"
 #include "./vectorformat.hpp"
+#include "./featurelayers.hpp"
 
 /** Height-coding-related stuff
  */
@@ -49,6 +51,15 @@ UTILITY_GENERATE_ENUM(Mode,
                       ((never))  // never touch Z coordinate
                       ((auto_)("auto")) // touch only 2d points
                       )
+
+struct OutputSrs {
+    SrsDefinition srs;
+    bool adjustVertical;
+
+    OutputSrs(const SrsDefinition &srs, bool adjustVertical = false)
+        : srs(srs), adjustVertical(adjustVertical)
+    {}
+};
 
 /** Height coding.
  */
@@ -81,7 +92,7 @@ struct Config {
     /** Spatial reference system of generated output. No conversion is performed
      *  if invalid.
      */
-    boost::optional<SrsDefinition> outputSrs;
+    boost::optional<OutputSrs> outputSrs;
 
     /** Perform vertical adjustment of output data.
      */
@@ -102,6 +113,10 @@ struct Config {
     /** Heightcoding mode
      */
     Mode mode;
+
+    /** Called just before serialization if non-null.
+     */
+    std::function<void(FeatureLayers&)> postprocess;
 
     Config()
         : outputVerticalAdjust(false), format(VectorFormat::geodataJson)
