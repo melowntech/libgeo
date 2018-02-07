@@ -56,6 +56,10 @@ public:
     math::Point2 operator()(const math::Point2 &p) const;
     math::Point3 operator()(const math::Point3 &p) const;
 
+    /** Homogeneous point support.
+     */
+    math::Point4 operator()(const math::Point4 &p) const;
+
     // return extents containing original extents
     math::Extents2 operator()(const math::Extents2 &p) const;
     math::Extents3 operator()(const math::Extents3 &p) const;
@@ -76,6 +80,11 @@ private:
     CsConvertor(const std::shared_ptr<Impl> &trans);
     std::shared_ptr<Impl> trans_;
 };
+
+/** Generic convertor. Can be used for points. Analogous to matrix product.
+*/
+template <typename T>
+T prod(const CsConvertor &conv, const T &value);
 
 // inline method implementation
 
@@ -102,6 +111,12 @@ inline math::Extents3 CsConvertor::operator()( const math::Extents3 &e) const
     update(res, operator()( tlr(e) ));
 
     return res;
+}
+
+template <typename T>
+T prod(const CsConvertor &conv, const T &value)
+{
+    return conv(value);
 }
 
 } // namespace geo

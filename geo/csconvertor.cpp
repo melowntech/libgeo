@@ -33,6 +33,8 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "math/geometry.hpp"
+
 #include "./csconvertor.hpp"
 #include "./detail/srs.hpp"
 
@@ -490,6 +492,13 @@ math::Point2 CsConvertor::operator()(const math::Point2 &p) const
 math::Point3 CsConvertor::operator()(const math::Point3 &p) const
 {
     return trans_->convert(p);
+}
+
+math::Point4 CsConvertor::operator()(const math::Point4 &p) const
+{
+    const auto pp(trans_->convert
+                  (math::Point3(p(0) / p(3), p(1) / p(3), p(2) / p(3))));
+    return math::Point4(pp(0), pp(1), pp(2), 1.0);
 }
 
 CsConvertor CsConvertor::inverse() const

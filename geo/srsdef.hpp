@@ -70,6 +70,10 @@ struct SrsDefinition {
 
     SrsDefinition geographic() const;
 
+    /** Convers this srs definition to string. Uses operator<< internally.
+     */
+    std::string toString() const;
+
     /** Creates SRS efinition from any string. Detects SRS from string:
      *
      *  starts with '+': Type::proj4

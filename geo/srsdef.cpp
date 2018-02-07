@@ -393,6 +393,11 @@ SrsDefinition SrsDefinition::fromString(std::string value)
     return SrsDefinition(value, SrsDefinition::Type::wkt);
 }
 
+std::string SrsDefinition::toString() const
+{
+    return boost::lexical_cast<std::string>(*this);
+}
+
 bool isProjected(const SrsDefinition &srs)
 {
     if (srs.type == SrsDefinition::Type::enu) { return false; }
