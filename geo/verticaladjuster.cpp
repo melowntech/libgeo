@@ -44,14 +44,16 @@ boost::optional<SrsFactors> create(bool apply, const SrsDefinition &srs
 
 }
 
-VerticalAdjuster::VerticalAdjuster(bool apply, const SrsDefinition &srs)
-    : sf_(create(apply, srs))
+VerticalAdjuster::VerticalAdjuster(bool apply, const SrsDefinition &srs
+                                   , bool inverse)
+    : sf_(create(apply, srs)), inverse_(inverse)
 {
 }
 
 VerticalAdjuster::VerticalAdjuster(bool apply, const SrsDefinition &srs
-                                   , const SrsDefinition &srcSrs)
-    : sf_(create(apply, srs, srcSrs))
+                                   , const SrsDefinition &srcSrs
+                                   , bool inverse)
+    : sf_(create(apply, srs, srcSrs)), inverse_(inverse)
 {
 }
 
@@ -59,6 +61,7 @@ math::Point3 VerticalAdjuster::operator()(math::Point3 p, bool inverse) const
 {
     if (sf_) {
         auto scale((*sf_)(p).meridionalScale);
+        if (inverse_) { inverse = !inverse; }
         if (inverse) {
             p(2) /= scale;
         } else {
@@ -66,6 +69,15 @@ math::Point3 VerticalAdjuster::operator()(math::Point3 p, bool inverse) const
         }
     }
     return p;
+}
+
+math::Point4 VerticalAdjuster::operator()(const math::Point4 &p, bool inverse)
+    const
+{
+    const auto pp(operator()
+                  (math::Point3(p(0) / p(3), p(1) / p(3), p(2) / p(3))
+                   , inverse));
+    return math::Point4(pp(0), pp(1), pp(2), 1.0);
 }
 
 } // namespace geo

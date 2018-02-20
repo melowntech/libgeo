@@ -82,9 +82,8 @@ private:
 };
 
 /** Generic convertor. Can be used for points. Analogous to matrix product.
-*/
-template <typename T>
-T prod(const CsConvertor &conv, const T &value);
+ */
+math::Point4 prod(const CsConvertor &conv, const math::Point4 &value);
 
 // inline method implementation
 
@@ -113,8 +112,7 @@ inline math::Extents3 CsConvertor::operator()( const math::Extents3 &e) const
     return res;
 }
 
-template <typename T>
-T prod(const CsConvertor &conv, const T &value)
+inline math::Point4 prod(const CsConvertor &conv, const math::Point4 &value)
 {
     return conv(value);
 }

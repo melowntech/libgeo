@@ -37,26 +37,80 @@ namespace geo {
 
 class VerticalAdjuster {
 public:
-    VerticalAdjuster() {}
-    VerticalAdjuster(const SrsDefinition &srs) : sf_(boost::in_place(srs)) {}
-    VerticalAdjuster(const SrsDefinition &srs, const SrsDefinition &srcSrs)
-        : sf_(boost::in_place(srs, srcSrs))
+    VerticalAdjuster() : inverse_() {}
+
+    /** \param SRS for both adjustment and querty
+     *  \param inverse unadjust by default if true
+     */
+    VerticalAdjuster(const SrsDefinition &srs, bool inverse = false)
+        : sf_(boost::in_place(srs)), inverse_(inverse)
     {}
 
-    VerticalAdjuster(bool apply, const SrsDefinition &srs);
-    VerticalAdjuster(bool apply, const SrsDefinition &srs
-                     , const SrsDefinition &srcSrs);
+    /** \param srs SRS for adjustment
+     *  \param srcSrs SRS for query
+     *  \param inverse unadjust by default if true
+     */
+    VerticalAdjuster(const SrsDefinition &srs, const SrsDefinition &srcSrs
+                     , bool inverse = false)
+        : sf_(boost::in_place(srs, srcSrs)), inverse_(inverse)
+    {}
 
-    VerticalAdjuster(const SrsFactors &factors)
-        : sf_(boost::in_place(factors)) {}
+    /** \param apply creates dummy adjuster if false
+     *  \param SRS for both adjustment and querty
+     *  \param inverse unadjust by default if true
+     */
+    VerticalAdjuster(bool apply, const SrsDefinition &srs
+                     , bool inverse = false);
+
+    /** \param apply creates dummy adjuster if false
+     *  \param srs SRS for adjustment
+     *  \param srcSrs SRS for query
+     *  \param inverse unadjust by default if true
+     */
+    VerticalAdjuster(bool apply, const SrsDefinition &srs
+                     , const SrsDefinition &srcSrs
+                     , bool inverse = false);
+
+    /** \param factors SRS factors
+     *  \param inverse unadjust by default if true
+     */
+    VerticalAdjuster(const SrsFactors &factors, bool inverse = false)
+        : sf_(boost::in_place(factors)), inverse_(inverse)
+    {}
 
     /** Apply/unapply vertical adjustment.
+     *
+     *  Apply: Z coordinate is multiplied by scaling factor
+     *  Unapply: Z coordinate is divided by scaling factor
+     *
+     *  Operation is determined from (inverse XOR inverse_):
+     *     false: apply vertical adjustment
+     *     true: unapply vertical adjustment
      */
     math::Point3 operator()(math::Point3 p, bool inverse = false) const;
 
+    /** Apply/unapply vertical adjustment.
+     *  Homogeneous point version.
+     */
+    math::Point4 operator()(const math::Point4 &p, bool inverse = false) const;
+
 private:
     boost::optional<SrsFactors> sf_;
+    bool inverse_;
 };
+
+/** Generic convertor. Can be used for points. Analogous to matrix product.
+ */
+math::Point4 prod(const VerticalAdjuster &conv, const math::Point4 &value);
+
+// inlines
+
+
+inline math::Point4 prod(const VerticalAdjuster &adjuster
+                         , const math::Point4 &value)
+{
+    return adjuster(value);
+}
 
 } // namespace geo
 
