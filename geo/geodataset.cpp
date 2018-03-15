@@ -568,7 +568,8 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     switch (format.storageType) {
     case Format::Storage::gtiff:
         storageFormat = "GTiff";
-        wfExt = "tfw";
+        // do not write world file since GeoTiff contains everything
+        wfExt = "";
         break;
 
     case Format::Storage::png:
