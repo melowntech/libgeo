@@ -990,7 +990,13 @@ std::unique_ptr<GDALDataset> useOverview(
     
     if (ovr >= 0) {
        ovrDs = std::unique_ptr<GDALDataset>(
-           ::GDALCreateOverviewDataset(src, ovr, false, false));
+           ::GDALCreateOverviewDataset
+           (src, ovr, false
+#if GDAL_VERSION_NUM < 2020000
+            // bOwnDS available only up to 2.1.x
+            , false
+#endif
+            ));
     }
     
     if (!ovrDs) {
