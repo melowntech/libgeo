@@ -67,7 +67,7 @@ Enu::Enu(const math::Point3 &origin, const SrsDefinition &srs)
     // TODO: check for WGS84 and do not set following
     spheroid = boost::in_place(geog.GetSemiMajor(), geog.GetSemiMinor());
     towgs84.resize(7);
-    geog.GetTOWGS84(towgs84.data(), towgs84.size());
+    geog.GetTOWGS84(towgs84.data(), int(towgs84.size()));
 }
 
 } // namespace geo

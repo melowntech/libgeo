@@ -137,7 +137,7 @@ SrsDefinition SrsDefinition::longlat() {
         "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs", Type::proj4 );
 }
 
-SrsDefinition SrsDefinition::utm(uint zone, bool isNorth) {
+SrsDefinition SrsDefinition::utm(unsigned int zone, bool isNorth) {
     
     std::ostringstream ostr;
     
@@ -153,9 +153,8 @@ SrsDefinition SrsDefinition::utm(uint zone, bool isNorth) {
 
 SrsDefinition SrsDefinition::utmFromLonglat(const math::Point2 & longlat ) {
     
-    return utm( 
-        ::floor( (longlat[0] + 180) / 6) + 1,
-        longlat[1] >= 0.0 ); 
+    return utm((unsigned int)(std::floor((longlat[0] + 180) / 6) + 1)
+               , longlat[1] >= 0.0);
 }
 
 

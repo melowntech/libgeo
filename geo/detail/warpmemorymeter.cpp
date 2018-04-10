@@ -41,7 +41,8 @@
 namespace geo { namespace detail {
 
 WarpMemoryMeter::WarpMemoryMeter( const GDALWarpOptions *optionsIn )
- : GDALWarpOperation(), measure_(0.0) {
+    : GDALWarpOperation(), measure_()
+{
  
     // initialize
     Initialize(optionsIn);

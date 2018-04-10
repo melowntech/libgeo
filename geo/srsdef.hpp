@@ -84,7 +84,7 @@ struct SrsDefinition {
 
 
     static SrsDefinition longlat();
-    static SrsDefinition utm(uint zone, bool isNorth = true );
+    static SrsDefinition utm(unsigned int zone, bool isNorth = true );
     static SrsDefinition utmFromLonglat(const math::Point2 & longlat );
 };
 
