@@ -1,29 +1,3 @@
-if(NOT GDAL_VERSION)
-  if(GDAL_CONFIG)
-    execute_process(COMMAND "${GDAL_CONFIG}" "--version"
-      RESULT_VARIABLE RESULT
-      OUTPUT_VARIABLE GDAL_VERSION
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-      )
-    if(NOT RESULT STREQUAL "0")
-      message(FATAL_ERROR "Cannot get gdal version from by running "
-        "\"${GDAL_CONFIG} --version\".")
-    endif()
-  else()
-    file(STRINGS "${GDAL_INCLUDE_DIR}/gdal_version.h"
-      _gdal_VERSION_HPP_CONTENTS REGEX
-      "# *define +GDAL_RELEASE_NAME +")
-    string(REGEX REPLACE "^.*\"(.+)\".*$" "\\1"
-      GDAL_VERSION "${_gdal_VERSION_HPP_CONTENTS}")
-    if(NOT GDAL_VERSION)
-      message(FATAL_ERROR "Cannot get gdal version from "
-        "\"${GDAL_INCLUDE_DIR}/gdal_version.h\"")
-    endif()
-  endif()
-  set(GDAL_VERSION "${GDAL_VERSION}" PARENT_SCOPE)
-  message(STATUS "geo: Using GDAL_VERSION: ${GDAL_VERSION}.")
-endif()
-
 # bump version here
 set(geo_VERSION 1.28)
 
@@ -61,6 +35,32 @@ define_module(LIBRARY geo=${geo_VERSION}
   Boost_FILESYSTEM PROJ GDAL GeographicLib ${geo_EXTRA_DEPENDS}
   DEFINITIONS ${geo_EXTRA_DEFINITIONS}
   )
+
+if(NOT GDAL_VERSION)
+  if(GDAL_CONFIG)
+    execute_process(COMMAND "${GDAL_CONFIG}" "--version"
+      RESULT_VARIABLE RESULT
+      OUTPUT_VARIABLE GDAL_VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+    if(NOT RESULT STREQUAL "0")
+      message(FATAL_ERROR "Cannot get gdal version from by running "
+        "\"${GDAL_CONFIG} --version\".")
+    endif()
+  else()
+    file(STRINGS "${GDAL_INCLUDE_DIR}/gdal_version.h"
+      _gdal_VERSION_HPP_CONTENTS REGEX
+      "# *define +GDAL_RELEASE_NAME +")
+    string(REGEX REPLACE "^.*\"(.+)\".*$" "\\1"
+      GDAL_VERSION "${_gdal_VERSION_HPP_CONTENTS}")
+    if(NOT GDAL_VERSION)
+      message(FATAL_ERROR "Cannot get gdal version from "
+        "\"${GDAL_INCLUDE_DIR}/gdal_version.h\"")
+    endif()
+  endif()
+  set(GDAL_VERSION "${GDAL_VERSION}" PARENT_SCOPE)
+  message(STATUS "geo: Using GDAL_VERSION: ${GDAL_VERSION}.")
+endif()
 
 set(geo_SOURCES
     srsdef.hpp srsdef.cpp
