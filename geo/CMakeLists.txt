@@ -21,7 +21,7 @@ if(NOT GDAL_VERSION)
     endif()
   endif()
   set(GDAL_VERSION "${GDAL_VERSION}" PARENT_SCOPE)
-  message(STATUS "Using GDAL_VERSION: ${GDAL_VERSION}.")
+  message(STATUS "geo: Using GDAL_VERSION: ${GDAL_VERSION}.")
 endif()
 
 # bump version here
