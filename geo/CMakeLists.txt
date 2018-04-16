@@ -1,3 +1,29 @@
+if(NOT GDAL_VERSION)
+  if(GDAL_CONFIG)
+    execute_process(COMMAND "${GDAL_CONFIG}" "--version"
+      RESULT_VARIABLE RESULT
+      OUTPUT_VARIABLE GDAL_VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+    if(NOT RESULT STREQUAL "0")
+      message(FATAL_ERROR "Cannot get gdal version from by running "
+        "\"${GDAL_CONFIG} --version\".")
+    endif()
+  else()
+    file(STRINGS "${GDAL_INCLUDE_DIR}/gdal_version.h"
+      _gdal_VERSION_HPP_CONTENTS REGEX
+      "# *define +GDAL_RELEASE_NAME +")
+    string(REGEX REPLACE "^.*\"(.+)\".*$" "\\1"
+      GDAL_VERSION "${_gdal_VERSION_HPP_CONTENTS}")
+    if(NOT GDAL_VERSION)
+      message(FATAL_ERROR "Cannot get gdal version from "
+        "\"${GDAL_INCLUDE_DIR}/gdal_version.h\"")
+    endif()
+  endif()
+  set(GDAL_VERSION "${GDAL_VERSION}" PARENT_SCOPE)
+  message(STATUS "Using GDAL_VERSION: ${GDAL_VERSION}.")
+endif()
+
 # bump version here
 set(geo_VERSION 1.28)
 
@@ -62,7 +88,17 @@ set(geo_SOURCES
     vectorformat.hpp vectorformat.cpp
 
     ${geo_OPENCV_SOURCES}
-)
+    )
+
+if(GDAL_VERSION VERSION_LESS 2.2.0)
+  list(APPEND geo_SOURCES
+    detail/ovrdataset.hpp
+    detail/ovrdataset.old.cpp)
+else()
+  list(APPEND geo_SOURCES
+    detail/ovrdataset.hpp
+    detail/ovrdataset.new.cpp)
+endif()
 
 # gdalwrapper.h contains __unused__ attribute in newer versions
 set_source_files_properties(geodataset.cpp PROPERTIES

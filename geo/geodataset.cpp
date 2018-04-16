@@ -55,6 +55,7 @@
 #include "./io.hpp"
 #include "./detail/warpmemorymeter.hpp"
 #include "./gdal.hpp"
+#include "./detail/ovrdataset.hpp"
 
 
 extern "C" {
@@ -989,14 +990,8 @@ std::unique_ptr<GDALDataset> useOverview(
     std::unique_ptr<GDALDataset> ovrDs;
     
     if (ovr >= 0) {
-       ovrDs = std::unique_ptr<GDALDataset>(
-           ::GDALCreateOverviewDataset
-           (src, ovr, false
-#if GDAL_VERSION_NUM < 2020000
-            // bOwnDS available only up to 2.1.x
-            , false
-#endif
-            ));
+       ovrDs = std::unique_ptr<GDALDataset>
+           (detail::createOverviewDataset(src, ovr));
     }
     
     if (!ovrDs) {
