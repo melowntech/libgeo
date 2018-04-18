@@ -113,11 +113,13 @@ private:
     ::OGRPolygon clip_;
 };
 
-inline bool checkLayerName(const char *layerName
-                           , const FeatureLayers::LoadOptions &loadOptions)
+inline bool
+checkLayerName(const char *layerName
+               , const boost::optional
+               <FeatureLayers::LoadOptions::LayerNames> &layers)
 {
-    if (!loadOptions.layers) { return true; }
-    for (const auto &ln : *loadOptions.layers) {
+    if (!layers) { return true; }
+    for (const auto &ln : *layers) {
         if (ln == layerName) { return true; }
     }
     return false;
@@ -184,10 +186,14 @@ void FeatureLayers::load(::GDALDataset &dataset
             << "Layer " << i << " [" << layerName << "] srs: \""
             << srs << "\".";
 
-        if (!checkLayerName(layerName, loadOptions)) {
+        if (!checkLayerName(layerName, loadOptions.layers)) {
             LOG(info1) << "Skipping disabled layer <" << layerName << ">";
             continue;
         }
+
+        // should we clip this layer?
+        const auto clipLayer
+            (clipper && checkLayerName(layerName, loadOptions.clipLayers));
 
         // initialize layer
         layers.emplace_back(layerName, srs);
@@ -223,7 +229,7 @@ void FeatureLayers::load(::GDALDataset &dataset
             if (trafo) { igeometry->transform(trafo.get()); }
 
             // clip geometry if asked to
-            if (clipper) {
+            if (clipLayer) {
                 igeometry = clipper->clip(igeometry);
 
                 if (!igeometry) {

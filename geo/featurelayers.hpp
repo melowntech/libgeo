@@ -215,9 +215,13 @@ public :
 
         /** Clips all geometries by given rectangles and output only features
          *  with valid geometries. Clip is performed after any coordinate system
-         *  stransformation.
+         *  transformation.
          */
         boost::optional<math::Extents2> clipExtents;
+
+        /** Only named layers will be clipped if set.
+         */
+        boost::optional<LayerNames> clipLayers;
 
         /** Only named layers will be loaded if set.
          */

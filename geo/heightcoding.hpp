@@ -98,13 +98,17 @@ struct Config {
      */
     bool outputVerticalAdjust;
 
-    /** List of layer names; none -> all layers present in input dataset
+    /** List of layer names; none -> all layers present in input dataset.
      */
     boost::optional<LayerNames> layers;
 
     /** Clipping extents (in workingSrs)
      */
     boost::optional<math::Extents2> clipWorkingExtents;
+
+    /** Apply clipping to given layers only; none -> clip all output layers.
+     */
+    boost::optional<LayerNames> clipLayers;
 
     /** Output format.
      */
