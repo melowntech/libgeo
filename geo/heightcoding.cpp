@@ -36,7 +36,7 @@ namespace geo { namespace heightcoding {
 
 Metadata heightCode(::GDALDataset &vectorDs
                     , const std::vector<const GeoDataset*> &rasterDs
-                   , std::ostream &os, const Config &config)
+                    , std::ostream &os, const Config &config)
 {
     Metadata metadata;
 
@@ -50,6 +50,7 @@ Metadata heightCode(::GDALDataset &vectorDs
         // we need to pass clip extents and working srs only if clipping
         lo.clipExtents = config.clipWorkingExtents;
         lo.destinationSrs = config.workingSrs;
+        lo.clipLayers = config.clipLayers;
     }
 
     lo.layers = config.layers;
