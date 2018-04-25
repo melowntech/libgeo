@@ -176,13 +176,15 @@ private:
 };
 
 namespace {
+
 static struct Initializer {
     Initializer() {
-        ::pj_acquire_lock();
-        ::pj_release_lock();
+        // initializes locks and default context
+        ::pj_get_default_ctx();
     }
 } initializer;
-}
+
+} // namespace
 
 std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr2Enu(const OGRSpatialReference &from, const OptName &fromName
