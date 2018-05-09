@@ -740,15 +740,21 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os
         math::Point3 origin, scale;
 
         ToLocal_(const boost::optional<math::Extents3> & extents
-                , const unsigned resolution):
-            origin(0,0,0), scale(1,1,1) {
+                , const unsigned resolution)
+            : origin(0,0,0), scale(1,1,1)
+        {
 
             if (extents) origin = extents->ll;
 
             math::Point3 dvect(extents->ur - extents->ll);
-            scale[0] = resolution / dvect[0];
-            scale[1] = resolution / dvect[1];
-            scale[2] = resolution / dvect[2];
+            for (int i = 0; i < 3; ++i) {
+                if (dvect[i]) {
+                    scale[i] = resolution / dvect[i];
+                } else {
+                    // force zero for empty range
+                    scale[i] = 0.0;
+                }
+            }
         }
 
         math::Point3i operator()( const math::Point3 & p ) const {
