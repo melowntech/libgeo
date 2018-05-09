@@ -114,6 +114,10 @@ struct Config {
      */
     VectorFormat format;
 
+    /** Per-format configuration. Content must match fotmat.
+     */
+    vectorformat::Config formatConfig;
+
     /** Heightcoding mode
      */
     Mode mode;

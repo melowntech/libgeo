@@ -199,11 +199,11 @@ void FeatureLayers::load(::GDALDataset &dataset
         layers.emplace_back(layerName, srs);
 
         auto & layer(layers.back());
-        uint unsupported(0);
+        unsigned unsupported(0);
 
         // cycle through features
         ilayer->ResetReading();
-        uint id = 0;
+        unsigned id = 0;
 
         while (auto ifeature = ilayer->GetNextFeature()) {
 
@@ -617,13 +617,13 @@ void FeatureLayers::convert3DPolygons() {
     // for each layer
     for (auto &layer: layers) {
 
-        uint residual(layer.features.multipolygons.size());
+        unsigned residual(layer.features.multipolygons.size());
 
         // iterate through polygons
         auto cur = layer.features.multipolygons.begin();
         auto last = layer.features.multipolygons.end() - 1;
 
-        for (uint i = 0; i < layer.features.multipolygons.size();i++) {
+        for (unsigned i = 0; i < layer.features.multipolygons.size();i++) {
 
             auto & multipolygon(*cur);
 
@@ -731,15 +731,16 @@ void FeatureLayers::dumpLegacyGeodata(std::ostream & os
     os << writer.write(root);
 }
 
-void FeatureLayers::dumpVTSGeodata(std::ostream & os, const uint resolution) {
-
+void FeatureLayers::dumpVTSGeodata(std::ostream & os
+                                   , const unsigned resolution)
+{
     // transformation to local coordinates
     struct ToLocal_ {
 
         math::Point3 origin, scale;
 
         ToLocal_(const boost::optional<math::Extents3> & extents
-                , const uint resolution):
+                , const unsigned resolution):
             origin(0,0,0), scale(1,1,1) {
 
             if (extents) origin = extents->ll;
