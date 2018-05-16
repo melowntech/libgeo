@@ -78,6 +78,14 @@ public:
         : sf_(boost::in_place(factors)), inverse_(inverse)
     {}
 
+    /** There is not vertical adjustment in ENU system. Added for convenience.
+     */
+    VerticalAdjuster(const Enu&) : inverse_() {}
+
+    /** There is not vertical adjustment in ENU system. Added for convenience.
+     */
+    VerticalAdjuster(bool, const Enu&, bool = false) : inverse_() {}
+
     /** Apply/unapply vertical adjustment.
      *
      *  Apply: Z coordinate is multiplied by scaling factor
