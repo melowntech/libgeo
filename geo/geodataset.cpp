@@ -48,6 +48,7 @@
 #include "geometry/polygon.hpp"
 
 #include "imgproc/rastermask/transform.hpp"
+#include "imgproc/fillrect.hpp"
 
 #include "./geodataset.hpp"
 #include "./coordinates.hpp"
@@ -2140,7 +2141,7 @@ void GeoDataset::flush()
             cv::Point2i start(xstart, ystart);
             cv::Point2i end((xstart + xsize - 1), (ystart + ysize - 1));
 
-            cv::rectangle(*data_, start, end, undef, CV_FILLED, 4);
+            imgproc::fillRectangle(*data_, start, end, undef);
         }, RasterMask::Filter::black); // BLACK PIXELS!
     }
 

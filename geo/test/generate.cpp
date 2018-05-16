@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <iostream>
 #include <stdexcept>
 
@@ -31,6 +32,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include "dbglog/dbglog.hpp"
+#include "imgproc/fillrect.hpp"
 #include "geo/geodataset.hpp"
 
 const geo::SrsDefinition utm33
@@ -90,15 +92,15 @@ BOOST_AUTO_TEST_CASE(geo_generate_dataset)
 
     for (int j : { 0, 1, 2 }) {
         for (int i : { 0, 1, 2 }) {
-            cv::rectangle(ds.data()
-                          , ds.geo2raster<cv::Point>
-                          (extents.ll(0) + i * bsize.width
-                           , extents.ll(1) + j * bsize.height)
-                          , ds.geo2raster<cv::Point>
-                          (extents.ll(0) + (i + 1) * bsize.width
-                           , extents.ll(1) + (j + 1) *bsize.height)
-                          , color[(i + 3 * j)]
-                          , CV_FILLED, 4);
+            imgproc::fillRectangle
+                (ds.data()
+                 , ds.geo2raster<cv::Point>
+                 (extents.ll(0) + i * bsize.width
+                  , extents.ll(1) + j * bsize.height)
+                 , ds.geo2raster<cv::Point>
+                 (extents.ll(0) + (i + 1) * bsize.width
+                  , extents.ll(1) + (j + 1) *bsize.height)
+                 , color[(i + 3 * j)]);
         }
     }
 

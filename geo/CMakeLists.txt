@@ -1,5 +1,5 @@
 # bump version here
-set(geo_VERSION 1.28)
+set(geo_VERSION 1.29)
 
 set(geo_EXTRA_DEPENDS)
 set(geo_EXTRA_DEFINITIONS)
@@ -29,7 +29,7 @@ endif()
 define_module(LIBRARY geo=${geo_VERSION}
   DEPENDS
   BuildSystem>=1.0
-  jsoncpp>=2.1 geometry>=1.7 imgproc>=1.17 math>=1.2
+  jsoncpp>=2.1 geometry>=1.7 imgproc>=1.26 math>=1.2
   utility>=1.11 dbglog>=1.4
 
   Boost_FILESYSTEM PROJ GDAL GeographicLib ${geo_EXTRA_DEPENDS}
