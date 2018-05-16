@@ -117,12 +117,18 @@ Metadata heightCode(::GDALDataset &vectorDs
 
     // output
     switch (config.format) {
-    case VectorFormat::geodataJson: {
-
+    case VectorFormat::geodataJson:
         os.precision(15);
-        featureLayers.dumpVTSGeodata(os);
+        if (const auto *c = boost::get<vectorformat::GeodataConfig>
+            (&config.formatConfig))
+        {
+            featureLayers.dumpVTSGeodata(os, c->resolution);
+        } else {
+            LOGTHROW(err1, std::runtime_error)
+                << "Missing configuration for  vector format <"
+                << config.format << ">.";
+        }
         break;
-    }
 
     default:
         // unsupported

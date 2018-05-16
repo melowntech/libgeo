@@ -120,6 +120,13 @@ public :
         return math::Point3_<T1>( col, row, gp[2] );
     }
 
+    static GeoTransform identity() {
+        GeoTransform gt;
+        gt[1] = gt[5] = 1.0;
+        gt[0] = gt[2] = gt[3] = gt[4] = gt[2] = 0.0;
+        return gt;
+    }
+
 private :
     math::Point2 applyGeoTransform( double col, double row ) const;
     void applyInvGeoTransform( 
