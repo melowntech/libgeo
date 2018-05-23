@@ -110,7 +110,7 @@ public :
         struct Surface {
 
             struct Patch : math::Point3i {};
-            typedef std::vector<uint> Boundary;
+            typedef std::vector<unsigned> Boundary;
 
             std::string id;
             Properties properties;
@@ -334,7 +334,7 @@ public :
      *
      * See VTS docs for format spec.
      */
-    void dumpVTSGeodata(std::ostream & os, const uint resolution = 4096);
+    void dumpVTSGeodata(std::ostream & os, const unsigned resolution = 4096);
 
     std::vector<Layer> layers;
 

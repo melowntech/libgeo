@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2017 Melown Technologies SE
- *
+*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -26,6 +26,8 @@
 #ifndef geo_vectorformat_hpp_included_
 #define geo_vectorformat_hpp_included_
 
+#include <boost/variant.hpp>
+
 #include "utility/enum-io.hpp"
 
 namespace geo {
@@ -38,6 +40,28 @@ UTILITY_GENERATE_ENUM(VectorFormat,
  *  Always returns a valid string
  */
 const char* contentType(VectorFormat format);
+
+namespace vectorformat {
+
+struct GeodataConfig {
+    // "resolution" (quantization of all 3 coordinartes of geodata bounding box)
+    unsigned int resolution;
+
+    GeodataConfig()
+        : resolution(4096)
+    {}
+};
+
+typedef boost::variant<GeodataConfig> Config;
+
+inline GeodataConfig& createGeodataConfig(Config &config)
+{
+    return boost::get<GeodataConfig>(config = GeodataConfig());
+}
+
+// add more helpers when needed
+
+} // namespace vectorformat
 
 } // namespace geo
 
