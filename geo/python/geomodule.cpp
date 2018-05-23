@@ -34,6 +34,7 @@
 #include <boost/python.hpp>
 #include <boost/python/scope.hpp>
 #include <boost/python/extract.hpp>
+#include <boost/python/handle.hpp>
 
 #include <stdint.h>
 
@@ -42,11 +43,13 @@
 #include "pysupport/package.hpp"
 #include "pysupport/class.hpp"
 #include "pysupport/enum.hpp"
+#include "pysupport/converters.hpp"
 
 #include "../srsdef.hpp"
 #include "../enu.hpp"
 
 namespace bp = boost::python;
+namespace bpc = boost::python::converter;
 
 namespace geo { namespace py {
 
@@ -61,6 +64,13 @@ bp::object Enu_repr(const geo::Enu &enu)
 {
     std::ostringstream os;
     os << enu;
+    return bp::str(os.str());
+}
+
+bp::object Enu_Spheroid_repr(const geo::Enu::Spheroid &s)
+{
+    std::ostringstream os;
+    os << std::fixed << "Spheroid(" << s.a << ", " << s.b << ")";
     return bp::str(os.str());
 }
 
@@ -114,7 +124,7 @@ BOOST_PYTHON_MODULE(melown_geo)
 
     // camera class
     auto SrsDefinition = class_<geo::SrsDefinition>
-        ("SrsDefinition", init<geo::SrsDefinition>())
+        ("SrsDefinition", init<const geo::SrsDefinition&>())
         .def(init<const std::string&>())
         .def(init<const std::string&, geo::SrsDefinition::Type>())
         .def(init<int>())
@@ -153,21 +163,24 @@ BOOST_PYTHON_MODULE(melown_geo)
         .def_readwrite("lat0", &geo::Enu::lat0)
         .def_readwrite("lon0", &geo::Enu::lon0)
         .def_readwrite("h0", &geo::Enu::h0)
-        .def_readwrite("spheroid", &geo::Enu::spheroid)
         .def_readwrite("towgs84", &geo::Enu::towgs84)
         ;
+    pysupport::def_readwrite(Enu, "spheroid", &geo::Enu::spheroid);
 
     {
         bp::scope scope(Enu);
         auto Spheroid = class_<geo::Enu::Spheroid>
-            ("Spheroid", init<geo::Enu::Spheroid>())
+            ("Spheroid", init<const geo::Enu::Spheroid&>())
             .def(init<>())
             .def(init<double>())
             .def(init<double, double>())
 
+            .def("__repr__", &py::Enu_Spheroid_repr)
             .def_readwrite("a", &geo::Enu::Spheroid::a)
             .def_readwrite("b", &geo::Enu::Spheroid::b)
             ;
+
+        PYSUPPORT_OPTIONAL(geo::Enu::Spheroid);
     }
 
     try {
