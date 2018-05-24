@@ -115,6 +115,37 @@ bp::object SrsDefinition_reference(const geo::SrsDefinition &srs)
     return self;
 }
 
+namespace {
+
+// unpack wrapped Swig object
+struct SwigSpatialReference {
+    PyObject_HEAD
+    OGRSpatialReference *reference;
+};
+
+} // namespace
+
+geo::SrsDefinition SrsDefinition_fromReference(const bp::object &ref)
+{
+    if (!osr) {
+        LOGTHROW(err1, std::runtime_error)
+            << "osgeo.osr module not found";
+    }
+
+    bp::object SpatialReference(osr.attr("SpatialReference"));
+    if (!::PyObject_IsInstance(ref.ptr(), SpatialReference.ptr())) {
+        ::PyErr_SetString
+            (::PyExc_TypeError
+             , "SrsDefinition.fromReference expects instance of "
+             "osgeo.osr.SpatialReference.");
+    }
+
+    // extract
+    bp::object this_ = ref.attr("this");
+    auto swig(reinterpret_cast<SwigSpatialReference*>(this_.ptr()));
+    return geo::SrsDefinition::fromReference(*swig->reference);
+}
+
 } } // namespace geo::py
 
 BOOST_PYTHON_MODULE(melown_geo)
@@ -145,6 +176,8 @@ BOOST_PYTHON_MODULE(melown_geo)
         .staticmethod("fromString")
         .def("fromEnu", &geo::SrsDefinition::fromEnu)
         .staticmethod("fromEnu")
+        .def("fromReference", &py::SrsDefinition_fromReference)
+        .staticmethod("fromReference")
         ;
 
     {
