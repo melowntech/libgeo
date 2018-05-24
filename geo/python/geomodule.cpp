@@ -125,7 +125,9 @@ struct SwigSpatialReference {
 
 } // namespace
 
-geo::SrsDefinition SrsDefinition_fromReference(const bp::object &ref)
+geo::SrsDefinition
+SrsDefinition_fromReference_type(const bp::object &ref
+                                 , geo::SrsDefinition::Type type)
 {
     if (!osr) {
         LOGTHROW(err1, std::runtime_error)
@@ -138,12 +140,19 @@ geo::SrsDefinition SrsDefinition_fromReference(const bp::object &ref)
             (::PyExc_TypeError
              , "SrsDefinition.fromReference expects instance of "
              "osgeo.osr.SpatialReference.");
+        bp::throw_error_already_set();
     }
 
     // extract
-    bp::object this_ = ref.attr("this");
+    bp::object this_(ref.attr("this"));
     auto swig(reinterpret_cast<SwigSpatialReference*>(this_.ptr()));
-    return geo::SrsDefinition::fromReference(*swig->reference);
+    return geo::SrsDefinition::fromReference(*swig->reference, type);
+}
+
+geo::SrsDefinition SrsDefinition_fromReference(const bp::object &ref)
+{
+    return SrsDefinition_fromReference_type
+        (ref, geo::SrsDefinition::Type::proj4);
 }
 
 } } // namespace geo::py
@@ -177,6 +186,7 @@ BOOST_PYTHON_MODULE(melown_geo)
         .def("fromEnu", &geo::SrsDefinition::fromEnu)
         .staticmethod("fromEnu")
         .def("fromReference", &py::SrsDefinition_fromReference)
+        .def("fromReference", &py::SrsDefinition_fromReference_type)
         .staticmethod("fromReference")
         ;
 
