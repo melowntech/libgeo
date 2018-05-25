@@ -94,7 +94,8 @@ bp::object SrsDefinition_reference(const geo::SrsDefinition &srs)
         break;
 
     case geo::SrsDefinition::Type::epsg:
-        status = bp::extract<int>(self.attr("SetFromUserInput")(srs.srs));
+        status = bp::extract<int>
+            (self.attr("SetFromUserInput")("EPSG:" + srs.srs));
         break;
 
     case geo::SrsDefinition::Type::enu:
@@ -172,8 +173,8 @@ BOOST_PYTHON_MODULE(melown_geo)
         .def("__repr__", &py::SrsDefinition_repr)
 
         .def("empty", &geo::SrsDefinition::empty)
-        .def("as", &geo::SrsDefinition::as)
-        .def("is", &geo::SrsDefinition::is)
+        .def("asType", &geo::SrsDefinition::as)
+        .def("isType", &geo::SrsDefinition::is)
         .def("reference", &py::SrsDefinition_reference)
 
         .def_readwrite("srs", &geo::SrsDefinition::srs)
