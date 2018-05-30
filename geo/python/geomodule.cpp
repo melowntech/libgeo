@@ -53,7 +53,7 @@ namespace bpc = boost::python::converter;
 
 namespace geo { namespace py {
 
-bp::object osr;
+bp::object osrModule;
 
 bp::object SrsDefinition_repr(const geo::SrsDefinition &srs)
 {
@@ -76,12 +76,12 @@ bp::object Enu_Spheroid_repr(const geo::Enu::Spheroid &s)
 
 bp::object SrsDefinition_reference(const geo::SrsDefinition &srs)
 {
-    if (!osr) {
+    if (!osrModule) {
         LOGTHROW(err1, std::runtime_error)
             << "osgeo.osr module not found";
     }
 
-    auto self(osr.attr("SpatialReference")());
+    auto self(osrModule.attr("SpatialReference")());
     int status(0);
 
     switch (srs.type) {
@@ -130,12 +130,12 @@ geo::SrsDefinition
 SrsDefinition_fromReference_type(const bp::object &ref
                                  , geo::SrsDefinition::Type type)
 {
-    if (!osr) {
+    if (!osrModule) {
         LOGTHROW(err1, std::runtime_error)
             << "osgeo.osr module not found";
     }
 
-    bp::object SpatialReference(osr.attr("SpatialReference"));
+    bp::object SpatialReference(osrModule.attr("SpatialReference"));
     if (!::PyObject_IsInstance(ref.ptr(), SpatialReference.ptr())) {
         ::PyErr_SetString
             (::PyExc_TypeError
@@ -228,7 +228,7 @@ BOOST_PYTHON_MODULE(melown_geo)
     }
 
     try {
-        py::osr = import("osgeo.osr");
+        py::osrModule = import("osgeo.osr");
     } catch (error_already_set) {}
 }
 
