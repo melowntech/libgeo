@@ -101,10 +101,12 @@ bp::object SrsDefinition_reference(const geo::SrsDefinition &srs)
     case geo::SrsDefinition::Type::enu:
         LOGTHROW(err1, std::runtime_error)
             << "ENU SRS is not supported by OGR library.";
+        break;
 
     default:
         LOGTHROW(err1, std::runtime_error)
             << "Unsupported SRS type <" << srs.type << ">.";
+        break;
     }
 
     if (status != OGRERR_NONE) {
