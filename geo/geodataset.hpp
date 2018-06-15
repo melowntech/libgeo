@@ -274,7 +274,7 @@ public:
      *  \param noDataValue special value for no data
      */
     static GeoDataset create(const boost::filesystem::path &path
-                             , const SrsDefinition &srs
+                             , const boost::optional<SrsDefinition> &srs
                              , const GeoTransform & geoTransform
                              , const math::Size2 &rasterSize
                              , const Format &format
@@ -294,6 +294,20 @@ public:
     static GeoDataset create(const boost::filesystem::path &path
                              , const SrsDefinition &srs
                              , const math::Extents2 &extents
+                             , const math::Size2 &rasterSize
+                             , const Format &format
+                             , const NodataValue &noDataValue = boost::none
+                             , const Options &options = Options());
+
+    /** Creates new non-georeferenced dataset at given path
+     *
+     *  \param path path to created file
+     *  \param rasterSize size of raster in pixels
+     *  \param format format of data (channel type, number of channels
+     *                type of data).
+     *  \param noDataValue special value for no data
+     */
+    static GeoDataset create(const boost::filesystem::path &path
                              , const math::Size2 &rasterSize
                              , const Format &format
                              , const NodataValue &noDataValue = boost::none

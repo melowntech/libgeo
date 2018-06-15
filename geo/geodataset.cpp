@@ -243,7 +243,7 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
 
     // srs
     srsWkt_ = std::string( dset_->GetProjectionRef() );
-    srsProj4_ = wktToProj4( srsWkt_ );
+    if (!srsWkt_.empty()) { srsProj4_ = wktToProj4( srsWkt_ ); }
 
     // noDataValue
     if ( ( numChannels_ = dset_->GetRasterCount() ) > 0 ) {
@@ -552,7 +552,7 @@ GeoDataset GeoDataset::deriveInMemory(
 }
 
 GeoDataset GeoDataset::create(const boost::filesystem::path &path
-                             , const SrsDefinition &srs
+                             , const boost::optional<SrsDefinition> &srs
                              , const GeoTransform & geoTransform
                              , const math::Size2 &rasterSize
                              , const Format &format
@@ -635,7 +635,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     ut::expect(ds.get(), "Failed to create new dataset.");
 
     // set projection
-    if (ds->SetProjection(srs.as(SrsDefinition::Type::wkt).c_str())
+    if (srs && ds->SetProjection(srs->as(SrsDefinition::Type::wkt).c_str())
         != CE_None)
     {
         LOGTHROW(err1, std::runtime_error)
@@ -664,9 +664,9 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
         }
     }
 
-    if (!wfExt.empty()) {
+    if (srs && !wfExt.empty()) {
         // write .prj file
-        geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), srs);
+        geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), *srs);
 
         // write world file
         geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
@@ -691,6 +691,16 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     
     return create( path, srs, geoTrafo, rasterSize, format, noDataValue, 
                    options );
+}
+
+GeoDataset GeoDataset::create(const boost::filesystem::path &path
+                              , const math::Size2 &rasterSize
+                              , const Format &format
+                              , const NodataValue &noDataValue
+                             , const Options &options)
+{
+    return create(path, boost::none, GeoTransform::identity()
+                  , rasterSize, format, noDataValue, options);
 }
 
 namespace {
