@@ -1529,6 +1529,45 @@ void GeoDataset::loadData() const {
     // all done
 }
 
+cv::Mat GeoDataset::makeData(int depth) const
+{
+    return cv::Mat(size_.height, size_.width
+                   , CV_MAKETYPE(depth, numChannels_));
+}
+
+cv::Mat GeoDataset::readData(int depth) const
+{
+    // sanity
+    ut::expect( dset_->GetRasterCount() > 0 );
+
+    auto data(makeData(depth));
+
+    int valueSize(data.elemSize() / data.channels());
+
+    auto gdalDataType(cv2gdal(depth));
+
+    for (int i = 1; i <= numChannels_; ++i) {
+        int bandMap( i );
+
+        auto err = dset_->RasterIO
+            (GF_Read, // GDALRWFlag  eRWFlag,
+             0, 0, // int nXOff, int nYOff
+             size_.width, size_.height, // int nXSize, int nYSize,
+             (void *) (data.data
+                       + (channelMapping_[i]  * valueSize)),  // void * pData,
+             size_.width, size_.height, // int nBufXSize, int nBufYSize,
+             gdalDataType, // GDALDataType  eBufType,
+             1, //  int nBandCount,
+             & bandMap,  // int * panBandMap,
+             data.elemSize(), // int nPixelSpace,
+             size_.width * data.elemSize(), 0); // int nLineSpace
+
+        ut::expect( err == CE_None, "Reading of raster data failed.");
+    }
+
+    return data;
+}
+
 cv::Mat GeoDataset::fetchMask(bool optimized) const
 {
     // sanity

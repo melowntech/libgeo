@@ -581,6 +581,17 @@ public:
      */
     const Mask& cmask(bool justMask = false) const;
 
+
+    /** Raw-ish interface: loads matrix in provided data CV datatype
+     * (i.e. depth), e.g. CV_8U
+     */
+    cv::Mat readData(int depth) const;
+
+    /** Creates matrix with the same propetries as would be returned by calling
+     *  readData(depth). Used internally by readData.
+     */
+    cv::Mat makeData(int depth) const;
+
     /** Move ctor. Allows initialization from return value.
      */
     GeoDataset(GeoDataset &&other) noexcept
