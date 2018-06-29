@@ -47,6 +47,7 @@
 
 #include "../srsdef.hpp"
 #include "../enu.hpp"
+#include "../coordinates.hpp"
 
 namespace bp = boost::python;
 namespace bpc = boost::python::converter;
@@ -165,7 +166,7 @@ BOOST_PYTHON_MODULE(melown_geo)
     using namespace bp;
     namespace py = geo::py;
 
-    // camera class
+    // srsdef.hpp
     auto SrsDefinition = class_<geo::SrsDefinition>
         ("SrsDefinition", init<const geo::SrsDefinition&>())
         .def(init<const std::string&>())
@@ -200,6 +201,7 @@ BOOST_PYTHON_MODULE(melown_geo)
             ("Type", "SRS type.");
     }
 
+    // enu.hpp
     auto Enu = class_<geo::Enu>("Enu", init<geo::Enu>())
         .def(init<>())
         .def(init<const math::Point3&>())
@@ -228,6 +230,13 @@ BOOST_PYTHON_MODULE(melown_geo)
 
         PYSUPPORT_OPTIONAL(geo::Enu::Spheroid);
     }
+
+    // coordinates.hpp
+    def("geo2normalized", &geo::geo2normalized);
+    def("normalized2geo", &geo::normalized2geo);
+    def("local2normalized", &geo::local2normalized);
+    def("local2geo", &geo::local2geo);
+    def("geo2local", &geo::geo2local);
 
     try {
         py::osrModule = import("osgeo.osr");

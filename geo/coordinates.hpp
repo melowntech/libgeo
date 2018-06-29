@@ -31,9 +31,6 @@
 
 namespace geo {
 
-namespace ublas = boost::numeric::ublas;
-
-
 inline math::Matrix4 geo2normalized(const math::Extents2& extents)
 {
     const math::Point2 midpoint(0.5 * (extents.ur + extents.ll));
@@ -42,7 +39,7 @@ inline math::Matrix4 geo2normalized(const math::Extents2& extents)
         2.0 / (extents.ur[0] - extents.ll[0]),
         2.0 / (extents.ur[1] - extents.ll[1]));
 
-    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
     trafo(0, 0) = trafo(1, 1) = trafo(2, 2) = scale;
     trafo(0, 3) = -midpoint[0] * scale;
     trafo(1, 3) = -midpoint[1] * scale;
@@ -58,7 +55,7 @@ inline math::Matrix4 normalized2geo(const math::Extents2& extents)
         (extents.ur[0] - extents.ll[0]) / 2.0,
         (extents.ur[1] - extents.ll[1]) / 2.0);
 
-    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
     trafo(0, 0) = trafo(1, 1) = trafo(2, 2) = scale;
     trafo(0, 3) = midpoint[0];
     trafo(1, 3) = midpoint[1];
@@ -68,7 +65,7 @@ inline math::Matrix4 normalized2geo(const math::Extents2& extents)
 
 inline math::Matrix4 local2normalized(const math::Extents2& extents)
 {
-    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
 
     double scale = std::min(
         2.0 / (extents.ur[0] - extents.ll[0]),
@@ -81,7 +78,7 @@ inline math::Matrix4 local2normalized(const math::Extents2& extents)
 
 inline math::Matrix4 geo2local(const math::Extents2& extents)
 {
-    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
 
     const math::Point2 midpoint(0.5 * (extents.ur + extents.ll));
     trafo(0, 3) = -midpoint[0];
@@ -92,7 +89,7 @@ inline math::Matrix4 geo2local(const math::Extents2& extents)
 
 inline math::Matrix4 local2geo(const math::Extents2& extents)
 {
-    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
 
     const math::Point2 midpoint(0.5 * (extents.ur + extents.ll));
     trafo(0, 3) = midpoint[0];
@@ -101,6 +98,6 @@ inline math::Matrix4 local2geo(const math::Extents2& extents)
     return trafo;
 }
 
-} // namespace vadstena
+} // namespace geo
 
 #endif // geo_geo_hpp_included_
