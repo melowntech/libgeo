@@ -1030,12 +1030,15 @@ std::unique_ptr<GDALDataset> useOverview(
     return ovrDs;
 }
 
-std::unique_ptr<GDALDataset> overviewByScale(GDALDataset *src, 
-    GDALWarpOptions *wo, int & ovr, GeoDataset::WarpResultInfo &wri) {
-
+std::unique_ptr<GDALDataset>
+overviewByScale(GDALDataset *src,
+                GDALWarpOptions *wo, int & ovr
+                , GeoDataset::WarpResultInfo &wri
+                , const GeoDataset::WarpOptions &options)
+{
     auto band(src->GetRasterBand(1));
     auto count(band->GetOverviewCount());
-    
+
     // true scale is presumed to be defined
     LOG(info1)
         ( "Overview selection based on dst/src scale of %.5f.", wri.truescale );
@@ -1049,6 +1052,14 @@ std::unique_ptr<GDALDataset> overviewByScale(GDALDataset *src,
         if (nextScale < wri.truescale) {
             break;
         }
+    }
+
+    // apply bias
+    ovr += options.overviewBias;
+    if (ovr >= count) {
+        ovr = count;
+    } if (ovr < -1) {
+        ovr = -1;
     }
 
     // all done
@@ -1140,7 +1151,7 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
     int ovr(-1);
 
     // relax to overview due to scale
-    ovrDs = overviewByScale(src, wo, ovr, wri);
+    ovrDs = overviewByScale(src, wo, ovr, wri, options);
 
     LOG(info1) << "Most efficient lossless source is " << (( ovr > -1 ) ? 
         boost::format( "overview #%d." ) % ovr : boost::format("original."));

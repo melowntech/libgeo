@@ -365,9 +365,10 @@ public:
      */
     struct WarpOptions : Options {
     
-        WarpOptions(): 
-            warpMemoryLimit(0x10000000), // 256 MB
-            safeChunks(true)
+        WarpOptions()
+            : overviewBias(0)
+            , warpMemoryLimit(0x10000000) // 256 MB
+            , safeChunks(true)
             , noInit(false)
         {}
 
@@ -391,9 +392,13 @@ public:
          */
         OptionalOverview overview;
 
-        /** Warp memory limit in bytes */       
+        /** Added to selected overview to bias toward finer or coarser data.
+         */
+        int overviewBias;
+
+        /** Warp memory limit in bytes */
         int warpMemoryLimit;
-        
+
         /** Use overviews agressively to restrict memory usage (and prevent overflows).
           * There is some performance penalty when this option is set, resulting from  
           * the chunking code being run (at least) twice. */
