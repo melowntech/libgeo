@@ -840,6 +840,7 @@ public:
         std::size_t overviews;
         ::GDALDataType dataType;
         int maskType;
+        GeoTransform geoTransform;
 
         Descriptor()
             : bands(), overviews(), dataType(), maskType()

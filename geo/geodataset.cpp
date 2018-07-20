@@ -2772,6 +2772,7 @@ GeoDataset::Descriptor GeoDataset::descriptor() const
     d.extents = extents();
     d.size = size();
     d.srs = srs();
+    d.geoTransform = geoTransform();
 
     d.bands = numChannels_;
     if (d.bands) {
