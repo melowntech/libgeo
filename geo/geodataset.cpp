@@ -1542,16 +1542,30 @@ void GeoDataset::loadData() const {
 
 cv::Mat GeoDataset::makeData(int depth) const
 {
-    return cv::Mat(size_.height, size_.width
-                   , CV_MAKETYPE(depth, numChannels_));
+    cv::Mat data;
+    makeData(depth, data);
+    return data;
+}
+
+void GeoDataset::makeData(int depth, cv::Mat &data) const
+{
+    data.create(size_.height, size_.width
+                , CV_MAKETYPE(depth, numChannels_));
 }
 
 cv::Mat GeoDataset::readData(int depth) const
 {
-    // sanity
-    ut::expect( dset_->GetRasterCount() > 0 );
+    cv::Mat data;
+    readDataInto(depth, data);
+    return data;
+}
 
-    auto data(makeData(depth));
+void GeoDataset::readDataInto(int depth, cv::Mat &data) const
+{
+    // sanity
+    ut::expect(dset_->GetRasterCount() > 0);
+
+    makeData(depth, data);
 
     int valueSize(data.elemSize() / data.channels());
 
@@ -1571,12 +1585,10 @@ cv::Mat GeoDataset::readData(int depth) const
              1, //  int nBandCount,
              & bandMap,  // int * panBandMap,
              data.elemSize(), // int nPixelSpace,
-             size_.width * data.elemSize(), 0); // int nLineSpace
+             data.step, 0); // int nLineSpace
 
         ut::expect( err == CE_None, "Reading of raster data failed.");
     }
-
-    return data;
 }
 
 cv::Mat GeoDataset::fetchMask(bool optimized) const
@@ -1593,6 +1605,22 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
         return {};
     }
 
+    // load using in-place function
+    cv::Mat raster;
+    fetchMask(raster);
+
+    // done
+    return raster;
+}
+
+void GeoDataset::fetchMask(cv::Mat &raster) const
+{
+    // sanity
+    ut::expect( dset_->GetRasterCount() > 0 );
+
+    // get mask band
+    auto band(dset_->GetRasterBand(1));
+
     // some invalid pixels
     auto maskBand(band->GetMaskBand());
     auto gdalDataType = maskBand->GetRasterDataType();
@@ -1600,7 +1628,7 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
     ut::expect((cvDataType == CV_8UC1)
                , "Expected band mask to be of byte type.");
 
-    cv::Mat raster(size_.height, size_.width, cvDataType);
+    raster.create(size_.height, size_.width, cvDataType);
 
     auto err = maskBand->RasterIO
         (GF_Read // GDALRWFlag  eRWFlag,
@@ -1610,12 +1638,9 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
          , size_.width, size_.height // int nBufXSize, int nBufYSize,
          , gdalDataType // GDALDataType  eBufType,
          , raster.elemSize() // int nPixelSpace,
-         , size_.width * raster.elemSize(), 0); // int nLineSpace
+         , raster.step, 0); // int nLineSpace
 
     ut::expect((err == CE_None), "Reading of mask band data failed.");
-
-    // done
-    return raster;
 }
 
 void GeoDataset::loadMask() const {

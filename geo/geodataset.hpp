@@ -592,10 +592,20 @@ public:
      */
     cv::Mat readData(int depth) const;
 
+    /** Raw-ish interface: loads matrix in provided data CV datatype
+     * (i.e. depth), e.g. CV_8U.
+     */
+    void readDataInto(int depth, cv::Mat &data) const;
+
     /** Creates matrix with the same propetries as would be returned by calling
      *  readData(depth). Used internally by readData.
      */
     cv::Mat makeData(int depth) const;
+
+    /** Creates matrix with the same propetries as would be returned by calling
+     *  readData(depth). Used internally by readData.
+     */
+    void makeData(int depth, cv::Mat &data) const;
 
     /** Move ctor. Allows initialization from return value.
      */
@@ -815,6 +825,8 @@ public:
      *
      */
     cv::Mat fetchMask(bool optimized = false) const;
+
+    void fetchMask(cv::Mat &raster) const;
 
     Format getFormat() const;
 
