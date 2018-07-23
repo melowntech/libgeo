@@ -1553,34 +1553,39 @@ void GeoDataset::makeData(int depth, cv::Mat &data) const
                 , CV_MAKETYPE(depth, numChannels_));
 }
 
-cv::Mat GeoDataset::readData(int depth) const
+void GeoDataset::makeData(int depth, cv::Mat &data, const cv::Rect &src) const
 {
-    cv::Mat data;
-    readDataInto(depth, data);
-    return data;
+    data.create(src.height, src.width
+                , CV_MAKETYPE(depth, numChannels_));
 }
 
-void GeoDataset::readDataInto(int depth, cv::Mat &data) const
+namespace {
+
+void readDataIntoImpl(int depth, cv::Mat &data, const cv::Rect &src
+                      , int numChannels
+                      , const std::vector<int> channelMapping
+                      , const std::unique_ptr<GDALDataset> &dset)
 {
     // sanity
-    ut::expect(dset_->GetRasterCount() > 0);
+    ut::expect(dset->GetRasterCount() > 0);
 
-    makeData(depth, data);
+    data.create(src.height, src.width
+                , CV_MAKETYPE(depth, numChannels));
 
-    int valueSize(data.elemSize() / data.channels());
+    const int valueSize(data.elemSize() / data.channels());
 
     auto gdalDataType(cv2gdal(depth));
 
-    for (int i = 1; i <= numChannels_; ++i) {
+    for (int i = 1; i <= numChannels; ++i) {
         int bandMap( i );
 
-        auto err = dset_->RasterIO
+        auto err = dset->RasterIO
             (GF_Read, // GDALRWFlag  eRWFlag,
-             0, 0, // int nXOff, int nYOff
-             size_.width, size_.height, // int nXSize, int nYSize,
-             (void *) (data.data
-                       + (channelMapping_[i]  * valueSize)),  // void * pData,
-             size_.width, size_.height, // int nBufXSize, int nBufYSize,
+             src.x, src.y, // int nXOff, int nYOff
+             src.width, src.height, // int nXSize, int nYSize,
+             static_cast<void*>(data.data + (channelMapping[i]  * valueSize)),
+             // void * pData,
+             src.width, src.height, // int nBufXSize, int nBufYSize,
              gdalDataType, // GDALDataType  eBufType,
              1, //  int nBandCount,
              & bandMap,  // int * panBandMap,
@@ -1589,6 +1594,59 @@ void GeoDataset::readDataInto(int depth, cv::Mat &data) const
 
         ut::expect( err == CE_None, "Reading of raster data failed.");
     }
+}
+
+void fetchMaskImpl(cv::Mat &raster, const cv::Rect &src
+                   , const std::unique_ptr<GDALDataset> &dset)
+{
+    // sanity
+    ut::expect(dset->GetRasterCount() > 0);
+
+    // get mask band
+    auto band(dset->GetRasterBand(1));
+
+    // some invalid pixels
+    auto maskBand(band->GetMaskBand());
+    auto gdalDataType = maskBand->GetRasterDataType();
+    auto cvDataType = gdal2cv(gdalDataType, 1);
+    ut::expect((cvDataType == CV_8UC1)
+               , "Expected band mask to be of byte type.");
+
+    raster.create(src.height, src.width, cvDataType);
+
+    auto err = maskBand->RasterIO
+        (GF_Read // GDALRWFlag  eRWFlag,
+         , src.x, src.y // int nXOff, int nYOff
+         , src.width, src.height // int nXSize, int nYSize,
+         , (void *)(raster.data)  // void * pData,
+         , src.width, src.height // int nBufXSize, int nBufYSize,
+         , gdalDataType // GDALDataType  eBufType,
+         , raster.elemSize() // int nPixelSpace,
+         , raster.step, 0); // int nLineSpace
+
+    ut::expect((err == CE_None), "Reading of mask band data failed.");
+}
+
+} // namespace
+
+cv::Mat GeoDataset::readData(int depth) const
+{
+    cv::Mat data;
+    readDataIntoImpl(depth, data, cv::Rect(0, 0, size_.width, size_.height)
+                     , numChannels_, channelMapping_, dset_);
+    return data;
+}
+
+void GeoDataset::readDataInto(int depth, cv::Mat &data) const
+{
+    readDataIntoImpl(depth, data, cv::Rect(0, 0, size_.width, size_.height)
+                     , numChannels_, channelMapping_, dset_);
+}
+
+void GeoDataset::readDataInto(int depth, cv::Mat &data
+                              , const cv::Rect &src) const
+{
+    readDataIntoImpl(depth, data, src, numChannels_, channelMapping_, dset_);
 }
 
 cv::Mat GeoDataset::fetchMask(bool optimized) const
@@ -1607,7 +1665,7 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
 
     // load using in-place function
     cv::Mat raster;
-    fetchMask(raster);
+    fetchMaskImpl(raster, cv::Rect(0, 0, size_.width, size_.height), dset_);
 
     // done
     return raster;
@@ -1615,32 +1673,12 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
 
 void GeoDataset::fetchMask(cv::Mat &raster) const
 {
-    // sanity
-    ut::expect( dset_->GetRasterCount() > 0 );
+    fetchMaskImpl(raster, cv::Rect(0, 0, size_.width, size_.height), dset_);
+}
 
-    // get mask band
-    auto band(dset_->GetRasterBand(1));
-
-    // some invalid pixels
-    auto maskBand(band->GetMaskBand());
-    auto gdalDataType = maskBand->GetRasterDataType();
-    auto cvDataType = gdal2cv(gdalDataType, 1);
-    ut::expect((cvDataType == CV_8UC1)
-               , "Expected band mask to be of byte type.");
-
-    raster.create(size_.height, size_.width, cvDataType);
-
-    auto err = maskBand->RasterIO
-        (GF_Read // GDALRWFlag  eRWFlag,
-         , 0, 0 // int nXOff, int nYOff
-         , size_.width, size_.height // int nXSize, int nYSize,
-         , (void *)(raster.data)  // void * pData,
-         , size_.width, size_.height // int nBufXSize, int nBufYSize,
-         , gdalDataType // GDALDataType  eBufType,
-         , raster.elemSize() // int nPixelSpace,
-         , raster.step, 0); // int nLineSpace
-
-    ut::expect((err == CE_None), "Reading of mask band data failed.");
+void GeoDataset::fetchMask(cv::Mat &raster, const cv::Rect &src) const
+{
+    fetchMaskImpl(raster, src, dset_);
 }
 
 void GeoDataset::loadMask() const {

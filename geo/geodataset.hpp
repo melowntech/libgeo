@@ -594,8 +594,21 @@ public:
 
     /** Raw-ish interface: loads matrix in provided data CV datatype
      * (i.e. depth), e.g. CV_8U.
+     *
+     * Reads data into given matrix. Matrix is created only if its header is
+     * different than required.
      */
     void readDataInto(int depth, cv::Mat &data) const;
+
+    /** Raw-ish interface: loads matrix in provided data CV datatype
+     * (i.e. depth), e.g. CV_8U.
+     *
+     * Reads data into given matrix. Matrix is created only if its header is
+     * different than required.
+     *
+     * Reads only given sub-range.
+     */
+    void readDataInto(int depth, cv::Mat &data, const cv::Rect &src) const;
 
     /** Creates matrix with the same propetries as would be returned by calling
      *  readData(depth). Used internally by readData.
@@ -603,9 +616,14 @@ public:
     cv::Mat makeData(int depth) const;
 
     /** Creates matrix with the same propetries as would be returned by calling
-     *  readData(depth). Used internally by readData.
+     *  readData(depth). Used internally by readDataInto.
      */
     void makeData(int depth, cv::Mat &data) const;
+
+    /** Creates matrix with the same propetries as would be returned by calling
+     *  readData(depth). Used internally by readDataInto.
+     */
+    void makeData(int depth, cv::Mat &data, const cv::Rect &src) const;
 
     /** Move ctor. Allows initialization from return value.
      */
@@ -827,6 +845,8 @@ public:
     cv::Mat fetchMask(bool optimized = false) const;
 
     void fetchMask(cv::Mat &raster) const;
+
+    void fetchMask(cv::Mat &raster, const cv::Rect &src) const;
 
     Format getFormat() const;
 
