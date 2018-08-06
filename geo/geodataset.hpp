@@ -828,6 +828,7 @@ public:
         std::size_t overviews;
         ::GDALDataType dataType;
         int maskType;
+        std::string driverName;
 
         Descriptor()
             : bands(), overviews(), dataType(), maskType()
