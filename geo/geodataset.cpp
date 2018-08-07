@@ -2804,6 +2804,13 @@ GeoDataset GeoDataset::copy(const boost::filesystem::path &path
     return GeoDataset(std::move(ds));
 }
 
+void GeoDataset::copyFiles(const boost::filesystem::path &path) const
+{
+    auto *driver(dset_->GetDriver());
+
+    driver->CopyFiles(dset_->GetDescription(), path.c_str());
+}
+
 GeoDataset::Descriptor GeoDataset::descriptor() const
 {
     Descriptor d;

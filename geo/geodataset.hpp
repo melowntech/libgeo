@@ -326,6 +326,10 @@ public:
                     , const std::string &storageFormat
                     , const Options &options = Options()) const;
 
+    /** Copy all dataset files using GDALDriver::CopyFiles
+     */
+    void copyFiles(const boost::filesystem::path &path) const;
+
     enum class Type { custom, grayscale, rgb, rgba, alpha };
     Type type() const { return type_; }
 
