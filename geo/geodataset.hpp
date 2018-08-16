@@ -866,6 +866,7 @@ public:
         int maskType;
         GeoTransform geoTransform;
         std::string driverName;
+        math::Point2 resolution;
 
         Descriptor()
             : bands(), overviews(), dataType(), maskType()

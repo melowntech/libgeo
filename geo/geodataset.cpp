@@ -2818,6 +2818,7 @@ GeoDataset::Descriptor GeoDataset::descriptor() const
     d.size = size();
     d.srs = srs();
     d.geoTransform = geoTransform();
+    d.resolution = resolution();
     d.driverName = dset_->GetDriverName();
 
     d.bands = numChannels_;

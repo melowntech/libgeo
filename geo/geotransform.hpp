@@ -127,6 +127,8 @@ public :
         return gt;
     }
 
+    bool isUpright() const;
+
 private :
     math::Point2 applyGeoTransform( double col, double row ) const;
     void applyInvGeoTransform( 

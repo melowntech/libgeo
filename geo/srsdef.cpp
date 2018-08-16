@@ -30,6 +30,7 @@
 #include <boost/format.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/utility/in_place_factory.hpp>
 
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
@@ -405,6 +406,59 @@ bool isProjected(const SrsDefinition &srs)
 {
     if (srs.type == SrsDefinition::Type::enu) { return false; }
     return srs.reference().IsProjected();
+}
+
+bool isGeographic(const SrsDefinition &srs)
+{
+    if (srs.type == SrsDefinition::Type::enu) { return false; }
+    return srs.reference().IsGeographic();
+}
+
+boost::optional<Periodicity> isPeriodic(const SrsDefinition &srs)
+{
+    if (srs.type == SrsDefinition::Type::enu) { return boost::none; }
+
+    const auto ref(srs.reference());
+
+    // geographic? OK
+    if (ref.IsGeographic()) {
+        // simple
+        return Periodicity(Periodicity::Type::x, -180.0, +180.0);
+    }
+
+    if (!ref.IsProjected()) { return boost::none; }
+
+    // OK, projected
+
+    // extract projection, a bit tricky since it is simpler to get from proj
+    // string
+
+    const auto proj(srs.as(SrsDefinition::Type::proj4));
+
+    const auto contains([&proj](const char *what)
+    {
+        return proj.srs.find(what) != std::string::npos;
+    });
+
+    const auto xCylinder([&]() -> boost::optional<Periodicity>
+    {
+        const auto ref(srs.reference());
+
+        // valid values span from -pi*semi-major-axis to +pi*semi-major-axis but
+        // we have to offset this range by false easting
+        const auto falseEasting(ref.GetProjParm(SRS_PP_FALSE_EASTING));
+
+        const auto limit(M_PI * ref.GetSemiMajor());
+        return Periodicity(Periodicity::Type::x, -limit - falseEasting
+                           , +limit - falseEasting);
+    });
+
+    // TODO: check for proper northing and some possible deviation from
+    // "perfect" world
+    if (contains("+proj=eqc")) { return xCylinder();}
+    if (contains("+proj=merc")) { return xCylinder(); }
+
+    return boost::none;
 }
 
 } // namespace geo

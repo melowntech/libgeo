@@ -27,6 +27,9 @@
 #define geo_srsdef_hpp_included_
 
 #include <string>
+
+#include <boost/optional.hpp>
+
 #include "math/geometry.hpp"
 
 #include "utility/enum-io.hpp"
@@ -115,11 +118,47 @@ SrsDefinition geocentric(const SrsDefinition &srs);
  */
 bool isProjected(const SrsDefinition &srs);
 
+/** Returns true if SRS is a geographic spatial reference system.
+ */
+bool isGeographic(const SrsDefinition &srs);
+
+/** SRS periodicity
+ */
+struct Periodicity {
+    enum class Type { x, y };
+
+    /** In which axis is this SRS periodic.
+     */
+    Type type;
+
+    /** Minimum coordinate value.
+     */
+    double min;
+
+    /** Maximum coordinate value.
+     */
+    double max;
+
+    Periodicity(Type type, double min, double max)
+        : type(type), min(min), max(max)
+    {}
+};
+
+
+/** Tries to determine whether given SRS is periodic.
+ */
+boost::optional<Periodicity> isPeriodic(const SrsDefinition &srs);
+
 UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((proj4))
     ((wkt))
     ((epsg))
     ((enu))
+)
+
+UTILITY_GENERATE_ENUM_IO(Periodicity::Type,
+    ((x))
+    ((y))
 )
 
 template<typename CharT, typename Traits>

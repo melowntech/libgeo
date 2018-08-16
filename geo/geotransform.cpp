@@ -102,5 +102,11 @@ GeoTransform GeoTransform::localFromOrigin(
     
     return retval;
 }
-    
+
+bool GeoTransform::isUpright() const
+{
+    // upright dataset has no rotation/shear
+    return !operator[](2) && !operator[](4);
+}
+
 } // namespace geo
