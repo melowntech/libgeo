@@ -176,17 +176,37 @@ SrsDefinition SrsDefinition::as(Type dstType) const
         LOGTHROW(err1, std::runtime_error)
             << "EPSG reference cannot be constructed from "
             << type << " representation.";
-	break;
+        break;
 
     case SrsDefinition::Type::enu:
         LOGTHROW(err1, std::runtime_error)
             << "ENU reference cannot be constructed from "
             << type << " representation.";
-	break;
+        break;
     }
 
     // never reached
     return *this;
+}
+
+bool SrsDefinition::convertibleTo(Type dstType) const {
+    if (type == dstType) { return true; }
+    switch (dstType) {
+    case SrsDefinition::Type::proj4:
+        return (type != SrsDefinition::Type::enu);
+
+    case SrsDefinition::Type::wkt:
+        return (type != SrsDefinition::Type::enu);
+
+    case SrsDefinition::Type::epsg:
+        return false;
+
+    case SrsDefinition::Type::enu:
+        return false;
+    }
+
+    // never reached
+    return false;
 }
 
 SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src

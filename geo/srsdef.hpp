@@ -57,6 +57,8 @@ struct SrsDefinition {
 
     SrsDefinition as(Type type) const;
 
+    bool convertibleTo(Type type) const;
+
     const std::string& string() const { return srs; }
     const char* c_str() const { return srs.c_str(); }
 
