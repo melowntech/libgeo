@@ -40,6 +40,8 @@ class OGRSpatialReference;
 
 namespace geo {
 
+enum class AngularUnit { radian, degree };
+
 // forward decalration
 struct Enu;
 
@@ -123,6 +125,10 @@ bool isProjected(const SrsDefinition &srs);
 /** Returns true if SRS is a geographic spatial reference system.
  */
 bool isGeographic(const SrsDefinition &srs);
+
+/** Sets angular unit to given SRS.
+ */
+SrsDefinition setAngularUnit(const SrsDefinition &srs, AngularUnit unit);
 
 /** SRS periodicity
  */

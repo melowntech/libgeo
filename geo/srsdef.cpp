@@ -481,4 +481,20 @@ boost::optional<Periodicity> isPeriodic(const SrsDefinition &srs)
     return boost::none;
 }
 
+SrsDefinition setAngularUnit(const SrsDefinition &srs, AngularUnit unit)
+{
+    auto ref(srs.reference());
+
+    switch (unit) {
+    case AngularUnit::radian:
+        ref.SetAngularUnits(SRS_UA_RADIAN, 1.0);
+        break;
+    case AngularUnit::degree:
+        ref.SetAngularUnits(SRS_UA_DEGREE, 0.0174532925199433);
+        break;
+    }
+
+    return SrsDefinition::fromReference(ref, SrsDefinition::Type::wkt);
+}
+
 } // namespace geo
