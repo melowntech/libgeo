@@ -177,7 +177,7 @@ private:
 
 namespace {
 
-static struct Initializer {
+static volatile struct Initializer {
     Initializer() {
         // initializes locks and default context
         ::pj_get_default_ctx();
