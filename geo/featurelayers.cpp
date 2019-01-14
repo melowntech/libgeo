@@ -211,6 +211,7 @@ void FeatureLayers::load(::GDALDataset &dataset
             Features::Properties properties;
 
             OGRFeatureDefn *ifeatureDefn = ifeature->GetDefnRef();
+            const Features::Fid fid(ifeature->GetFID());
 
             for (int j = 0; j < ifeatureDefn->GetFieldCount(); j++)
                 properties[ifeatureDefn->GetFieldDefn(j)->GetNameRef()]
@@ -262,7 +263,7 @@ void FeatureLayers::load(::GDALDataset &dataset
                 math::Point3 point(
                     ipoint->getX(), ipoint->getY(), ipoint->getZ());
                 layer.features.addPoint(
-                        {(format("%s-%d") % layer.name % id++ ).str(),
+                        {fid, (format("%s-%d") % layer.name % id++ ).str(),
                         point, properties, zDefined});
 
                 layer.updateBB(layer.features.points.back().point);
@@ -285,7 +286,7 @@ void FeatureLayers::load(::GDALDataset &dataset
                 }
 
                 layer.features.addMultiLineString(
-                        {(format("%s-%d") % layer.name % id++ ).str(),
+                        {fid, (format("%s-%d") % layer.name % id++ ).str(),
                             { points }, properties, zDefined});
 
                 continue;
@@ -320,7 +321,7 @@ void FeatureLayers::load(::GDALDataset &dataset
                 }
 
                 layer.features.addMultiLineString(
-                        {(format("%s-%d") % layer.name % id++ ).str(),
+                        {fid, (format("%s-%d") % layer.name % id++ ).str(),
                             lines, properties, zDefined});
 
                 continue;
@@ -360,7 +361,7 @@ void FeatureLayers::load(::GDALDataset &dataset
                 }
 
                 layer.features.addMultiPolygon({
-                    (format( "%s-%d" ) % layer.name % id++ ).str(),
+                    fid, (format( "%s-%d" ) % layer.name % id++ ).str(),
                     properties, { polygon }, zDefined });
                 continue;
             }
@@ -631,7 +632,8 @@ void FeatureLayers::convert3DPolygons() {
             if (!multipolygon.zDefined) { cur++; continue; };
 
             // build surface from polygon
-            Features::Surface surface(multipolygon.id, multipolygon.properties);
+            Features::Surface surface(multipolygon.fid, multipolygon.id
+                                      , multipolygon.properties);
 
             for (const auto & polygon : multipolygon.polygons)
                 surface.addPatchesFromPolygon(polygon);

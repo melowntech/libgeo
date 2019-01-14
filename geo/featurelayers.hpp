@@ -56,38 +56,46 @@ public :
 
         typedef std::map<std::string, std::string> Properties;
 
-        struct Point {
+        typedef std::int64_t Fid;
 
+        struct Base {
+            Fid fid;
             std::string id;
             Properties properties;
+
+            Base() : fid() {}
+
+            Base(Fid fid, const std::string &id, const Properties &properties)
+                : fid(fid), id(id), properties(properties)
+            {}
+        };
+
+        struct Point : Base {
+
             math::Point3 point;
             bool zDefined;
 
-            Point( const std::string & id, const math::Point3 & point,
-                   const Properties & properties, const bool zDefined )
-                : id(id),  properties(properties), point(point),
+            Point(Fid fid, const std::string & id, const math::Point3 & point,
+                  const Properties & properties, const bool zDefined )
+                : Base(fid, id, properties), point(point),
                   zDefined(zDefined) {}
         };
 
-        struct MultiLineString {
+        struct MultiLineString : Base {
 
-            std::string id;
-            Properties properties;
             std::vector<math::Points3> lines;
             bool zDefined;
 
-            MultiLineString(const std::string & id
+            MultiLineString(Fid fid, const std::string & id
                 , const std::vector<math::Points3> & lines
                 , const Properties & properties
                 , const bool zDefined)
-                    : id(id), properties(properties), lines(lines),
+                    : Base(fid, id, properties), lines(lines),
                       zDefined(zDefined) {}
         };
 
-        struct MultiPolygon {
+        struct MultiPolygon : Base {
 
-            std::string id;
-            Properties properties;
             bool zDefined;
 
             struct Polygon {
@@ -98,28 +106,28 @@ public :
 
             std::vector<Polygon> polygons;
 
-            MultiPolygon() {};
+            MultiPolygon() : Base() {};
 
-            MultiPolygon( const std::string & id, const Properties & properties,
-                          const std::vector<Polygon> & polygons,
-                          const bool zDefined )
-                : id(id), properties( properties ), zDefined(zDefined),
+            MultiPolygon(Fid fid,const std::string & id
+                         , const Properties & properties,
+                         const std::vector<Polygon> & polygons,
+                         const bool zDefined )
+                : Base(fid, id, properties), zDefined(zDefined),
                   polygons(polygons) {};
         };
 
-        struct Surface {
+        struct Surface : Base {
 
             struct Patch : math::Point3i {};
             typedef std::vector<unsigned> Boundary;
 
-            std::string id;
-            Properties properties;
             math::Points3 vertices;
             std::vector<Patch> surface;
             std::vector<Boundary> boundaries;
 
-            Surface(const std::string & id, const Properties & properties)
-                : id(id), properties(properties) {};
+            Surface(Fid fid, const std::string & id
+                    , const Properties & properties)
+                : Base(fid, id, properties) {};
 
             void addPatchesFromPolygon(
                 const Features::MultiPolygon::Polygon & polygon );
@@ -408,10 +416,10 @@ inline bool FeatureLayers::Features::empty() const
 template <typename Manipulator>
 void FeatureLayers::Features::updateProperties(const Manipulator &manipulator)
 {
-    for (auto &f : points) {  manipulator(f.properties); }
-    for (auto &f : multilinestrings) {  manipulator(f.properties); }
-    for (auto &f : multipolygons) {  manipulator(f.properties); }
-    for (auto &f : surfaces) {  manipulator(f.properties); }
+    for (auto &f : points) {  manipulator(f.fid, f.properties); }
+    for (auto &f : multilinestrings) {  manipulator(f.fid, f.properties); }
+    for (auto &f : multipolygons) {  manipulator(f.fid, f.properties); }
+    for (auto &f : surfaces) {  manipulator(f.fid, f.properties); }
 }
 
 } // namespace geo
