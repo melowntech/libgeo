@@ -43,7 +43,8 @@ namespace fs = boost::filesystem;
 DemCloud loadDem(const fs::path &path
                  , boost::optional<math::Extents2> extents
                  , boost::optional<SrsDefinition> dstSrs
-                 , bool adjustVertical)
+                 , bool adjustVertical
+                 , bool pointsInGrid)
 {
     auto source(GeoDataset::createFromFS(path));
 
@@ -53,6 +54,11 @@ DemCloud loadDem(const fs::path &path
 
     if (!extents) {
         extents = source.deriveExtents(*dstSrs);
+    } else if (pointsInGrid) {
+        // add halfpixel
+        const auto res(source.resolution());
+        extents->ll -= (res / 2.0);
+        extents->ur += (res / 2.0);
     }
 
     // generate in memory data set; size is calculated from source resolution

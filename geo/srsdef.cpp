@@ -176,17 +176,37 @@ SrsDefinition SrsDefinition::as(Type dstType) const
         LOGTHROW(err1, std::runtime_error)
             << "EPSG reference cannot be constructed from "
             << type << " representation.";
-	break;
+        break;
 
     case SrsDefinition::Type::enu:
         LOGTHROW(err1, std::runtime_error)
             << "ENU reference cannot be constructed from "
             << type << " representation.";
-	break;
+        break;
     }
 
     // never reached
     return *this;
+}
+
+bool SrsDefinition::convertibleTo(Type dstType) const {
+    if (type == dstType) { return true; }
+    switch (dstType) {
+    case SrsDefinition::Type::proj4:
+        return (type != SrsDefinition::Type::enu);
+
+    case SrsDefinition::Type::wkt:
+        return (type != SrsDefinition::Type::enu);
+
+    case SrsDefinition::Type::epsg:
+        return false;
+
+    case SrsDefinition::Type::enu:
+        return false;
+    }
+
+    // never reached
+    return false;
 }
 
 SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
@@ -459,6 +479,22 @@ boost::optional<Periodicity> isPeriodic(const SrsDefinition &srs)
     if (contains("+proj=merc")) { return xCylinder(); }
 
     return boost::none;
+}
+
+SrsDefinition setAngularUnit(const SrsDefinition &srs, AngularUnit unit)
+{
+    auto ref(srs.reference());
+
+    switch (unit) {
+    case AngularUnit::radian:
+        ref.SetAngularUnits(SRS_UA_RADIAN, 1.0);
+        break;
+    case AngularUnit::degree:
+        ref.SetAngularUnits(SRS_UA_DEGREE, 0.0174532925199433);
+        break;
+    }
+
+    return SrsDefinition::fromReference(ref, SrsDefinition::Type::wkt);
 }
 
 } // namespace geo

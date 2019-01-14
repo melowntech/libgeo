@@ -45,10 +45,27 @@ struct DemCloud {
     operator const math::Points3&() const { return pc; }
 };
 
+/** Load part of dem as a pointcloud.
+ *
+ * Known deficiencies:
+ *
+ *     * vertical components are not touched, gives proper output only when
+ *       vertical datum in source and destination SRS are the same
+ *
+ * \param path path to GDAL dataset
+ * \param extents optional DEM subset extents; defaults to full DEM extents
+ * \param dstSrs pointcloud SRS; dfefaults to DEM SRS
+ * \param adjustVertical apply vertial adjustment if true
+ * \param pointsInGrid update extents so that points are not in pixel centers
+ *                     but in pixel corners
+ *
+ * \return derived pointcloud
+ */
 DemCloud loadDem(const boost::filesystem::path &path
                  , boost::optional<math::Extents2> extents = boost::none
                  , boost::optional<SrsDefinition> dstSrs = boost::none
-                 , bool adjustVertical = false);
+                 , bool adjustVertical = false
+                 , bool pointsInGrid = false);
 
 } // namespace geo
 
