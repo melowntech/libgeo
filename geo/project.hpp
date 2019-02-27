@@ -32,8 +32,8 @@
 
 #include "math/geometry_core.hpp"
 
-#include "./srsdef.hpp"
-#include "./srsfactorsfwd.hpp"
+#include "srsdef.hpp"
+#include "srsfactorsfwd.hpp"
 
 namespace geo {
 

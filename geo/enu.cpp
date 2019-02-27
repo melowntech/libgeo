@@ -33,10 +33,10 @@
 
 #include "utility/streams.hpp"
 
-#include "./srsdef.hpp"
-#include "./srs.hpp"
-#include "./enu.hpp"
-#include "./csconvertor.hpp"
+#include "srsdef.hpp"
+#include "srs.hpp"
+#include "enu.hpp"
+#include "csconvertor.hpp"
 
 namespace geo {
 

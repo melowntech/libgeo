@@ -24,7 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "./ovrdataset.hpp"
+#include "ovrdataset.hpp"
 
 namespace geo { namespace detail {
 

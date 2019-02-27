@@ -31,8 +31,8 @@
 
 #include "math/geometry_core.hpp"
 
-#include "./srsdef.hpp"
-#include "./project.hpp"
+#include "srsdef.hpp"
+#include "project.hpp"
 
 namespace geo {
 

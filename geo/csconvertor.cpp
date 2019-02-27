@@ -35,8 +35,8 @@
 
 #include "math/geometry.hpp"
 
-#include "./csconvertor.hpp"
-#include "./detail/srs.hpp"
+#include "csconvertor.hpp"
+#include "detail/srs.hpp"
 
 namespace geo {
 

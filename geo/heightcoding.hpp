@@ -36,9 +36,9 @@
 
 #include "utility/enum-io.hpp"
 
-#include "./geodataset.hpp"
-#include "./vectorformat.hpp"
-#include "./featurelayers.hpp"
+#include "geodataset.hpp"
+#include "vectorformat.hpp"
+#include "featurelayers.hpp"
 
 /** Height-coding-related stuff
  */

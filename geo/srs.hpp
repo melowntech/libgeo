@@ -28,7 +28,7 @@
 
 #include <ogr_spatialref.h>
 
-#include "./srsdef.hpp"
+#include "srsdef.hpp"
 
 namespace geo {
 

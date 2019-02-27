@@ -29,7 +29,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./srsfactors.hpp"
+#include "srsfactors.hpp"
 
 #if PJ_VERSION < 480
 #  include "./detail/pjfactors-4.7.h"

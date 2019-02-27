@@ -37,7 +37,7 @@
 #include "gdal_mdreader.h"
 #include "gdal_proxy.h"
 
-#include "./ovrdataset.hpp"
+#include "ovrdataset.hpp"
 
 namespace geo { namespace detail {
 
