@@ -33,7 +33,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
-#include "./srsdef.hpp"
+#include "srsdef.hpp"
 
 namespace geo {
 

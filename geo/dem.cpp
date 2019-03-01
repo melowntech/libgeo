@@ -32,9 +32,9 @@
 #include "dbglog/dbglog.hpp"
 #include "imgproc/rastermask.hpp"
 
-#include "./geodataset.hpp"
-#include "./dem.hpp"
-#include "./srsfactors.hpp"
+#include "geodataset.hpp"
+#include "dem.hpp"
+#include "srsfactors.hpp"
 
 namespace geo {
 

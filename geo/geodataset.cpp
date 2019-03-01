@@ -50,13 +50,13 @@
 #include "imgproc/rastermask/transform.hpp"
 #include "imgproc/fillrect.hpp"
 
-#include "./geodataset.hpp"
-#include "./coordinates.hpp"
-#include "./csconvertor.hpp"
-#include "./io.hpp"
-#include "./detail/warpmemorymeter.hpp"
-#include "./gdal.hpp"
-#include "./detail/ovrdataset.hpp"
+#include "geodataset.hpp"
+#include "coordinates.hpp"
+#include "csconvertor.hpp"
+#include "io.hpp"
+#include "detail/warpmemorymeter.hpp"
+#include "gdal.hpp"
+#include "detail/ovrdataset.hpp"
 
 
 extern "C" {

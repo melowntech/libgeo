@@ -41,10 +41,10 @@
 
 #include "utility/streams.hpp"
 
-#include "./srsdef.hpp"
-#include "./srs.hpp"
-#include "./enu.hpp"
-#include "./detail/srs.hpp"
+#include "srsdef.hpp"
+#include "srs.hpp"
+#include "enu.hpp"
+#include "detail/srs.hpp"
 
 namespace geo {
 

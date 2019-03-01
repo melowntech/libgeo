@@ -32,8 +32,8 @@
 
 #include <boost/utility/in_place_factory.hpp>
 
-#include "./featurelayers.hpp"
-#include "./verticaladjuster.hpp"
+#include "featurelayers.hpp"
+#include "verticaladjuster.hpp"
 
 #include "utility/expect.hpp"
 #include "math/filters.hpp"

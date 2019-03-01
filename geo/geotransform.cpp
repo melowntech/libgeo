@@ -27,7 +27,7 @@
  * geotransform.cpp
  */
 
-#include "./geotransform.hpp"
+#include "geotransform.hpp"
 
 namespace geo {
 

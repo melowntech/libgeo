@@ -35,7 +35,7 @@
 
 #include <array>
 
-#include "./csconvertor.hpp"
+#include "csconvertor.hpp"
 
 namespace geo {
   

@@ -25,7 +25,7 @@
  */
 #include <cpl_conv.h>
 
-#include "./gdal.hpp"
+#include "gdal.hpp"
 
 namespace geo {
 

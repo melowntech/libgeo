@@ -33,7 +33,7 @@
 
 #include "math/geometry_core.hpp"
 
-#include "./srsdef.hpp"
+#include "srsdef.hpp"
 
 namespace geo {
 

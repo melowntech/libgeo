@@ -29,7 +29,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./project.hpp"
+#include "project.hpp"
 
 namespace geo {
 

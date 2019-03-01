@@ -35,7 +35,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./srs.hpp"
+#include "srs.hpp"
 
 namespace ba = boost::algorithm;
 

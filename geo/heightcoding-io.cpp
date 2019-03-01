@@ -29,7 +29,7 @@
 #include "jsoncpp/as.hpp"
 #include "jsoncpp/io.hpp"
 
-#include "./heightcoding.hpp"
+#include "heightcoding.hpp"
 
 namespace geo { namespace heightcoding {
 

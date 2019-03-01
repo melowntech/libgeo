@@ -52,8 +52,8 @@
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
 
-#include "./srsdef.hpp"
-#include "./geotransform.hpp"
+#include "srsdef.hpp"
+#include "geotransform.hpp"
 
 namespace ublas = boost::numeric::ublas;
 

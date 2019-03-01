@@ -29,8 +29,8 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./heightconvertor.hpp"
-#include "./detail/srs.hpp"
+#include "heightconvertor.hpp"
+#include "detail/srs.hpp"
 
 namespace geo {
 
