@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2017-2019 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -23,11 +23,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef geo_csconvert_hpp_included_
 #define geo_csconvert_hpp_included_
 
 #include <string>
 #include <memory>
+#include <algorithm>
+#include <iterator>
 
 #include "math/geometry_core.hpp"
 
@@ -55,6 +58,9 @@ public:
 
     math::Point2 operator()(const math::Point2 &p) const;
     math::Point3 operator()(const math::Point3 &p) const;
+
+    math::Points2 operator()(const math::Points2 &p) const;
+    math::Points3 operator()(const math::Points3 &p) const;
 
     /** Homogeneous point support.
      */
@@ -115,6 +121,20 @@ inline math::Extents3 CsConvertor::operator()( const math::Extents3 &e) const
 inline math::Point4 prod(const CsConvertor &conv, const math::Point4 &value)
 {
     return conv(value);
+}
+
+inline math::Points2 CsConvertor::operator()(const math::Points2 &p) const
+{
+    math::Points2 out;
+    std::transform(p.begin(), p.end(), std::back_inserter(out), *this);
+    return out;
+}
+
+inline math::Points3 CsConvertor::operator()(const math::Points3 &p) const
+{
+    math::Points3 out;
+    std::transform(p.begin(), p.end(), std::back_inserter(out), *this);
+    return out;
 }
 
 } // namespace geo
