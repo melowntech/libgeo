@@ -118,6 +118,10 @@ SrsDefinition geographic(const SrsDefinition &srs);
  */
 SrsDefinition geocentric(const SrsDefinition &srs);
 
+/** Returns ellipsoid semi-axes.
+ */
+math::Point3 ellipsoid(const SrsDefinition &srs);
+
 /** Returns true if SRS is a projected spatial reference system.
  */
 bool isProjected(const SrsDefinition &srs);

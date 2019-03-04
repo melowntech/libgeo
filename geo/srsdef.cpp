@@ -283,6 +283,14 @@ SrsDefinition geocentric(const SrsDefinition &srs)
     return { os.str() };
 }
 
+math::Point3 ellipsoid(const SrsDefinition &srs)
+{
+    auto ref(srs.reference());
+    const auto major = ref.GetSemiMajor();
+    const auto minor = ref.GetSemiMinor();
+    return math::Point3(major, major, minor);
+}
+
 bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
              , SrsEquivalence type)
 {
