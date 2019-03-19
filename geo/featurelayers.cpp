@@ -408,8 +408,10 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs
 
         SrsDefinition sourceSrs(layer.srs);
 
-        // optimization
-        if (areSame(sourceSrs,targetSrs)) continue;
+        // FIXME: make areSame woking again
+        // currently, latlon and umt are the same...
+        // // optimization
+        // if (areSame(sourceSrs,targetSrs)) continue;
 
         // sanity checks
         if ( targetSrs.reference().IsGeocentric() && !layer.is3D()) {

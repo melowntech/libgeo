@@ -300,11 +300,8 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
         return (def1.srs == def2.srs);
     }
 
-    OGRSpatialReference sr1;
-    detail::import(sr1, def1);
-
-    OGRSpatialReference sr2;
-    detail::import(sr2, def2);
+    auto sr1(def1.reference());
+    auto sr2(def2.reference());
 
     switch (type) {
     case SrsEquivalence::both:
