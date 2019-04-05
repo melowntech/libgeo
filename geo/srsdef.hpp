@@ -134,6 +134,13 @@ bool isGeographic(const SrsDefinition &srs);
  */
 SrsDefinition setAngularUnit(const SrsDefinition &srs, AngularUnit unit);
 
+/** Computes linear unit in meters. ORG returns 1.0 for angluar SRS.
+ *
+ *  If convertAngluar is true then angular unit is converted to meters via
+ *  spheroid.
+ */
+double linearUnit(const SrsDefinition &srs, bool convertAngluar = false);
+
 /** SRS periodicity
  */
 struct Periodicity {

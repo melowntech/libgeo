@@ -502,4 +502,18 @@ SrsDefinition setAngularUnit(const SrsDefinition &srs, AngularUnit unit)
     return SrsDefinition::fromReference(ref, SrsDefinition::Type::wkt);
 }
 
+double linearUnit(const SrsDefinition &srs, bool convertAngluar)
+{
+    auto ref(srs.reference());
+
+    if (!ref.IsGeographic() || !convertAngluar) {
+        return ref.GetLinearUnits(nullptr);
+    }
+
+    // geographic and we have to convert angular unit to linear
+
+    // angular unit in radians times semi-major axis
+    return ref.GetAngularUnits(nullptr) * ref.GetSemiMajor();
+}
+
 } // namespace geo
