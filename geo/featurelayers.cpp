@@ -529,10 +529,19 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
     // heightcode
     math::CatmullRom2 filter(2,2);
 
+    const auto &noHeightcoding([mode](bool zDefined) -> bool
+    {
+        switch (mode) {
+        case HeightcodeMode::always: return false;
+        case HeightcodeMode::never: return true;
+        case HeightcodeMode::auto_: return zDefined;
+        }
+        return false; // never reached
+    });
+
     for (auto & layer: layers) {
 
-        if (mode == HeightcodeMode::auto_
-            && layer.features.zAlwaysDefined ) continue;
+        if (noHeightcoding(layer.features.zAlwaysDefined)) { continue; }
 
         CsConvertor ltwTrafo(layer.srs, workingSrs.get());
         CsConvertor wtlTrafo = ltwTrafo.inverse();
@@ -540,8 +549,7 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
 
         for (auto & point: layer.features.points) {
 
-            if (point.zDefined && mode == HeightcodeMode::auto_ )
-                continue;
+            if (noHeightcoding(point.zDefined)) { continue; }
 
             // layer srs -> working srs
             auto p(point.point);
@@ -569,8 +577,7 @@ void FeatureLayers::heightcode(const GeoDataset & demDataset
 
         for ( auto & multilinestring : layer.features.multilinestrings ) {
 
-            if ( multilinestring.zDefined && mode == HeightcodeMode::auto_ )
-                continue;
+            if (noHeightcoding(multilinestring.zDefined)) { continue; }
 
             for (auto & linestring: multilinestring.lines)
                 for (math::Point3 & point : linestring) {
