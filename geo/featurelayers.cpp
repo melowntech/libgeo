@@ -888,8 +888,10 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os
                 // geometry
                 auto & jvertices = jsurface["vertices"] = Json::arrayValue;
 
-                for (const auto &vertex: surface.vertices)
-                    jvertices.append(buildPoint3(tolocal(vertex)));
+                for (const auto &vertex: surface.vertices) {
+                    const auto v(tolocal(vertex));
+                    for ( int i(0); i < 3; i++) jvertices.append(v[i]);
+                }
 
                 auto & jpatches = jsurface["surface"] = Json::arrayValue;
 
