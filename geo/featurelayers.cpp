@@ -426,6 +426,9 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs
                 " and not all features are 3D. Need heightcoding?";
         }
 
+        // create conditional unadjuster
+        VerticalAdjuster unadjuster(layer.adjustVertical, sourceSrs
+                                    , /*inverse=*/true);
         // create converter object
         CsConvertor csTrafo(sourceSrs, targetSrs);
         // create conditional adjuster
@@ -437,7 +440,7 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs
         // helper for point/vertex conversion
         const auto convert([&](math::Point3 &p) -> void
         {
-            p = adjuster(csTrafo(p));
+            p = adjuster(csTrafo(unadjuster(p)));
             layer.updateBB(p);
         });
 
@@ -466,6 +469,7 @@ void FeatureLayers::transform(const SrsDefinition & targetSrs
 
         // done with layer
         layer.srs = targetSrs;
+        layer.adjustVertical = verticalAdjustment;
     }
 
 
