@@ -176,6 +176,10 @@ public :
 
         template <typename Manipulator>
         void updateProperties(const Manipulator &manipulator);
+
+        /** Calls f(v) for every vertex in the layer
+         */
+        template <typename F> void for_each_vertex(F f) const;
     };
 
     struct Layer {
@@ -198,6 +202,10 @@ public :
         /** Layer is empty if it has no feature.
          */
         bool empty() { return features.empty(); }
+
+        /** Calls f(v) for every vertex in the layer
+         */
+        template <typename F> void for_each_vertex(F f) const;
     };
 
 
@@ -344,6 +352,10 @@ public :
      */
     void dumpVTSGeodata(std::ostream & os, const unsigned resolution = 4096);
 
+    /** Calls f(v) for every vertex in all layers
+     */
+    template <typename F> void for_each_vertex(F f) const;
+
     std::vector<Layer> layers;
 
 private :
@@ -420,6 +432,45 @@ void FeatureLayers::Features::updateProperties(const Manipulator &manipulator)
     for (auto &f : multilinestrings) {  manipulator(f.fid, f.properties); }
     for (auto &f : multipolygons) {  manipulator(f.fid, f.properties); }
     for (auto &f : surfaces) {  manipulator(f.fid, f.properties); }
+}
+
+template <typename F>
+void FeatureLayers::for_each_vertex(F f) const
+{
+    for (const auto &layer : layers) {
+        layer.for_each_vertex(f);
+    }
+}
+
+template <typename F>
+void FeatureLayers::Layer::for_each_vertex(F f) const
+{
+    features.for_each_vertex(f);
+}
+
+template <typename F>
+void FeatureLayers::Features::for_each_vertex(F f) const
+{
+    for (const auto &p : points) { f(p.point); }
+
+    for (const auto &ml : multilinestrings) {
+        for (const auto &line : ml.lines) {
+            for (const auto &v : line) { f(v); }
+        }
+    }
+
+    for (const auto &mp : multipolygons) {
+        for (const auto &polygon : mp.polygons) {
+            for (const auto &p : polygon.exterior) { f(p); }
+            for (const auto &ring : polygon.interiors) {
+                for (const auto &p : ring) { f(p); }
+            }
+        }
+    }
+
+    for (const auto &surface : surfaces) {
+        for (const auto &p : surface.vertices) { f(p); }
+    }
 }
 
 } // namespace geo
