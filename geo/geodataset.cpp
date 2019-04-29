@@ -230,8 +230,9 @@ GeoDataset GeoDataset::use(std::unique_ptr<GDALDataset> &&dset)
 
 GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
                        , bool freshlyCreated)
-    : type_(Type::custom), dset_(std::move(dset)), changed_(false)
-    , fresh_(freshlyCreated)
+    : type_(Type::custom), dset_(std::move(dset))
+    , numChannels_(), hasColorTable_()
+    , changed_(false), fresh_(freshlyCreated)
 {
     // stop here if invalid
     if (!dset_) { return; }
@@ -248,8 +249,10 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
     // noDataValue
     if ( ( numChannels_ = dset_->GetRasterCount() ) > 0 ) {
 
+        auto firstBand(dset_->GetRasterBand(1));
+
         int success;
-        double ndv = dset_->GetRasterBand(1)->GetNoDataValue( & success );
+        double ndv = firstBand->GetNoDataValue( & success );
 
         if ( success ) {
             noDataValue_ = ndv;
@@ -291,11 +294,14 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
             }
         } else if (numChannels_ == 1) {
             // check for grayscale/alpha
-            switch (dset_->GetRasterBand(1)->GetColorInterpretation()) {
+            switch (firstBand->GetColorInterpretation()) {
             case GCI_GrayIndex: type_ = Type::grayscale; break;
             case GCI_AlphaBand: type_ = Type::alpha; break;
             default: break;
             }
+
+            // we support color table only for single-channel dataset
+            hasColorTable_ = bool(firstBand->GetColorTable());
         }
     }
 }
@@ -515,12 +521,12 @@ GeoDataset GeoDataset::deriveInMemory(
     ut::expect( tdset.get(), "Failed to create in memory dataset.\n" );
 
     for ( int i = 1; i <= tdset->GetRasterCount(); i++ ) {
+        auto &src(*sdset->GetRasterBand(i));
+        auto &dst(*tdset->GetRasterBand(i));
 
-        tdset->GetRasterBand(i)->SetColorInterpretation(
-            sdset->GetRasterBand(i)->GetColorInterpretation() );
-        if (dstNoDataValue) {
-            tdset->GetRasterBand(i)->SetNoDataValue(*dstNoDataValue);
-        }
+        dst.SetColorInterpretation(src.GetColorInterpretation() );
+        dst.SetColorTable(src.GetColorTable());
+        if (dstNoDataValue) { dst.SetNoDataValue(*dstNoDataValue); }
     }
 
     tdset->SetGeoTransform( geoTransform.data() );
@@ -660,6 +666,9 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                 band->SetNoDataValue(*noDataValue);
             }
             band->SetColorInterpretation(colorInterpretation);
+            if (format.colorTable) {
+                band->SetColorTable(format.colorTable.get());
+            }
             ++i;
         }
     }
@@ -1540,34 +1549,132 @@ void GeoDataset::loadData() const {
     // all done
 }
 
-cv::Mat GeoDataset::makeData(int depth) const
+cv::Mat GeoDataset::makeData(int depth, int expand) const
 {
     cv::Mat data;
-    makeData(depth, data);
+    makeData(depth, data, expand);
     return data;
 }
 
-void GeoDataset::makeData(int depth, cv::Mat &data) const
+void GeoDataset::makeData(int depth, cv::Mat &data, int expand) const
 {
-    data.create(size_.height, size_.width
-                , CV_MAKETYPE(depth, numChannels_));
+    data.create(size_.height, size_.width, makeDataType(depth, expand));
 }
 
-void GeoDataset::makeData(int depth, cv::Mat &data, const cv::Rect &src) const
+void GeoDataset::makeData(int depth, cv::Mat &data, const cv::Rect &src
+                          , int expand) const
 {
-    data.create(src.height, src.width
-                , CV_MAKETYPE(depth, numChannels_));
+    data.create(src.height, src.width, makeDataType(depth, expand));
+}
+
+int GeoDataset::makeDataType(int depth, int expand) const
+{
+    if ((expand > 0) && hasColorTable_) {
+        return CV_MAKETYPE(depth, expand);
+    }
+    return CV_MAKETYPE(depth, numChannels_);
 }
 
 namespace {
 
+template <typename T> T as(const ::GDALColorEntry &ce);
+
+template <>
+cv::Vec<uchar, 1> as<cv::Vec<uchar, 1>>(const ::GDALColorEntry &ce)
+{
+    return cv::Vec<uchar, 1>(ce.c1);
+}
+
+template <>
+cv::Vec<uchar, 2> as<cv::Vec<uchar, 2>>(const ::GDALColorEntry &ce)
+{
+    return cv::Vec<uchar, 2>(ce.c1, ce.c2);
+}
+
+template <>
+cv::Vec<uchar, 3> as<cv::Vec<uchar, 3>>(const ::GDALColorEntry &ce)
+{
+    return cv::Vec<uchar, 3>(ce.c3, ce.c2, ce.c1);
+}
+
+template <>
+cv::Vec<uchar, 4> as<cv::Vec<uchar, 4>>(const ::GDALColorEntry &ce)
+{
+    return cv::Vec<uchar, 4>(ce.c3, ce.c2, ce.c1, ce.c4);
+}
+
+template <typename T>
+cv::Mat loadColorTable(const ::GDALColorTable &ct)
+{
+    const int colors(std::min(ct.GetColorEntryCount(), 256));
+    cv::Mat_<T> lut(256, 1, T());
+    for (int i(0); i < colors; ++i) {
+        lut(i) = as<T>(*ct.GetColorEntry(i));
+    }
+    return lut;
+}
+
+cv::Mat loadColorTable(const ::GDALColorTable &ct, int channels)
+{
+    switch (channels) {
+    case 1: return loadColorTable<cv::Vec<uchar, 1>>(ct);
+    case 2: return loadColorTable<cv::Vec<uchar, 2>>(ct);
+    case 3: return loadColorTable<cv::Vec<uchar, 3>>(ct);
+    case 4: return loadColorTable<cv::Vec<uchar, 4>>(ct);
+    }
+
+    LOGTHROW(err3, std::runtime_error)
+        << "Invalid number of channels: " << channels << ".";
+    return {};
+}
+
+/** Loads single channel image and expands it via color table.
+ */
+void readDataIntoExpanded(int depth, int channels
+                          , cv::Mat &data, const cv::Rect &src
+                          , GDALDataset *dset)
+{
+    ut::expect(dset->GetRasterCount() > 0, "No band in dataset.");
+    ut::expect((depth == CV_8U)
+               , "Color table expansion supports only 8bit data.");
+
+    auto band(dset->GetRasterBand(1));
+    const auto ct(band->GetColorTable());
+    ut::expect(ct, "No color table present in first band.");
+
+    // load single band into multichannel matrix
+    const auto cvDataType(CV_MAKETYPE(CV_8U, channels));
+    auto gdalDataType(cv2gdal(depth));
+    cv::Mat tmp(src.height, src.width, cvDataType);
+    const int valueSize(tmp.elemSize() / tmp.channels());
+    for (int i(0); i < channels; ++i) {
+        auto err = band->RasterIO
+            (GF_Read, // GDALRWFlag  eRWFlag,
+             src.x, src.y, // int nXOff, int nYOff
+             src.width, src.height, // int nXSize, int nYSize,
+             static_cast<void*>(tmp.data + i * valueSize), // void * pData,
+             src.width, src.height, // int nBufXSize, int nBufYSize,
+             gdalDataType, // GDALDataType  eBufType,
+             tmp.elemSize(), // int nPixelSpace,
+             tmp.step, nullptr); // int nLineSpace
+
+        ut::expect( err == CE_None, "Reading of raster data failed.");
+    }
+
+    data.create(src.height, src.width, CV_MAKETYPE(depth, channels));
+    const auto lut(loadColorTable(*ct, channels));
+    cv::LUT(tmp, lut, data);
+}
+
+/** Load full dataset.
+ */
 void readDataIntoImpl(int depth, cv::Mat &data, const cv::Rect &src
                       , int numChannels
                       , const std::vector<int> channelMapping
-                      , const std::unique_ptr<GDALDataset> &dset)
+                      , GDALDataset *dset)
 {
     // sanity
-    ut::expect(dset->GetRasterCount() > 0);
+    ut::expect(numChannels > 0);
 
     data.create(src.height, src.width
                 , CV_MAKETYPE(depth, numChannels));
@@ -1597,7 +1704,7 @@ void readDataIntoImpl(int depth, cv::Mat &data, const cv::Rect &src
 }
 
 void fetchMaskImpl(cv::Mat &raster, const cv::Rect &src
-                   , const std::unique_ptr<GDALDataset> &dset)
+                   , GDALDataset *dset)
 {
     // sanity
     ut::expect(dset->GetRasterCount() > 0);
@@ -1629,24 +1736,41 @@ void fetchMaskImpl(cv::Mat &raster, const cv::Rect &src
 
 } // namespace
 
-cv::Mat GeoDataset::readData(int depth) const
+cv::Mat GeoDataset::readData(int depth, int expand) const
 {
     cv::Mat data;
-    readDataIntoImpl(depth, data, cv::Rect(0, 0, size_.width, size_.height)
-                     , numChannels_, channelMapping_, dset_);
+    if ((expand > 0) && hasColorTable_) {
+        readDataIntoExpanded(depth, expand, data
+                             , cv::Rect(0, 0, size_.width, size_.height)
+                             , dset_.get());
+    } else {
+        readDataIntoImpl(depth, data, cv::Rect(0, 0, size_.width, size_.height)
+                         , numChannels_, channelMapping_, dset_.get());
+    }
     return data;
 }
 
-void GeoDataset::readDataInto(int depth, cv::Mat &data) const
+void GeoDataset::readDataInto(int depth, cv::Mat &data, int expand) const
 {
+    if ((expand > 0) && hasColorTable_) {
+        return readDataIntoExpanded(depth, expand, data
+                                    , cv::Rect(0, 0, size_.width, size_.height)
+                                    , dset_.get());
+    }
     readDataIntoImpl(depth, data, cv::Rect(0, 0, size_.width, size_.height)
-                     , numChannels_, channelMapping_, dset_);
+                     , numChannels_, channelMapping_, dset_.get());
 }
 
 void GeoDataset::readDataInto(int depth, cv::Mat &data
-                              , const cv::Rect &src) const
+                              , const cv::Rect &src, int expand) const
 {
-    readDataIntoImpl(depth, data, src, numChannels_, channelMapping_, dset_);
+    if ((expand > 0) && hasColorTable_) {
+        return readDataIntoExpanded(depth, expand, data
+                                    , cv::Rect(0, 0, size_.width, size_.height)
+                                    , dset_.get());
+    }
+    readDataIntoImpl(depth, data, src, numChannels_, channelMapping_
+                     , dset_.get());
 }
 
 cv::Mat GeoDataset::fetchMask(bool optimized) const
@@ -1665,7 +1789,8 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
 
     // load using in-place function
     cv::Mat raster;
-    fetchMaskImpl(raster, cv::Rect(0, 0, size_.width, size_.height), dset_);
+    fetchMaskImpl(raster, cv::Rect(0, 0, size_.width, size_.height)
+                  , dset_.get());
 
     // done
     return raster;
@@ -1673,12 +1798,13 @@ cv::Mat GeoDataset::fetchMask(bool optimized) const
 
 void GeoDataset::fetchMask(cv::Mat &raster) const
 {
-    fetchMaskImpl(raster, cv::Rect(0, 0, size_.width, size_.height), dset_);
+    fetchMaskImpl(raster, cv::Rect(0, 0, size_.width, size_.height)
+                  , dset_.get());
 }
 
 void GeoDataset::fetchMask(cv::Mat &raster, const cv::Rect &src) const
 {
-    fetchMaskImpl(raster, src, dset_);
+    fetchMaskImpl(raster, src, dset_.get());
 }
 
 void GeoDataset::loadMask() const {
@@ -2672,6 +2798,12 @@ void GeoDataset::rasterize(const ::OGRGeometry *geometry
     fresh_ = false;
 }
 
+GeoDataset::Format& GeoDataset::Format::own()
+{
+    colorTable.reset(colorTable->Clone());
+    return *this;
+}
+
 GeoDataset::Format GeoDataset::getFormat() const
 {
     Format f;
@@ -2685,6 +2817,9 @@ GeoDataset::Format GeoDataset::getFormat() const
         auto *band(dset_->GetRasterBand(i));
         if (i == 1) {
             f.channelType = band->GetRasterDataType();
+            if (auto *ct = band->GetColorTable()) {
+                f.colorTable.reset(ct, [](void*){});
+            }
         }
         f.channels.push_back(band->GetColorInterpretation());
     }

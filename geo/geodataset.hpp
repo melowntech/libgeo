@@ -216,6 +216,14 @@ public:
          */
         std::vector<GDALColorInterp> channels;
 
+        /** Optional color table. Single table shared by all channels. Make
+         *  sense only for single channel image.
+         *
+         *  Color table might be borrowed. To make sure we own the table one
+         *  must call own() method.
+         */
+        std::shared_ptr< ::GDALColorTable> colorTable;
+
         /** Type of storage (tiff image, png image, ...)
          */
         Storage storageType;
@@ -232,6 +240,10 @@ public:
             , channels(channels.begin(), channels.end())
             , storageType(storageType)
         {}
+
+        /** Make borrowed resources own.
+         */
+        Format& own();
 
         static Format gtiffRGBPhoto() {
             return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand }
@@ -594,7 +606,7 @@ public:
     /** Raw-ish interface: loads matrix in provided data CV datatype
      * (i.e. depth), e.g. CV_8U
      */
-    cv::Mat readData(int depth) const;
+    cv::Mat readData(int depth, int expand = 0) const;
 
     /** Raw-ish interface: loads matrix in provided data CV datatype
      * (i.e. depth), e.g. CV_8U.
@@ -602,7 +614,7 @@ public:
      * Reads data into given matrix. Matrix is created only if its header is
      * different than required.
      */
-    void readDataInto(int depth, cv::Mat &data) const;
+    void readDataInto(int depth, cv::Mat &data, int expand = 0) const;
 
     /** Raw-ish interface: loads matrix in provided data CV datatype
      * (i.e. depth), e.g. CV_8U.
@@ -612,22 +624,32 @@ public:
      *
      * Reads only given sub-range.
      */
-    void readDataInto(int depth, cv::Mat &data, const cv::Rect &src) const;
+    void readDataInto(int depth, cv::Mat &data, const cv::Rect &src
+                      , int expand = 0) const;
 
     /** Creates matrix with the same propetries as would be returned by calling
      *  readData(depth). Used internally by readData.
      */
-    cv::Mat makeData(int depth) const;
+    cv::Mat makeData(int depth, int expand = 0) const;
 
     /** Creates matrix with the same propetries as would be returned by calling
      *  readData(depth). Used internally by readDataInto.
      */
-    void makeData(int depth, cv::Mat &data) const;
+    void makeData(int depth, cv::Mat &data, int expand = 0) const;
 
     /** Creates matrix with the same propetries as would be returned by calling
      *  readData(depth). Used internally by readDataInto.
      */
-    void makeData(int depth, cv::Mat &data, const cv::Rect &src) const;
+    void makeData(int depth, cv::Mat &data, const cv::Rect &src
+                  , int expand = 0) const;
+
+    /** Returns CV datatype for given bit depth and number of this dataset's
+     *  channels.
+     *
+     *  If expand > 0 and this dataset is paletted then provided number of
+     *  channels is used.
+     */
+    int makeDataType(int depth, int expand = 0) const;
 
     /** Move ctor. Allows initialization from return value.
      */
@@ -637,6 +659,7 @@ public:
         , geoTransform_(std::move(other.geoTransform_))
         , dset_(std::move(other.dset_))
         , numChannels_(other.numChannels_)
+        , hasColorTable_(other.hasColorTable_)
         , channelMapping_(other.channelMapping_)
         , noDataValue_(other.noDataValue_)
         , changed_(other.changed_)
@@ -656,6 +679,7 @@ public:
         geoTransform_ = std::move(other.geoTransform_);
         dset_ = std::move(other.dset_);
         numChannels_ = other.numChannels_;
+        hasColorTable_ = other.hasColorTable_;
         channelMapping_ = other.channelMapping_;
         noDataValue_ = other.noDataValue_;
         changed_ = other.changed_;
@@ -852,6 +876,10 @@ public:
 
     void fetchMask(cv::Mat &raster, const cv::Rect &src) const;
 
+    /** Returns format. NB: colorTable (if any) is borrowed. You must call
+     *  Format::own() function to clone the underlying color table if you want
+     *  to keep it.
+     */
     Format getFormat() const;
 
     /** Dataset descriptor: overall dataset information.
@@ -923,6 +951,7 @@ private:
     GeoTransform geoTransform_;
     std::unique_ptr<GDALDataset> dset_;
     int numChannels_;
+    bool hasColorTable_;
     /** Read/write channel mapping: maps GDAL band number to opencv channel. */
     std::vector<int> channelMapping_;
     NodataValue noDataValue_;
