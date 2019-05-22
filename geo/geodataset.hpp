@@ -240,6 +240,13 @@ public:
             , channels(channels.begin(), channels.end())
             , storageType(storageType)
         {}
+        Format(::GDALDataType channelType
+               , const std::vector< ::GDALColorInterp> &channels
+               , Storage storageType = Storage::custom)
+            : channelType(channelType)
+            , channels(channels)
+            , storageType(storageType)
+        {}
 
         /** Make borrowed resources own.
          */
@@ -989,6 +996,14 @@ UTILITY_GENERATE_ENUM_IO(GeoDataset::Resampling,
                          ((dem))
                          )
 
+UTILITY_GENERATE_ENUM_IO(GeoDataset::Format::Storage,
+                         ((custom))
+                         ((gtiff))
+                         ((png))
+                         ((jpeg))
+                         ((vrt))
+                         ((memory))
+                         )
 
 inline cv::Mat& GeoDataset::data(bool justData)
 {
