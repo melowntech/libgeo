@@ -24,6 +24,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <memory>
+
+#include <Python.h>
+
 #include <boost/python.hpp>
 #include <boost/python/stl_iterator.hpp>
 #include <boost/python/raw_function.hpp>
@@ -48,6 +52,7 @@
 #include "pysupport/class.hpp"
 #include "pysupport/enum.hpp"
 #include "pysupport/string.hpp"
+#include "pysupport/threads.hpp"
 
 #include "../gdsblockwriter.hpp"
 #include "../gdal.hpp"
@@ -120,8 +125,6 @@ void add(GdsBlockWriter::Batch &batch, const math::Point2i &index
         LOGTHROW(err1, std::logic_error)
             << "Only native byte order is supported.";
     }
-
-    batch.blocks.push_back(block);
 }
 
 void add(GdsBlockWriter::Batch &batch, const math::Point2i &index
@@ -152,9 +155,34 @@ void GdsBlockWriter_write(GdsBlockWriter &writer, const bp::object &data)
             , item[2]);
     }
 
-    // TODO: construct release
+    auto obj(data.ptr());
+
+    batch.acquire = [obj] { Py_INCREF(obj); };
+
+    batch.release = [obj]() {
+        pysupport::EnablePython guard;
+        Py_DECREF(obj);
+    };
 
     writer.write(batch);
+}
+
+void GdsBlockWriter_finish(GdsBlockWriter &writer)
+{
+    pysupport::EnableThreads guard;
+    writer.finish();
+}
+
+template <typename T>
+std::shared_ptr<std::vector<T>> vectorFromSequence(const bp::object& sequence)
+{
+    auto v(std::make_shared<std::vector<T>>());
+    for (bp::stl_input_iterator<T> isequence(sequence), esequence;
+         isequence != esequence; ++isequence)
+    {
+        v->push_back(*isequence);
+    }
+    return v;
 }
 
 template <typename T>
@@ -165,6 +193,7 @@ void addVector(const char *type)
     class_<std::vector<T>>(type)
         .def(init<>())
         .def(vector_indexing_suite<std::vector<T>>())
+        .def("__init__", make_constructor(&vectorFromSequence<T>))
         ;
 }
 
@@ -219,7 +248,8 @@ void registerGdsBlockWriter() {
          , const GeoDataset::Format&, const math::Size2&
          , const NodataValue&, const Options&>())
         .def("write", &GdsBlockWriter_write)
-        .def("finish", &GdsBlockWriter::finish)
+        .def("finish", &GdsBlockWriter_finish)
+        .def("__del__", &GdsBlockWriter_finish)
         ;
 
     pysupport::fillEnum< ::GDALDataType>
@@ -229,42 +259,44 @@ void registerGdsBlockWriter() {
         ("GDALColorInterp", "GDAL color interpretation.");
     addVector< ::GDALColorInterp>("GDALColorInterps");
 
-    {
-        bp::scope scope(GdsBlockWriter_class);
-        auto Format_class = class_<GeoDataset::Format>
-            ("Format", init<>())
-            .def(init< ::GDALDataType
-                      , const std::vector< ::GDALColorInterp>&>())
-            .def(init< ::GDALDataType
-                      , const std::vector< ::GDALColorInterp>&
-                      , GeoDataset::Format::Storage>())
+    auto Format_class = class_<GeoDataset::Format>
+        ("Format", init<>())
+        .def(init< ::GDALDataType
+             , const std::vector< ::GDALColorInterp>&>())
+        .def(init< ::GDALDataType
+             , const std::vector< ::GDALColorInterp>&
+             , GeoDataset::Format::Storage>())
             .def_readwrite("channelType", &GeoDataset::Format::channelType)
-            .def_readwrite("channels", &GeoDataset::Format::channels)
-            .def_readwrite("driver", &GeoDataset::Format::driver)
+        .def_readwrite("channels", &GeoDataset::Format::channels)
+        .def_readwrite("driver", &GeoDataset::Format::driver)
 
-            .def("gtiffRGBPhoto", &GeoDataset::Format::gtiffRGBPhoto)
-            .staticmethod("gtiffRGBPhoto")
-            .def("pngRGBPhoto", &GeoDataset::Format::pngRGBPhoto)
-            .staticmethod("pngRGBPhoto")
-            .def("pngRGBAPhoto", &GeoDataset::Format::pngRGBAPhoto)
-            .staticmethod("pngRGBAPhoto")
-            .def("jpegRGBPhoto", &GeoDataset::Format::jpegRGBPhoto)
-            .staticmethod("jpegRGBPhoto")
+        .def("gtiffRGBPhoto", &GeoDataset::Format::gtiffRGBPhoto)
+        .staticmethod("gtiffRGBPhoto")
+        .def("pngRGBPhoto", &GeoDataset::Format::pngRGBPhoto)
+        .staticmethod("pngRGBPhoto")
+        .def("pngRGBAPhoto", &GeoDataset::Format::pngRGBAPhoto)
+        .staticmethod("pngRGBAPhoto")
+        .def("jpegRGBPhoto", &GeoDataset::Format::jpegRGBPhoto)
+        .staticmethod("jpegRGBPhoto")
             .def("coverage", &GeoDataset::Format::coverage)
-            .staticmethod("coverage")
-            .def("dsm", &GeoDataset::Format::dsm)
-            .staticmethod("dsm")
-            ;
+        .staticmethod("coverage")
+        .def("dsm", &GeoDataset::Format::dsm)
+        .staticmethod("dsm")
+        ;
 
-        // inject GeoDataset::Format::Storage enum
-        {
-            bp::scope scope(Format_class);
-            pysupport::fillEnum<GeoDataset::Format::Storage>
-                ("Storage", "Storage type.");
-        }
+    // inject GeoDataset::Format::Storage enum
+    {
+        bp::scope scope(Format_class);
+        pysupport::fillEnum<GeoDataset::Format::Storage>
+            ("Storage", "Storage type.");
     }
 
     from_python_options();
+
+    // make sure we have thread support
+    ::PyEval_InitThreads();
+
+    dbglog::log_thread(true);
 }
 
 } } // namespace geo::py

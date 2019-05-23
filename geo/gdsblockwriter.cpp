@@ -34,7 +34,9 @@
 #include "utility/expect.hpp"
 
 #include "gdsblockwriter.hpp"
+#include "gdal.hpp"
 #include "detail/options.hpp"
+
 
 namespace fs = boost::filesystem;
 
@@ -185,17 +187,18 @@ public:
 
         {
             int i = 1;
-            for (auto colorInterpretation : format.channels) {
+            for (auto ci : format.channels) {
                 auto band(ds->GetRasterBand(i));
                 utility::expect(band, "Cannot find band %d.", (i));
                 if (noDataValue) { band->SetNoDataValue(*noDataValue); }
-                band->SetColorInterpretation(colorInterpretation);
+                band->SetColorInterpretation(ci);
                 if (format.colorTable) {
                     band->SetColorTable(format.colorTable.get());
                 }
                 ++i;
             }
         }
+        ds->FlushCache();
 
         start(std::move(ds), blockSize);
     }
@@ -206,8 +209,8 @@ public:
                 std::unique_lock<std::mutex> lock(mutex_);
                 if (!running_) { return; }
             }
-            LOG(warn2) << "Geo Dataset Block Writer was not flushed."
-                       << "Flushing";
+            LOG(warn2) << "Geo Dataset Block Writer was not flushed. "
+                       << "Flushing.";
             stop();
         } catch (const std::exception &e) {
             LOG(warn3)
@@ -225,18 +228,31 @@ public:
 private:
     void run(Dataset &&ds, const math::Size2 &blockSize);
 
+    void checkError();
+
     std::thread worker_;
     std::mutex mutex_;
     std::condition_variable cond_;
     bool running_;
 
     std::queue<Batch> queue_;
+    std::exception_ptr error_;
 };
+
+void GdsBlockWriter::Detail::checkError()
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (!error_) { return; }
+    auto e(error_);
+    error_ = {};
+    std::rethrow_exception(e);
+}
 
 void GdsBlockWriter::Detail::start(Dataset &&ds
                                    , const math::Size2 &blockSize)
 {
     worker_ = std::thread(&Detail::run, this, std::move(ds), blockSize);
+    running_ = true;
 }
 
 void GdsBlockWriter::Detail::stop()
@@ -249,14 +265,21 @@ void GdsBlockWriter::Detail::stop()
     }
 
     worker_.join();
+    checkError();
 }
 
 void GdsBlockWriter::Detail::write(const Batch &batch)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    checkError();
+
+    // TODO: release on errror
     if (batch.acquire) { batch.acquire(); }
-    queue_.push(batch);
-    cond_.notify_all();
+
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        queue_.push(batch);
+        cond_.notify_all();
+    }
 }
 
 extern "C" {
@@ -294,8 +317,6 @@ void GdsBlockWriter::Detail::run(Dataset &&ds, const math::Size2 &blockSize)
 
     ::CPLSetErrorHandler(erroHandler);
 
-    running_ = true;
-
     for (;;) {
         std::unique_lock<std::mutex> lock(mutex_);
         // wait for work to be done
@@ -314,28 +335,27 @@ void GdsBlockWriter::Detail::run(Dataset &&ds, const math::Size2 &blockSize)
             try {
                 writeBlock(*ds, bandMap, block, blockSize);
             } catch (const std::exception &e) {
-                LOG(err4) << "TODO: Handle block write exception <"
-                          << e.what() << ">.";
+                LOG(warn2) << "Failed to write a block: <"
+                           << e.what() << ">.";
+
+                std::unique_lock<std::mutex> lock(mutex_);
+                error_ = std::current_exception();
+                break;
             }
         }
 
         try {
-            if (batch.release) {
-                lock.lock();
-                batch.release();
-            }
+            if (batch.release) { batch.release(); }
         } catch (const std::exception &e) {
-            LOG(err4) << "TODO: Handle release exception <"
-                      << e.what() << ">.";
+            LOG(warn2) << "Failed to release a batch: <"
+                       << e.what() << ">.";
+            std::unique_lock<std::mutex> lock(mutex_);
+            error_ = std::current_exception();
         }
     }
 
+    ds->FlushCache();
     ds.reset();
-
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        running_ = false;
-    }
 }
 
 GdsBlockWriter::GdsBlockWriter(const boost::filesystem::path &path
