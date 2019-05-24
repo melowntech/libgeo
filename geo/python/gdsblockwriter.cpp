@@ -173,6 +173,18 @@ void GdsBlockWriter_finish(GdsBlockWriter &writer)
     writer.finish();
 }
 
+bp::object GdsBlockWriter_enter(const bp::object &self)
+{
+    return self;
+}
+
+void GdsBlockWriter_exit(GdsBlockWriter &writer, const bp::object&
+                         , const bp::object&, const bp::object&)
+{
+    // close in any case
+    GdsBlockWriter_finish(writer);
+}
+
 template <typename T>
 std::shared_ptr<std::vector<T>> vectorFromSequence(const bp::object& sequence)
 {
@@ -250,6 +262,8 @@ void registerGdsBlockWriter() {
         .def("write", &GdsBlockWriter_write)
         .def("finish", &GdsBlockWriter_finish)
         .def("__del__", &GdsBlockWriter_finish)
+        .def("__enter__", &GdsBlockWriter_enter)
+        .def("__exit__", &GdsBlockWriter_exit)
         ;
 
     pysupport::fillEnum< ::GDALDataType>

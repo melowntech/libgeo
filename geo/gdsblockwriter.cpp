@@ -229,6 +229,7 @@ private:
     void run(Dataset &&ds, const math::Size2 &blockSize);
 
     void checkError();
+    void checkError(std::unique_lock<std::mutex>&);
 
     std::thread worker_;
     std::mutex mutex_;
@@ -242,6 +243,11 @@ private:
 void GdsBlockWriter::Detail::checkError()
 {
     std::unique_lock<std::mutex> lock(mutex_);
+    checkError(lock);
+}
+
+void GdsBlockWriter::Detail::checkError(std::unique_lock<std::mutex>&)
+{
     if (!error_) { return; }
     auto e(error_);
     error_ = {};
@@ -270,13 +276,21 @@ void GdsBlockWriter::Detail::stop()
 
 void GdsBlockWriter::Detail::write(const Batch &batch)
 {
-    checkError();
-
-    // TODO: release on errror
-    if (batch.acquire) { batch.acquire(); }
-
     {
         std::unique_lock<std::mutex> lock(mutex_);
+        if (!running_) {
+            LOGTHROW(err2, std::runtime_error)
+                << "Cannot write a block: already stoped.";
+        }
+        checkError(lock);
+
+        // TODO: release on errror
+        if (batch.acquire) {
+            lock.unlock();
+            batch.acquire();
+            lock.lock();
+        }
+
         queue_.push(batch);
         cond_.notify_all();
     }
