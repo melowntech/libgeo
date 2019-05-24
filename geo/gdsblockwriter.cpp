@@ -107,23 +107,46 @@ typedef std::unique_ptr< ::GDALDataset> Dataset;
 typedef std::vector<int> BandMap;
 
 void writeBlock(::GDALDataset &ds, BandMap &bandMap
+                , const math::Size2 &rasterSize
                 , const GdsBlockWriter::Block &block
                 , const math::Size2 &blockSize)
 {
     if (block.channels != bandMap.size()) {
         LOGTHROW(err2, std::runtime_error)
-            << "Invalid number of channels (" << block.channels
+            << "Incompatible number of channels (" << block.channels
             << "), expected " << bandMap.size() << ".";
     }
 
+    if ((block.index(0) < 0) || (block.index(1) < 0)) {
+        LOG(info2) << "Skipping tile [" << block.index(0)
+                   << ", " << block.index(0) << "]: out of bounds.";
+        return;
+    }
+
+    const math::Point2i offset(block.index(0) * blockSize.width
+                               , block.index(1) * blockSize.height);
+
+    // clip at edge
+    math::Point2i end(offset(0) + block.size.width
+                      , offset(1) + block.size.height);
+    if (end(0) > rasterSize.width) { end(0) = rasterSize.width; }
+    if (end(1) > rasterSize.height) { end(1) = rasterSize.height; }
+
+    math::Size2 size(end(0) - offset(0), end(1) - offset(1));
+    if ((size.width <= 0) || (size.height <= 1)) {
+        LOG(info2) << "Skipping tile [" << block.index(0)
+                   << ", " << block.index(0) << "]: out of bounds.";
+        return;
+    }
+
     auto res(ds.RasterIO(::GDALRWFlag::GF_Write               // eRWFlag
-                         , block.index(0) * blockSize.width   // nXOff
-                         , block.index(1) * blockSize.height  // nYOff
-                         , block.size.width                   // nXSize
-                         , block.size.height                  // nYSize
+                         , offset(0)                          // nXOff
+                         , offset(1)                          // nYOff
+                         , size.width                         // nXSize
+                         , size.height                        // nYSize
                          , const_cast<void*>(block.data)      // pData
-                         , block.size.width                   // nBufXSize
-                         , block.size.height                  // nBufYSize
+                         , size.width                         // nBufXSize
+                         , size.height                        // nBufYSize
                          , block.type                         // eBufType
                          , bandMap.size()                     // nBandCount
                          , bandMap.data()                     // panBandMap
@@ -331,6 +354,8 @@ void GdsBlockWriter::Detail::run(Dataset &&ds, const math::Size2 &blockSize)
 
     ::CPLSetErrorHandler(erroHandler);
 
+    const math::Size2i size(ds->GetRasterXSize(), ds->GetRasterYSize());
+
     for (;;) {
         std::unique_lock<std::mutex> lock(mutex_);
         // wait for work to be done
@@ -347,7 +372,7 @@ void GdsBlockWriter::Detail::run(Dataset &&ds, const math::Size2 &blockSize)
 
         for (const auto &block : batch.blocks) {
             try {
-                writeBlock(*ds, bandMap, block, blockSize);
+                writeBlock(*ds, bandMap, size, block, blockSize);
             } catch (const std::exception &e) {
                 LOG(warn2) << "Failed to write a block: <"
                            << e.what() << ">.";
