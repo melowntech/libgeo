@@ -65,11 +65,11 @@ inline math::Matrix4 normalized2geo(const math::Extents2& extents)
 
 inline math::Matrix4 geo2normalized(const math::Extents3& extents)
 {
-    const math::Point2 midpoint(0.5 * (extents.ur + extents.ll));
+    const math::Point3 midpoint(0.5 * (extents.ur + extents.ll));
 
-    double scale = std::min(
+    double scale = std::min( std::min(
         2.0 / (extents.ur[0] - extents.ll[0]),
-        2.0 / (extents.ur[1] - extents.ll[1]),
+        2.0 / (extents.ur[1] - extents.ll[1])),
         2.0 / (extents.ur[2] - extents.ll[2]));
 
     math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
@@ -85,9 +85,9 @@ inline math::Matrix4 normalized2geo(const math::Extents3& extents)
 {
     const math::Point2 midpoint(0.5 * (extents.ur + extents.ll));
 
-    double scale = std::max(
+    double scale = std::max( std::max(
         (extents.ur[0] - extents.ll[0]) / 2.0,
-        (extents.ur[1] - extents.ll[1]) / 2.0,
+        (extents.ur[1] - extents.ll[1]) / 2.0),
         (extents.ur[2] - extents.ll[2]) / 2.0);
 
     math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
