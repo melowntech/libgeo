@@ -42,18 +42,14 @@ public:
     /** \param SRS for both adjustment and querty
      *  \param inverse unadjust by default if true
      */
-    VerticalAdjuster(const SrsDefinition &srs, bool inverse = false)
-        : sf_(boost::in_place(srs)), inverse_(inverse)
-    {}
+    VerticalAdjuster(const SrsDefinition &srs, bool inverse = false);
 
     /** \param srs SRS for adjustment
      *  \param srcSrs SRS for query
      *  \param inverse unadjust by default if true
      */
     VerticalAdjuster(const SrsDefinition &srs, const SrsDefinition &srcSrs
-                     , bool inverse = false)
-        : sf_(boost::in_place(srs, srcSrs)), inverse_(inverse)
-    {}
+                     , bool inverse = false);
 
     /** \param apply creates dummy adjuster if false
      *  \param SRS for both adjustment and querty

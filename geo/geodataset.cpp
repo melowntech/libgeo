@@ -57,6 +57,7 @@
 #include "detail/warpmemorymeter.hpp"
 #include "gdal.hpp"
 #include "detail/ovrdataset.hpp"
+#include "detail/options.hpp"
 
 
 extern "C" {
@@ -154,48 +155,6 @@ bool areIdenticalButForShift( const GeoTransform & trafo1,
         trafo1[5] == trafo2[5]
     );
 }
-
-// options support
-
-class OptionsWrapper : boost::noncopyable {
-public:
-    OptionsWrapper(const GeoDataset::Options &options)
-        : opts_(nullptr)
-    {
-        for (const auto &opt : options.options) {
-            opts_ = ::CSLSetNameValue(opts_, opt.first.c_str()
-                                      , opt.second.c_str());
-        }
-    }
-
-    ~OptionsWrapper() { ::CSLDestroy(opts_); }
-
-    operator char**() const { return opts_; }
-
-    char** release() {
-        char** opts(opts_);
-        opts_ = nullptr;
-        return opts;
-    }
-
-    OptionsWrapper& operator()(const char *name, const char *value) {
-        opts_ = ::CSLSetNameValue(opts_, name, value);
-        return *this;
-    }
-
-    template <typename T>
-    OptionsWrapper& operator()(const char *name, const T &value) {
-        return operator()
-            (name, boost::lexical_cast<std::string>(value).c_str());
-    }
-
-    OptionsWrapper& operator()(const char *name, bool value) {
-        return operator()(name, value ? "YES" : "NO");
-    }
-
-private:
-    char **opts_;
-};
 
 } // namespace
 
@@ -636,7 +595,7 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                           , rasterSize.height
                           , format.channels.size()
                           , format.channelType
-                          , OptionsWrapper(options)));
+                          , detail::OptionsWrapper(options)));
 
     ut::expect(ds.get(), "Failed to create new dataset.");
 
@@ -859,7 +818,8 @@ struct Corners {
 };
 
 void sourceExtra(const GeoDataset &src, const GeoDataset &dst
-                 , OptionsWrapper &wo, const GDALWarpOptions *warpOptions)
+                 , detail::OptionsWrapper &wo
+                 , const GDALWarpOptions *warpOptions)
 {
     auto size(dst.size());
 
@@ -1330,7 +1290,7 @@ GeoDataset::warpInto(GeoDataset &dst
 
     Resampling alg(requestedAlg ? *requestedAlg : Resampling::lanczos);
 
-    OptionsWrapper wo(options);
+    detail::OptionsWrapper wo(options);
 
     // ---- optimization starts here ----
     if (areSame(srs(), dst.srs(), SrsEquivalence::geographic)) {
@@ -2894,7 +2854,7 @@ GeoDataset GeoDataset::createCopy(const boost::filesystem::path &path
     std::unique_ptr<GDALDataset>
         ds(driver->CreateCopy(path.c_str(), src.dset_.get()
                               , true // strict
-                              , OptionsWrapper(options)
+                              , detail::OptionsWrapper(options)
                               , ::GDALDummyProgress
                               , nullptr));
     if (!ds) {
@@ -2927,7 +2887,7 @@ GeoDataset GeoDataset::copy(const boost::filesystem::path &path
     std::unique_ptr<GDALDataset>
         ds(driver->CreateCopy(path.c_str(), dset_.get()
                               , true // strict
-                              , OptionsWrapper(options)
+                              , detail::OptionsWrapper(options)
                               , ::GDALDummyProgress
                               , nullptr));
     if (!ds) {

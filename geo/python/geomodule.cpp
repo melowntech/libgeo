@@ -49,6 +49,8 @@
 #include "../enu.hpp"
 #include "../coordinates.hpp"
 
+#include "gdsblockwriter.hpp"
+
 namespace bp = boost::python;
 namespace bpc = boost::python::converter;
 
@@ -240,6 +242,8 @@ BOOST_PYTHON_MODULE(melown_geo)
 
     try {
         py::osrModule = import("osgeo.osr");
+        // pull in gds stuff, needs OpenCV and NumPy AND osgeo.osr
+        // py::registerGdsBlockWriter();
     } catch (error_already_set) {}
 }
 

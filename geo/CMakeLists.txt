@@ -20,6 +20,7 @@ if(OpenCV_FOUND)
     dem.hpp dem.cpp
     heightcoding.hpp heightcoding.cpp heightcoding-io.cpp
     featurelayers.hpp featurelayers.cpp
+    gdsblockwriter.hpp gdsblockwriter.cpp
   )
 else()
   message(STATUS "geo: compiling without OpenCV support")

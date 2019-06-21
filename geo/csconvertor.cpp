@@ -352,9 +352,11 @@ public:
                 , const OGRSpatialReference &dst
                 , const Enu &enu
                 , bool inverse)
-        : enu_(enu), trans_(::OGRCreateCoordinateTransformation
-                            (const_cast<OGRSpatialReference*>(&src)
-                             , const_cast<OGRSpatialReference*>(&dst)))
+        : enu_(enu)
+        , lc_(initLc(enu_))
+        , trans_(::OGRCreateCoordinateTransformation
+                 (const_cast<OGRSpatialReference*>(&src)
+                  , const_cast<OGRSpatialReference*>(&dst)))
         , inverse_(inverse)
     {
         if (!trans_) {

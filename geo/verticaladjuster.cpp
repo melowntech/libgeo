@@ -31,6 +31,7 @@ namespace {
 
 boost::optional<SrsFactors> create(bool apply, const SrsDefinition &srs)
 {
+    if (srs.type == SrsDefinition::Type::enu) return boost::none;
     if (!apply) return boost::none;
     return SrsFactors(srs);
 }
@@ -38,10 +39,23 @@ boost::optional<SrsFactors> create(bool apply, const SrsDefinition &srs)
 boost::optional<SrsFactors> create(bool apply, const SrsDefinition &srs
                                    , const SrsDefinition &srcSrs)
 {
+    if (srs.type == SrsDefinition::Type::enu) return boost::none;
     if (!apply) return boost::none;
     return SrsFactors(srs, srcSrs);
 }
 
+}
+
+VerticalAdjuster::VerticalAdjuster(const SrsDefinition &srs, bool inverse)
+    : sf_(create(true, srs)), inverse_(inverse)
+{
+}
+
+VerticalAdjuster::VerticalAdjuster(const SrsDefinition &srs
+                                   , const SrsDefinition &srcSrs
+                                   , bool inverse)
+    : sf_(create(true, srs, srcSrs)), inverse_(inverse)
+{
 }
 
 VerticalAdjuster::VerticalAdjuster(bool apply, const SrsDefinition &srs
