@@ -118,7 +118,7 @@ public :
 
         struct Surface : Base {
 
-            struct Patch : math::Point3i {};
+            typedef math::Point3i Patch;
             typedef std::vector<unsigned> Boundary;
 
             math::Points3 vertices;
@@ -168,9 +168,12 @@ public :
             zNeverDefined &= !multipolygon.zDefined;
         }
 
-        void addSurface(const Surface & surface) {
-            surfaces.emplace_back( surface  );
-            zAlwaysDefined &= 1; zNeverDefined &= 0; }
+        template <typename ...Args>
+        Surface& addSurface(Args &&...args) {
+            surfaces.emplace_back(std::forward<Args>(args)...);
+            zAlwaysDefined &= 1; zNeverDefined &= 0;
+            return surfaces.back();
+        }
 
         bool empty() const;
 
@@ -191,9 +194,10 @@ public :
         boost::optional<math::Extents3> featuresBB;
 
         Layer() {}
-        Layer(const std::string & name
-              , const SrsDefinition & srs) :
-              name(name), srs(srs), adjustVertical(false) {}
+        Layer(const std::string & name, const SrsDefinition & srs
+              , bool adjustVertical = false)
+            : name(name), srs(srs), adjustVertical(adjustVertical)
+        {}
         bool is2D() const { return features.zNeverDefined; }
         bool is3D() const { return features.zAlwaysDefined; }
 
