@@ -83,7 +83,7 @@ inline math::Matrix4 geo2normalized(const math::Extents3& extents)
 
 inline math::Matrix4 normalized2geo(const math::Extents3& extents)
 {
-    const math::Point2 midpoint(0.5 * (extents.ur + extents.ll));
+    const math::Point3 midpoint(0.5 * (extents.ur + extents.ll));
 
     double scale = std::max( std::max(
         (extents.ur[0] - extents.ll[0]) / 2.0,

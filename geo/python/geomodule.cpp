@@ -234,8 +234,14 @@ BOOST_PYTHON_MODULE(melown_geo)
     }
 
     // coordinates.hpp
-    def("geo2normalized", &geo::geo2normalized);
-    def("normalized2geo", &geo::normalized2geo);
+    def<math::Matrix4(const math::Extents2&)>
+        ("geo2normalized", &geo::geo2normalized);
+    def<math::Matrix4(const math::Extents3&)>
+        ("geo2normalized", &geo::geo2normalized);
+    def<math::Matrix4(const math::Extents3&)>
+        ("normalized2geo", &geo::normalized2geo);
+    def<math::Matrix4(const math::Extents3&)>
+        ("normalized2geo", &geo::normalized2geo);
     def("local2normalized", &geo::local2normalized);
     def("local2geo", &geo::local2geo);
     def("geo2local", &geo::geo2local);
