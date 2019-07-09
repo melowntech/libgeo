@@ -159,10 +159,17 @@ public:
     }
 
     virtual bool areSrsEqual() const {
+#if GDAL_VERSION_NUM >= 2030000
+        const char *srcName;
+        const char *dstName;
+        auto srcUnit(trans_->GetSourceCS()->GetLinearUnits(&srcName));
+        auto dstUnit(trans_->GetTargetCS()->GetLinearUnits(&dstName));
+#else
         char *srcName;
         char *dstName;
         auto srcUnit(trans_->GetSourceCS()->GetLinearUnits(&srcName));
         auto dstUnit(trans_->GetTargetCS()->GetLinearUnits(&dstName));
+#endif
 
         LOG(info1)
             << "SRS Units: " << srcUnit << "/<" << srcName << "> -> "

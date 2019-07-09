@@ -58,8 +58,12 @@ void import(OGRSpatialReference &sr, const SrsDefinition &def)
         // convert NUL-terminated string to char vector
         std::vector<char> tmp(def.srs.c_str()
                               , def.srs.c_str() + def.srs.size() + 1);
+#if GDAL_VERSION_NUM >= 2030000
+        auto err(sr.importFromWkt(tmp.data()));
+#else
         char *data(tmp.data());
         auto err(sr.importFromWkt(&data));
+#endif
         if (err != OGRERR_NONE) {
             LOGTHROW(err1, std::runtime_error)
                 << "Error parsing wkt definition: <" << err << "> (input = "
@@ -111,7 +115,7 @@ inline double asDouble(const SubString &arg, const SubString &what)
 {
     try {
         return boost::lexical_cast<double>(asString(arg));
-    } catch (boost::bad_lexical_cast) {
+    } catch (const boost::bad_lexical_cast&) {
         LOGTHROW(err1, std::runtime_error)
             << "ENU SRS: Value <" << asString(arg)
             << "> of key <" << asString(what)

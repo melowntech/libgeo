@@ -860,7 +860,7 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
         LOG(info1) << "Setting SOURCE_EXTRA=" << se << " and SAMPLE_GRID=YES.";
         wo("SOURCE_EXTRA", int(se));
         wo("SAMPLE_GRID", true);
-    } catch (ProjectionError) {
+    } catch (const ProjectionError&) {
         // cannot project point from one SRS to another -> do nothing
     }
 }
