@@ -184,6 +184,7 @@ GeoDataset GeoDataset::placeholder()
 
 GeoDataset GeoDataset::use(std::unique_ptr<GDALDataset> &&dset)
 {
+    if (!initialized_) { initialize(); }
     return GeoDataset(std::move(dset));
 }
 
