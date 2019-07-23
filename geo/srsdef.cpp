@@ -133,27 +133,27 @@ SrsDefinition::SrsDefinition(int epsg1, int epsg2)
 {}
 
 SrsDefinition SrsDefinition::longlat() {
-    
+
     return SrsDefinition(
         "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs", Type::proj4 );
 }
 
 SrsDefinition SrsDefinition::utm(unsigned int zone, bool isNorth) {
-    
+
     std::ostringstream ostr;
-    
-    ostr 
-        << "+proj=utm +zone=" << zone << " " 
-        << ( isNorth ? "+north " : "+south " ) 
+
+    ostr
+        << "+proj=utm +zone=" << zone << " "
+        << ( isNorth ? "+north " : "+south " )
         << "+ellps=WGS84 +datum=WGS84 +no_defs";
-    
-    LOG(debug) <<  ostr.str();   
-        
+
+    LOG(debug) <<  ostr.str();
+
     return SrsDefinition( ostr.str(), Type::proj4 );
 }
 
 SrsDefinition SrsDefinition::utmFromLonglat(const math::Point2 & longlat ) {
-    
+
     return utm((unsigned int)(std::floor((longlat[0] + 180) / 6) + 1)
                , longlat[1] >= 0.0);
 }
@@ -420,7 +420,7 @@ SrsDefinition SrsDefinition::fromString(std::string value)
         // epsg
         return SrsDefinition(value.substr(5), SrsDefinition::Type::epsg);
     } else if (ba::istarts_with(value, "enu")) {
-        // epsg
+        // enu
         return SrsDefinition(value, SrsDefinition::Type::enu);
     }
 

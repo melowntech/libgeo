@@ -85,6 +85,7 @@ struct SrsDefinition {
      *
      *  starts with '+': Type::proj4
      *  starts with 'epsg:': Type::epsg
+     *  starts with 'enu': Type::enu
      *  other: Type::wkt
      */
     static SrsDefinition fromString(std::string value);
