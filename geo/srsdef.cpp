@@ -384,7 +384,7 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert)
                     ",\"" + geoid + "\"]],UNIT[\"metre\",1]]");
     std::vector<char> tmp(wkt.c_str(), wkt.c_str() + wkt.size() + 1);
     ::OGRSpatialReference vert;
-#if GDAL_VERSION_NUM >= 2030000
+#if GDAL_VERSION_NUM >= 2030000 && !_WIN32
     auto err(vert.importFromWkt(tmp.data()));
 #else
     char *data(tmp.data());
