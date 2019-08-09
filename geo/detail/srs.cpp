@@ -58,7 +58,7 @@ void import(OGRSpatialReference &sr, const SrsDefinition &def)
         // convert NUL-terminated string to char vector
         std::vector<char> tmp(def.srs.c_str()
                               , def.srs.c_str() + def.srs.size() + 1);
-#if GDAL_VERSION_NUM >= 2030000 && !_WIN32
+#if GDAL_VERSION_NUM >= 2030000
         auto err(sr.importFromWkt(tmp.data()));
 #else
         char *data(tmp.data());

@@ -159,7 +159,7 @@ public:
     }
 
     virtual bool areSrsEqual() const {
-#if GDAL_VERSION_NUM >= 2030000 && !_WIN32
+#if GDAL_VERSION_NUM >= 2030000
         const char *srcName;
         const char *dstName;
         auto srcUnit(trans_->GetSourceCS()->GetLinearUnits(&srcName));
