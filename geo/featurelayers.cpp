@@ -213,9 +213,12 @@ void FeatureLayers::load(::GDALDataset &dataset
             OGRFeatureDefn *ifeatureDefn = ifeature->GetDefnRef();
             const Features::Fid fid(ifeature->GetFID());
 
-            for (int j = 0; j < ifeatureDefn->GetFieldCount(); j++)
+            for (int j = 0; j < ifeatureDefn->GetFieldCount(); j++) {
+                // skip unset fields
+                if (!ifeature->IsFieldSet(j)) { continue; }
                 properties[ifeatureDefn->GetFieldDefn(j)->GetNameRef()]
                     = ifeature->GetFieldAsString(j);
+            }
 
             // extract geometry
             auto igeometry
