@@ -328,71 +328,71 @@ GeoDataset GeoDataset::deriveInMemory(
         areSame(srs, SrsDefinition(source.srsWkt_, SrsDefinition::Type::wkt))
          ? source.srsWkt_
          : srs.as(SrsDefinition::Type::wkt).srs );
-    
+
     // establish image size and geotransform
     GeoTransform geoTransform;
     math::Size2i size;
-    
+
     math::Point2d lpixelSize( source.resolution() );
     if ( pixelSize ) lpixelSize = pixelSize.get();
-                                 
+
     math::Extents2 lextents;
-    
-    if ( extents ) 
+
+    if ( extents )
         lextents = extents.get();
     else
         lextents = source.deriveExtents( srs );
-    
+
     math::Matrix3 igtrafo = ublas::identity_matrix<double>(3);
     subrange( igtrafo, 0, 2, 0, 2 ) = trafo;
-    
+
     math::Matrix3 lt, rt;
     lt = rt = ublas::identity_matrix<double>(3);
     lt(0,2) = lextents.ll(0); lt(1,2) = lextents.ll(1);
     rt(0,2) = - lextents.ll(0); rt(1,2) = - lextents.ll(1);
     igtrafo = prod( igtrafo, rt ); igtrafo = prod( lt, igtrafo );
-    
+
     //LOG(debug) << igtrafo;
-    
+
     math::Point2 ll, lr, ul, ur;
-    
-    ll = subrange( prod( igtrafo,  math::Point3( 
+
+    ll = subrange( prod( igtrafo,  math::Point3(
         lextents.ll[0], lextents.ll[1], 1 ) ), 0, 2 );
-    lr = subrange( prod( igtrafo, math::Point3( 
-        lextents.ur[0], lextents.ll[1], 1 ) ), 0, 2 ); 
-    ul = subrange( prod( igtrafo, math::Point3( 
-        lextents.ll[0], lextents.ur[1], 1 ) ), 0, 2 ); 
-    ur = subrange( prod( igtrafo,  math::Point3( 
-        lextents.ur[0], lextents.ur[1], 1 ) ), 0, 2 ); 
-    
+    lr = subrange( prod( igtrafo, math::Point3(
+        lextents.ur[0], lextents.ll[1], 1 ) ), 0, 2 );
+    ul = subrange( prod( igtrafo, math::Point3(
+        lextents.ll[0], lextents.ur[1], 1 ) ), 0, 2 );
+    ur = subrange( prod( igtrafo,  math::Point3(
+        lextents.ur[0], lextents.ur[1], 1 ) ), 0, 2 );
+
     math::Extents2 textents;
-    
+
     textents.ll[0] = std::min( { ll[0], lr[0], ul[0], ur[0] } );
     textents.ll[1] = std::min( { ll[1], lr[1], ul[1], ur[1] } );
     textents.ur[0] = std::max( { ll[0], lr[0], ul[0], ur[0] } );
     textents.ur[1] = std::max( { ll[1], lr[1], ul[1], ur[1] } );
 
     math::Matrix3 istrafo = ublas::identity_matrix<double>(3);
-    
+
     size.width = std::round(( textents.ur[0] - textents.ll[0] ) / lpixelSize(0));
     size.height = std::round(( textents.ur[1] - textents.ll[1] ) / lpixelSize(1));
-    
+
     istrafo(0,0) = 1.0 / lpixelSize(0); istrafo(1,1) = - 1.0 / lpixelSize(1);
-    math::Point2 offset = - subrange( prod( istrafo, 
+    math::Point2 offset = - subrange( prod( istrafo,
         math::Point3( textents.ll[0], textents.ur[1], 1.0 ) ), 0 , 2 );
-    
+
     istrafo(0,2) = offset(0); istrafo(1,2) = offset(1);
-    
+
     //LOG( debug) << istrafo;
-    
+
     igtrafo = prod( istrafo, igtrafo );
-    
+
     //LOG( debug ) << igtrafo;
-    
+
     math::Matrix3 gtrafo = math::matrixInvert( igtrafo );
 
     //LOG( debug ) << gtrafo;
-    
+
     geoTransform[0] = gtrafo(0,2);
     geoTransform[1] = gtrafo(0,0);
     geoTransform[2] = gtrafo(0,1);
@@ -657,8 +657,8 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
                               , const Options &options) {
 
     auto geoTrafo( GeoTransform::northUpFromExtents(extents, rasterSize) );
-    
-    return create( path, srs, geoTrafo, rasterSize, format, noDataValue, 
+
+    return create( path, srs, geoTrafo, rasterSize, format, noDataValue,
                    options );
 }
 
@@ -879,7 +879,7 @@ void createTransformer(GDALWarpOptions *wo)
         ::GDALCreateGenImgProjTransformer
         (wo->hSrcDS, ::GDALGetProjectionRef(wo->hSrcDS)
          , wo->hDstDS, ::GDALGetProjectionRef(wo->hDstDS)
-         , true, 0, 1);         
+         , true, 0, 1);
 }
 
 
@@ -888,28 +888,28 @@ void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri) {
     try {
 
         auto dst(static_cast<GDALDataset*>(wo->hDstDS));
-    
+
         struct {
             std::array<double,45> x,y,z;
             std::array<int,45> successf, successb;
         } samples;
-     
-        for (int j = 0; j < 3; j++) 
+
+        for (int j = 0; j < 3; j++)
             for(int i = 0; i < 3; i++) {
-        
+
                 samples.x[3*j+i] = i / 2.0 * dst->GetRasterXSize();
                 samples.y[3*j+i] = j / 2.0 * dst->GetRasterYSize();
                 samples.z[3*j+i] = 0;
             }
-        
-        
-        if ( wo->pfnTransformer(wo->pTransformerArg, TRUE, 9, 
-            samples.x.data(), samples.y.data(), samples.z.data(), 
+
+
+        if ( wo->pfnTransformer(wo->pTransformerArg, TRUE, 9,
+            samples.x.data(), samples.y.data(), samples.z.data(),
             samples.successf.data() ) != TRUE ) {
         }
-        
+
         for (int i = 0; i < 9; i++) {
-    
+
             samples.x[9+i] = samples.x[i] + 1.0;
             samples.y[9+i] = samples.y[i];
             samples.z[9+i] = 0;
@@ -923,16 +923,16 @@ void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri) {
             samples.y[36+i] = samples.y[i] - 1.0;
             samples.z[36+i] = 0;
         }
-    
-        if ( wo->pfnTransformer(wo->pTransformerArg, FALSE, 45, 
-            samples.x.data(), samples.y.data(), samples.z.data(), 
+
+        if ( wo->pfnTransformer(wo->pTransformerArg, FALSE, 45,
+            samples.x.data(), samples.y.data(), samples.z.data(),
             samples.successb.data() ) != TRUE ) {
             LOGTHROW( err2, std::runtime_error ) << "Transformer failed.";
-        }  
-        
+        }
+
         auto scale = boost::make_optional(false, 0.0);
-    
-        for ( int i = 0; i < 9; i++ ) 
+
+        for ( int i = 0; i < 9; i++ )
             if (samples.successf[i] && samples.successb[i] &&
                 samples.successb[9+i] && samples.successb[18+i] &&
                 samples.successb[27+i] && samples.successb[36+i] ) {
@@ -942,7 +942,7 @@ void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri) {
                  a[2] = std::min(fabs(samples.x[27+i] - samples.x[i]), fabs(samples.x[36+i] - samples.x[i]));
                  a[3] = std::min(fabs(samples.y[27+i] - samples.y[i]), fabs(samples.y[36+i] - samples.y[i]));
                  double nscale = norm_2(a);
-             
+
                  //LOG( debug ) << a;
                  //LOG( debug ) << boost::format("Dst scale is %.5f.") % nscale;
 
@@ -950,31 +950,31 @@ void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri) {
                     scale = nscale;
             }
 
-       if ( ! scale )    
+       if ( ! scale )
            LOGTHROW(err1, std::runtime_error) << "Transformer failed.";
-   
+
        wri.truescale = wri.scale = *scale;
-       
+
    } catch ( std::runtime_error & ) {
-   
+
        LOG(warn3) << "Could not determine scale, falling back to 1.";
        wri.truescale = wri.scale = 1.0;
    }
 }
 
 std::unique_ptr<GDALDataset> useOverview(
-    GDALDataset *src, 
+    GDALDataset *src,
     GDALWarpOptions *wo, int ovr,
     GeoDataset::WarpResultInfo & wri) {
 
     // use chosen overwiew
     std::unique_ptr<GDALDataset> ovrDs;
-    
+
     if (ovr >= 0) {
        ovrDs = std::unique_ptr<GDALDataset>
            (detail::createOverviewDataset(src, ovr));
     }
-    
+
     if (!ovrDs) {
         // failed -> go on with original dataset
         return ovrDs;
@@ -992,7 +992,7 @@ std::unique_ptr<GDALDataset> useOverview(
     // determine scale
     double overviewScale = double(ovrDs->GetRasterXSize()) / src->GetRasterXSize();
     wri.scale = wri.truescale / overviewScale;
-    
+
     LOG(debug)( "Using overview #%d, truescale %.5f, scale %.5f"
                 , ovr, wri.truescale, wri.scale );
 
@@ -1036,57 +1036,57 @@ overviewByScale(GDALDataset *src,
     return useOverview(src, wo, ovr, wri);
 }
 
-std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src, 
+std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src,
   GDALWarpOptions * wo, int & ovr, GeoDataset::WarpResultInfo & wri) {
-  
+
   auto band(src->GetRasterBand(1));
   auto count(band->GetOverviewCount());
 
   bool requirementsMet(false);
   ulong measure(0UL);
-  
+
   if (wo->dfWarpMemoryLimit == 0.0) {
-  
+
      LOG(warn2) << "Warp memory limit set to internal default, "
        "cannot test for memory requirements.";
-     return {}; 
+     return {};
   }
-    
-  std::unique_ptr<GDALDataset> ovrDs;  
-    
+
+  std::unique_ptr<GDALDataset> ovrDs;
+
   for ( ;ovr < count; ovr++) {
-  
+
      // use overview
-     ovrDs = useOverview(src, wo, ovr, wri);     
+     ovrDs = useOverview(src, wo, ovr, wri);
 
      // obtain measure
      measure = detail::WarpMemoryMeter(wo).measure();
-  
+
      // test
      if ( ovr >= 0 ) {
-     
+
          LOG(info1)("Memory requirements at overview %d: %lu bytes."
                     , ovr, measure);
-         
+
      } else {
-     
+
          LOG(info1)("Memory requirements at original: %lu bytes."
                     , measure);
      }
-        
+
      if (measure <= wo->dfWarpMemoryLimit) {
-     
-        requirementsMet = true; break; 
+
+        requirementsMet = true; break;
      }
   }
-    
+
   if (! requirementsMet) {
      LOG(warn2)("Could not meet desired memory requirements "
                 "(%lu est > %lu target), need more overviews?"
                 , measure, wo->dfWarpMemoryLimit);
      ovr = count - 1;
   }
-         
+
   return ovrDs;
 }
 
@@ -1102,13 +1102,13 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
 
     // overview set explicitely in options
     if (options.overview) {
-    
+
         // no auto selection
         auto ovr(*options.overview);
-        
+
         // set to none -> original
-        if (!ovr) { 
-           return {}; 
+        if (!ovr) {
+           return {};
         }
 
         // use given overview
@@ -1123,32 +1123,32 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
     // relax to overview due to scale
     ovrDs = overviewByScale(src, wo, ovr, wri, options);
 
-    LOG(info1) << "Most efficient lossless source is " << (( ovr > -1 ) ? 
+    LOG(info1) << "Most efficient lossless source is " << (( ovr > -1 ) ?
         boost::format( "overview #%d." ) % ovr : boost::format("original."));
-      
+
     // force overview due to memory requirements
     if (options.safeChunks) {
 
        ovrDs = overviewByMemoryReqs(src, wo, ovr, wri);
 
-       LOG(info1) << "Safe chunks requirement results in usage of " 
-           << (( ovr > -1 ) ? boost::format( "overview #%d." ) % ovr 
+       LOG(info1) << "Safe chunks requirement results in usage of "
+           << (( ovr > -1 ) ? boost::format( "overview #%d." ) % ovr
                : boost::format("original."));
     }
 
     // -1 -> original dataset
     if (ovr < 0) {
-    
+
         wri.overview = boost::none;
         LOG(info1) << "Warp uses original dataset (no suitable overviews).";
-        
+
     } else {
-    
+
         wri.overview = ovr;
         LOG(info1)("Warp uses overview #%d instead of the full dataset."
                    , ovr);
     }
-    
+
     // use given overview
     return ovrDs;
 }
@@ -1858,10 +1858,13 @@ void GeoDataset::expectMask() const
 
 double GeoDataset::geo2height(double gx, double gy, double gz) const
 {
-        double x, y; 
-        geoTransform_.geo2rowcol({gx,gy,gz},y,x); 
-        if(!valid(x,y)){
-            LOGTHROW( err3, std::runtime_error )<<"Invalid coordinates in geodataset.";    
+        double x, y;
+        geoTransform_.geo2rowcol({gx,gy,gz},y,x);
+        if(!validf(y,x)){
+            LOGTHROW( err3, std::runtime_error )
+                << "Invalid coordinates (" << gx << ", "<< gy
+                << ") in geodataset (extents: "
+                << extents() << ")." ;
         }
         return data_->at<double>(y, x);
 }
@@ -1924,7 +1927,7 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
             v11 = ( ref11 = vpos2ord.find(
                 std::make_pair(i+1,j+1) ) ) != vpos2ord.end();
 
-            
+
              // lower
             if ( v10 && v11 && v00 ) {
 
@@ -1955,7 +1958,7 @@ void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
                 mesh.addFace(
                     ref10->second, ref11->second, ref01->second,
                     ref10->second, ref11->second, ref01->second );
-            }        
+            }
         }
 
     // all done
@@ -2059,7 +2062,7 @@ void GeoDataset::textureMesh(
     math::Matrix4 il2geo
         = local2geo( extents );
     math::Matrix4 igeo2l
-        = geo2local( extents );    
+        = geo2local( extents );
 
 
     // to find out if the triangle is texturable
@@ -2072,9 +2075,9 @@ void GeoDataset::textureMesh(
                              , uint ysize, bool)
         {
             double eps = 1.0/16;
-            math::Point3 ll = transform( igeo2l, 
+            math::Point3 ll = transform( igeo2l,
                                          raster2geo(math::Point2(xstart-0.5f-eps,ystart+ysize-0.5f+eps), 0));
-            math::Point3 ur = transform( igeo2l, 
+            math::Point3 ur = transform( igeo2l,
                                          raster2geo(math::Point2(xstart+xsize-0.5f+eps,ystart-0.5f-eps), 0));
             for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
                 if ( faceValid[fid] )
@@ -2086,11 +2089,11 @@ void GeoDataset::textureMesh(
                                  , imesh.vertices[imesh.faces[fid].b][1])
                    , math::Point2( imesh.vertices[imesh.faces[fid].c][0]
                                  , imesh.vertices[imesh.faces[fid].c][1])
-                };            
+                };
                 //use rectangle coordinates with small inside margin, to prevent edge collision
                 faceValid[fid] = faceValid[fid] || math::triangleRectangleCollision( points
                                                 , math::Point2(ll[0],ll[1])
-                                                , math::Point2(ur[0],ur[1]));                                              
+                                                , math::Point2(ur[0],ur[1]));
             }
         }, RasterMask::Filter::white);
     }
@@ -2183,19 +2186,19 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs ) const
 }
 
 bool GeoDataset::isOrthogonal() const {
-    
+
     double epsilon( 1.0e-6 );
-    
-    return ( fabs( geoTransform_[2] ) < epsilon 
+
+    return ( fabs( geoTransform_[2] ) < epsilon
         && fabs( geoTransform_[4] ) < epsilon );
 }
 
 math::Extents2 GeoDataset::extents() const {
-    
-    if ( ! isOrthogonal() ) 
-        LOGTHROW( err3, std::runtime_error ) 
+
+    if ( ! isOrthogonal() )
+        LOGTHROW( err3, std::runtime_error )
             << "Non orthogonal dataset cannot be goreferenced by extents.";
-            
+
     math::Extents2 retval;
     math::Point2 ll, lr, ul, ur;
 
@@ -2210,7 +2213,7 @@ math::Extents2 GeoDataset::extents() const {
     retval.ur[0] = std::max( { ll[0], lr[0], ul[0], ur[0] } );
     retval.ur[1] = std::max( { ll[1], lr[1], ul[1], ur[1] } );
 
-    return retval;         
+    return retval;
 }
 
 bool GeoDataset::valid( int i, int j ) const {
@@ -2243,7 +2246,7 @@ bool GeoDataset::validf( double i, double j ) const {
     if ( top & right & v10 ) return true;
     if ( bottom & left & v01 ) return true;
     if ( bottom & right & v00 ) return true;
-    
+
     return false;
 }
 
