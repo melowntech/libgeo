@@ -42,6 +42,8 @@ namespace geo {
 class CsConvertor {
 public:
     CsConvertor(const SrsDefinition &from, const SrsDefinition &to);
+
+#ifdef GEO_HAS_GDAL
     CsConvertor(const OGRSpatialReference &from
                 , const OGRSpatialReference &to);
     CsConvertor(const SrsDefinition &from, const OGRSpatialReference &to);
@@ -49,6 +51,7 @@ public:
 
     CsConvertor(const SrsDefinition &from, const Enu &to);
     CsConvertor(const Enu &from, const SrsDefinition &to);
+#endif // GEO_HAS_GDAL
 
     /** Creates no-op CS convertor. No conversion takes place.
      *  Useful when we have API that expects CS convertor instance but we have
@@ -70,6 +73,7 @@ public:
     math::Extents2 operator()(const math::Extents2 &p) const;
     math::Extents3 operator()(const math::Extents3 &p) const;
 
+#ifdef GEO_HAS_GDAL
     CsConvertor inverse() const;
 
     /** Is destination SRS projected?
@@ -79,6 +83,7 @@ public:
     /** Are source and destination SRSs equal in linear units?
      */
     bool areSrsEqual() const;
+#endif // GEO_HAS_GDAL
 
     class Impl;
 
@@ -99,7 +104,6 @@ inline math::Extents2 CsConvertor::operator()(const math::Extents2 &e) const
     update(res, operator()( ul(e) ));
     update(res, operator()( ur(e) ));
     update(res, operator()( lr(e) ));
-
     return res;
 }
 

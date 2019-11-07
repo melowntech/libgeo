@@ -34,8 +34,10 @@
 
 #include "utility/enum-io.hpp"
 
+#ifdef GEO_HAS_GDAL
 // forward declaration
 class OGRSpatialReference;
+#endif // GEO_HAS_GDAL
 
 
 namespace geo {
@@ -54,8 +56,11 @@ struct SrsDefinition {
     SrsDefinition() : srs(), type(Type::proj4) {}
     SrsDefinition(const std::string &srs) : srs(srs), type(Type::proj4) {}
     SrsDefinition(const std::string &srs, Type type) : srs(srs), type(type) {}
+
+#ifdef GEO_HAS_GDAL
     SrsDefinition(int epsg);
     SrsDefinition(int epsg1, int epsg2);
+#endif // GEO_HAS_GDAL
 
     SrsDefinition as(Type type) const;
 
@@ -68,6 +73,7 @@ struct SrsDefinition {
 
     bool is(Type t) const { return type == t; }
 
+#ifdef GEO_HAS_GDAL
     OGRSpatialReference reference() const;
     Enu enu() const;
 
@@ -76,6 +82,7 @@ struct SrsDefinition {
     static SrsDefinition fromEnu(const Enu &src);
 
     SrsDefinition geographic() const;
+#endif // GEO_HAS_GDAL
 
     /** Convers this srs definition to string. Uses operator<< internally.
      */
@@ -91,11 +98,14 @@ struct SrsDefinition {
     static SrsDefinition fromString(std::string value);
 
 
+#ifdef GEO_HAS_GDAL
     static SrsDefinition longlat();
     static SrsDefinition utm(unsigned int zone, bool isNorth = true );
     static SrsDefinition utmFromLonglat(const math::Point2 & longlat );
+#endif // GEO_HAS_GDAL
 };
 
+#ifdef GEO_HAS_GDAL
 enum class SrsEquivalence { both, geographic, vertical };
 
 bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
@@ -118,11 +128,13 @@ SrsDefinition geographic(const SrsDefinition &srs);
 /** Derives geocentric system from given SRS definition.
  */
 SrsDefinition geocentric(const SrsDefinition &srs);
+#endif // GEO_HAS_GDAL
 
 /** Returns ellipsoid semi-axes.
  */
 math::Point3 ellipsoid(const SrsDefinition &srs);
 
+#ifdef GEO_HAS_GDAL
 /** Returns true if SRS is a projected spatial reference system.
  */
 bool isProjected(const SrsDefinition &srs);
@@ -141,6 +153,7 @@ SrsDefinition setAngularUnit(const SrsDefinition &srs, AngularUnit unit);
  *  spheroid.
  */
 double linearUnit(const SrsDefinition &srs, bool convertAngluar = false);
+#endif // GEO_HAS_GDAL
 
 /** SRS periodicity
  */
@@ -164,10 +177,11 @@ struct Periodicity {
     {}
 };
 
-
+#ifdef GEO_HAS_GDAL
 /** Tries to determine whether given SRS is periodic.
  */
 boost::optional<Periodicity> isPeriodic(const SrsDefinition &srs);
+#endif // GEO_HAS_GDAL
 
 UTILITY_GENERATE_ENUM_IO(SrsDefinition::Type,
     ((proj4))
@@ -192,15 +206,17 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const SrsDefinition &s)
     return os << s.srs;
 }
 
+#ifdef GEO_HAS_GDAL
 inline SrsDefinition SrsDefinition::geographic() const
 {
     return geo::geographic(*this);
 }
+#endif // GEO_HAS_GDAL
 
 } // namespace geo
 
 #ifdef GEO_HAS_PROGRAM_OPTIONS
-#    include "./po.hpp"
+#    include "po.hpp"
 #endif
 
 #endif // geo_srsdef_hpp_included_

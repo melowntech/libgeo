@@ -24,75 +24,77 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdexcept>
+#include <vector>
+#include <sstream>
+#include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <proj_api.h>
+#include <GeographicLib/Geocentric.hpp>
 
 #include "dbglog/dbglog.hpp"
+#include "utility/streams.hpp"
 
-#include "srsfactors.hpp"
-
-#if PJ_VERSION < 480
-#  include "detail/pjfactors-4.7.h"
-#else
-#  include "detail/pjfactors-4.8.h"
-#endif
+#include "srsdef.hpp"
 
 namespace geo {
 
-SrsFactors::SrsFactors(const SrsDefinition &def)
-    : proj_(def), srcProj_(proj_.rev())
-{}
-
-SrsFactors::SrsFactors(const SrsDefinition &def, const SrsDefinition &src)
-    : proj_(def), srcProj_(src, true)
-{}
-
-namespace {
-
-int getPjFactors(double x, double y, void *pj
-                 , SrsFactors::Factors &factors)
+SrsDefinition SrsDefinition::as(Type dstType) const
 {
-    projLP lp = { x, y };
-
-    struct FACTORS fac;
-    memset(&fac, 0, sizeof(fac));
-    if (pj_factors(lp, pj, .0, &fac)) {
-        return 1;
-    }
-
-    factors.meridionalScale = fac.h;
-    factors.parallelScale = fac.k;
-    factors.angularDistortion = fac.omega;
-    factors.thetaPrime = fac.thetap;
-    factors.convergence = fac.conv;
-    factors.arealScaleFactor = fac.s;
-    factors.minScaleError = fac.a;
-    factors.maxScaleError = fac.b;
-
-    factors.lambdaDx = fac.der.x_l;
-    factors.phiDx = fac.der.x_p;
-    factors.lambdaDy = fac.der.y_l;
-    factors.phiDy = fac.der.y_p;
-
-    return 0;
+    assert(type == SrsDefinition::Type::proj4);
+    if (type == dstType)
+        return *this;
+    throw;
 }
 
-} // namespace
-
-SrsFactors::Factors SrsFactors::operator()(const math::Point2 &p) const
+bool SrsDefinition::convertibleTo(Type dstType) const
 {
-    // obtain lat/lon from p
-    auto pp(srcProj_(p, false));
+    assert(type == SrsDefinition::Type::proj4);
+    return dstType == SrsDefinition::Type::proj4;
+}
 
-    Factors f;
+math::Point3 ellipsoid(const SrsDefinition &srs)
+{
+    struct ProjInst
+    {
+        projPJ pj;
 
-    if (getPjFactors(pp(0), pp(1), proj_.proj_.get(), f)) {
+        ProjInst(projPJ pj) : pj(pj)
+        {}
+
+        ~ProjInst()
+        {
+            pj_free(pj);
+        }
+    };
+
+    ProjInst pi1(pj_init_plus(srs.c_str()));
+    if (!pi1.pj)
+    {
         LOGTHROW(err1, std::runtime_error)
-            << "Failed to get SRS factors for coordinates " << p << ": "
-            << ::pj_strerrno(::pj_errno);
+            << "Failed to initialize proj converter: <"
+            << srs << ">";
     }
 
-    return f;
+    double ma = 0, ec2 = 0;
+    pj_get_spheroid_defn(pi1.pj, &ma, &ec2);
+    return { ma, ma, ma * std::sqrt(1 - ec2) };
+}
+
+SrsDefinition SrsDefinition::fromString(std::string value)
+{
+    namespace ba = boost::algorithm;
+    ba::trim(value);
+    if (value.empty())
+        return {};
+    return SrsDefinition(value, SrsDefinition::Type::proj4);
+}
+
+std::string SrsDefinition::toString() const
+{
+    return boost::lexical_cast<std::string>(*this);
 }
 
 } // namespace geo
