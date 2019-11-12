@@ -81,7 +81,7 @@ class ProjImpl : public CsConvertor::Impl
 {
 public:
     ProjImpl(const SrsDefinition &from, const SrsDefinition &to)
-        : preMult(1), postMult(1)
+        : preMult(1), postMult(1), gridNotFoundReported(false)
     {
         if (!from.is(SrsDefinition::Type::proj4)
                 || !to.is(SrsDefinition::Type::proj4))
@@ -111,6 +111,17 @@ public:
         r[0] *= preMult;
         r[1] *= preMult;
         auto err = pj_transform(from->pj, to->pj, 1, 1, &r[0], &r[1], &r[2]);
+        if (err == -38)
+        {
+            // prevent repeatedly logging the same message
+            if (gridNotFoundReported)
+            {
+                throw std::runtime_error(
+                        "Error in coordinate transformation <-38>:"
+                        "<failed to load datum shift file>");
+            }
+            gridNotFoundReported = true;
+        }
         if (err != 0)
         {
             LOGTHROW(err2, std::runtime_error)
@@ -125,6 +136,7 @@ public:
 
     std::unique_ptr<ProjInst> from, to;
     double preMult, postMult;
+    mutable bool gridNotFoundReported;
 };
 
 static volatile struct Initializer {
