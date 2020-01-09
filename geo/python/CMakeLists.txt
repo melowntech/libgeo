@@ -21,4 +21,5 @@ endif()
 
 add_library(pygeo STATIC ${pygeo_SOURCES})
 buildsys_library(pygeo)
+buildsys_target_compile_definitions(pygeo ${MODULE_DEFINITIONS})
 target_link_libraries(pygeo ${MODULE_LIBRARIES})

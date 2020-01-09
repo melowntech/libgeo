@@ -1634,6 +1634,12 @@ void readDataIntoImpl(int depth, cv::Mat &data, const cv::Rect &src
                       , const std::vector<int> channelMapping
                       , GDALDataset *dset)
 {
+    if (depth < 0) {
+        // negative depth -> use native
+        const auto dataType(dset->GetRasterBand(1)->GetRasterDataType());
+        depth = gdal2cv(dataType, 1);
+    }
+
     // sanity
     ut::expect(numChannels > 0);
 
@@ -1695,9 +1701,24 @@ void fetchMaskImpl(cv::Mat &raster, const cv::Rect &src
     ut::expect((err == CE_None), "Reading of mask band data failed.");
 }
 
+std::vector<int> channelMapping(const std::vector<int> &cm
+                                , const GeoDataset::ReadOptions &options)
+{
+    if (options.channelsAsIs) {
+        // 1:1 mapping
+        std::vector<int> mapping(cm.size());
+        std::iota(mapping.begin() + 1, mapping.end(), 0);
+        return mapping;
+    }
+
+    // requested mapping
+    return cm;
+}
+
 } // namespace
 
-cv::Mat GeoDataset::readData(int depth, int expand) const
+cv::Mat GeoDataset::readData(int depth, int expand, const ReadOptions &options)
+    const
 {
     cv::Mat data;
     if ((expand > 0) && hasColorTable_) {
@@ -1706,12 +1727,15 @@ cv::Mat GeoDataset::readData(int depth, int expand) const
                              , dset_.get());
     } else {
         readDataIntoImpl(depth, data, cv::Rect(0, 0, size_.width, size_.height)
-                         , numChannels_, channelMapping_, dset_.get());
+                         , numChannels_
+                         , channelMapping(channelMapping_, options)
+                         , dset_.get());
     }
     return data;
 }
 
-void GeoDataset::readDataInto(int depth, cv::Mat &data, int expand) const
+void GeoDataset::readDataInto(int depth, cv::Mat &data, int expand
+                              , const ReadOptions &options) const
 {
     if ((expand > 0) && hasColorTable_) {
         return readDataIntoExpanded(depth, expand, data
@@ -1719,18 +1743,21 @@ void GeoDataset::readDataInto(int depth, cv::Mat &data, int expand) const
                                     , dset_.get());
     }
     readDataIntoImpl(depth, data, cv::Rect(0, 0, size_.width, size_.height)
-                     , numChannels_, channelMapping_, dset_.get());
+                     , numChannels_, channelMapping(channelMapping_, options)
+                     , dset_.get());
 }
 
 void GeoDataset::readDataInto(int depth, cv::Mat &data
-                              , const cv::Rect &src, int expand) const
+                              , const cv::Rect &src, int expand
+                              , const ReadOptions &options) const
 {
     if ((expand > 0) && hasColorTable_) {
         return readDataIntoExpanded(depth, expand, data
                                     , cv::Rect(0, 0, size_.width, size_.height)
                                     , dset_.get());
     }
-    readDataIntoImpl(depth, data, src, numChannels_, channelMapping_
+    readDataIntoImpl(depth, data, src, numChannels_
+                     , channelMapping(channelMapping_, options)
                      , dset_.get());
 }
 

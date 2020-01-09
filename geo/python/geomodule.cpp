@@ -25,6 +25,7 @@
  */
 
 #include <ogr_core.h>
+#include <gdal_priv.h>
 
 #include <sstream>
 #include <string>
@@ -39,6 +40,8 @@
 #include <stdint.h>
 
 #include "dbglog/dbglog.hpp"
+
+#include "geo/srsdef.hpp"
 
 #include "pysupport/package.hpp"
 #include "pysupport/class.hpp"

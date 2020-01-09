@@ -609,22 +609,43 @@ public:
      */
     const Mask& cmask(bool justMask = false) const;
 
+    /** ReadOptions
+     */
+    struct ReadOptions {
+        /** Read channels in GDAL native order. Otherwise, RGB image is read
+         *  as BGR (in OpenCV image order).
+         */
+        bool channelsAsIs;
+
+        ReadOptions() : channelsAsIs(false) {}
+    };
 
     /** Raw-ish interface: loads matrix in provided data CV datatype
      * (i.e. depth), e.g. CV_8U
+     *
+     * If depth is negative then native dataset data type is used (only for
+     * non-expanded read).
      */
-    cv::Mat readData(int depth, int expand = 0) const;
+    cv::Mat readData(int depth, int expand = 0
+                     , const ReadOptions &options = ReadOptions()) const;
 
     /** Raw-ish interface: loads matrix in provided data CV datatype
      * (i.e. depth), e.g. CV_8U.
      *
+     * If depth is negative then native dataset data type is used (only for
+     * non-expanded read).
+     *
      * Reads data into given matrix. Matrix is created only if its header is
      * different than required.
      */
-    void readDataInto(int depth, cv::Mat &data, int expand = 0) const;
+    void readDataInto(int depth, cv::Mat &data, int expand = 0
+                      , const ReadOptions &options = ReadOptions()) const;
 
     /** Raw-ish interface: loads matrix in provided data CV datatype
      * (i.e. depth), e.g. CV_8U.
+     *
+     * If depth is negative then native dataset data type is used (only for
+     * non-expanded read).
      *
      * Reads data into given matrix. Matrix is created only if its header is
      * different than required.
@@ -632,7 +653,8 @@ public:
      * Reads only given sub-range.
      */
     void readDataInto(int depth, cv::Mat &data, const cv::Rect &src
-                      , int expand = 0) const;
+                      , int expand = 0
+                      , const ReadOptions &options = ReadOptions()) const;
 
     /** Creates matrix with the same propetries as would be returned by calling
      *  readData(depth). Used internally by readData.
