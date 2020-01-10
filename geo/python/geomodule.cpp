@@ -199,6 +199,8 @@ BOOST_PYTHON_MODULE(melown_geo)
         .staticmethod("fromReference")
         ;
 
+    PYSUPPORT_OPTIONAL(geo::SrsDefinition);
+
     {
         bp::scope scope(SrsDefinition);
 
