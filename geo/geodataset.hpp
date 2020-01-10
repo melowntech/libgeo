@@ -924,6 +924,7 @@ public:
         GeoTransform geoTransform;
         std::string driverName;
         math::Point2 resolution;
+        boost::optional<double> nodata;
 
         Descriptor()
             : bands(), overviews(), dataType(), maskType()

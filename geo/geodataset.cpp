@@ -2953,6 +2953,11 @@ GeoDataset::Descriptor GeoDataset::descriptor() const
         d.overviews = b->GetOverviewCount();
         d.dataType = b->GetRasterDataType();
         d.maskType = b->GetMaskFlags();
+
+        // fetch nodata value
+        int valid(false);
+        double nd = b->GetNoDataValue(&valid);
+        if (valid) { d.nodata = nd; }
     }
     return d;
 }

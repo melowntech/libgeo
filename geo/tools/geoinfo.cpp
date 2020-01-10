@@ -112,6 +112,10 @@ int GeoInfo::run()
         << "\nsrs: " << des.srs.as(geo::SrsDefinition::Type::proj4)
         ;
 
+    if (des.nodata) {
+        std::cout << "\nnodata: " << des.nodata.value();
+    }
+
     std::cout << std::endl;
 
     return EXIT_SUCCESS;
