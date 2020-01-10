@@ -51,6 +51,8 @@
 #include "../srsdef.hpp"
 #include "../enu.hpp"
 #include "../coordinates.hpp"
+#include "../geodataset.hpp"
+#include "../gdal.hpp"
 
 #include "gdsblockwriter.hpp"
 
@@ -164,6 +166,10 @@ geo::SrsDefinition SrsDefinition_fromReference(const bp::object &ref)
         (ref, geo::SrsDefinition::Type::proj4);
 }
 
+/** Placeholder -- actual geodataset might be exported.
+ */
+struct GeoDataset {};
+
 } } // namespace geo::py
 
 BOOST_PYTHON_MODULE(melown_geo)
@@ -237,6 +243,23 @@ BOOST_PYTHON_MODULE(melown_geo)
 
         PYSUPPORT_OPTIONAL(geo::Enu::Spheroid);
     }
+
+    // extra types, used in other modules
+    pysupport::fillEnum< ::GDALDataType>
+        ("GDALDataType", "GDAL data type.");
+    PYSUPPORT_OPTIONAL( ::GDALDataType);
+
+    // placeholder for GeoDataset
+    auto GeoDataset = class_<py::GeoDataset>("GeoDataset", no_init)
+        ;
+    {
+        bp::scope scope(GeoDataset);
+
+        pysupport::fillEnum<geo::GeoDataset::Resampling>
+            ("Resampling", "Enhanced GDAL resampling.");
+    }
+
+    PYSUPPORT_OPTIONAL(geo::GeoDataset::Resampling);
 
     // coordinates.hpp
     def<math::Matrix4(const math::Extents2&)>
