@@ -56,9 +56,9 @@
 #include "io.hpp"
 #include "detail/warpmemorymeter.hpp"
 #include "gdal.hpp"
+#include "cv.hpp"
 #include "detail/ovrdataset.hpp"
 #include "detail/options.hpp"
-
 
 extern "C" {
 void GDALErrorHandler( CPLErr eErrClass, int err_no, const char *msg)
@@ -96,7 +96,7 @@ typedef imgproc::quadtree::RasterMask RasterMask;
 
 int gdal2cv(GDALDataType gdalDataType, int numChannels)
 {
-    // determine output datatype automatically
+    // gdal datatype (+channels) -> cv datatype
     switch (gdalDataType) {
     case GDT_Byte:    return CV_8UC(numChannels);
     case GDT_UInt16:  return CV_16UC(numChannels);
@@ -115,8 +115,8 @@ int gdal2cv(GDALDataType gdalDataType, int numChannels)
 
 ::GDALDataType cv2gdal(int cvDataType)
 {
-    // determine output datatype automatically
-    switch (cvDataType) {
+    // cv datatype (stripped of channels) -> gdal data type
+    switch (CV_MAT_DEPTH(cvDataType)) {
     case CV_8UC1:  return GDT_Byte;
     case CV_16UC1: return GDT_UInt16;
     case CV_16SC1: return GDT_Int16;

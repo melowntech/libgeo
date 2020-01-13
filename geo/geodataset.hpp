@@ -992,14 +992,6 @@ private:
     bool fresh_;
 };
 
-/** Converts GDAL data type into CV depth.
- */
-int gdal2cv(GDALDataType gdalDataType, int numChannels = 1);
-
-/** Converts CV depth int GDAL data type.
- */
-::GDALDataType cv2gdal(int cvDataType);
-
 // inline method implementation
 
 inline math::Point2 GeoDataset::resolution() const
