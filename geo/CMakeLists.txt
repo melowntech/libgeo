@@ -81,6 +81,7 @@ if(GDAL_FOUND)
 
     # OpenCV sources go here
     set(geo_OPENCV_SOURCES
+      cv.hpp
       geodataset.hpp geodataset.cpp
       dem.hpp dem.cpp
       heightcoding.hpp heightcoding.cpp heightcoding-io.cpp
