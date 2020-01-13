@@ -94,19 +94,6 @@ namespace fs = boost::filesystem;
 
 typedef imgproc::quadtree::RasterMask RasterMask;
 
-namespace {
-
-/**Get value of GEO_DUMP_GDALWARP environmental variable before main is run.
- *
- * Nonset or empty value is considered as false, anything else is true.
- */
-const bool GEO_DUMP_GDALWARP([]() -> bool
-{
-    const char *value(std::getenv("GEO_DUMP_GDALWARP"));
-    if (!value || !*value) { return false; }
-    return true;
-}());
-
 int gdal2cv(GDALDataType gdalDataType, int numChannels)
 {
     // determine output datatype automatically
@@ -144,6 +131,18 @@ int gdal2cv(GDALDataType gdalDataType, int numChannels)
     return GDT_Byte; // never reached
 }
 
+namespace {
+
+/**Get value of GEO_DUMP_GDALWARP environmental variable before main is run.
+ *
+ * Nonset or empty value is considered as false, anything else is true.
+ */
+const bool GEO_DUMP_GDALWARP([]() -> bool
+{
+    const char *value(std::getenv("GEO_DUMP_GDALWARP"));
+    if (!value || !*value) { return false; }
+    return true;
+}());
 
 bool areIdenticalButForShift( const GeoTransform & trafo1,
                               const GeoTransform & trafo2 )
