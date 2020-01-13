@@ -1,5 +1,5 @@
 # bump version here
-set(geo_VERSION 1.30)
+set(geo_VERSION 1.31)
 
 set(geo_EXTRA_DEPENDS)
 set(geo_EXTRA_DEFINITIONS)
