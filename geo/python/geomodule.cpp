@@ -278,7 +278,7 @@ BOOST_PYTHON_MODULE(melown_geo)
         py::osrModule = import("osgeo.osr");
         // pull in gds stuff, needs OpenCV and NumPy AND osgeo.osr
         // py::registerGdsBlockWriter();
-    } catch (error_already_set) {}
+    } catch (const error_already_set&) {}
 }
 
 namespace geo { namespace py {
