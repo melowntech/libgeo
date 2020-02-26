@@ -1042,7 +1042,7 @@ std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src,
   auto count(band->GetOverviewCount());
 
   bool requirementsMet(false);
-  ulong measure(0UL);
+  unsigned long measure(0UL);
 
   if (wo->dfWarpMemoryLimit == 0.0) {
 
@@ -2882,7 +2882,7 @@ GeoDataset GeoDataset::createCopy(const boost::filesystem::path &path
     }
 
     std::unique_ptr<GDALDataset>
-        ds(driver->CreateCopy(path.c_str(), src.dset_.get()
+        ds(driver->CreateCopy(path.string().c_str(), src.dset_.get()
                               , true // strict
                               , detail::OptionsWrapper(options)
                               , ::GDALDummyProgress
@@ -2915,7 +2915,7 @@ GeoDataset GeoDataset::copy(const boost::filesystem::path &path
     }
 
     std::unique_ptr<GDALDataset>
-        ds(driver->CreateCopy(path.c_str(), dset_.get()
+        ds(driver->CreateCopy(path.string().c_str(), dset_.get()
                               , true // strict
                               , detail::OptionsWrapper(options)
                               , ::GDALDummyProgress
@@ -2933,7 +2933,7 @@ void GeoDataset::copyFiles(const boost::filesystem::path &path) const
 {
     auto *driver(dset_->GetDriver());
 
-    driver->CopyFiles(dset_->GetDescription(), path.c_str());
+    driver->CopyFiles(dset_->GetDescription(), path.string().c_str());
 }
 
 GeoDataset::Descriptor GeoDataset::descriptor() const

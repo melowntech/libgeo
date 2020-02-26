@@ -27,6 +27,7 @@
 
 #include <boost/lexical_cast.hpp>
 
+#define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
 #include <proj_api.h>
 #include <ogr_spatialref.h>
 #include <cpl_error.h>

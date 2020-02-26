@@ -1,5 +1,5 @@
 # bump version here
-set(geo_VERSION 1.31)
+set(geo_VERSION 1.32)
 
 set(geo_EXTRA_DEPENDS)
 set(geo_EXTRA_DEFINITIONS)
@@ -70,8 +70,10 @@ if(GDAL_FOUND)
   endif()
 
   # gdalwrapper.h contains __unused__ attribute in newer versions
-  set_source_files_properties(geodataset.cpp PROPERTIES
-    COMPILE_FLAGS -Wno-attributes)
+  if (NOT MSVC)
+    set_source_files_properties(geodataset.cpp PROPERTIES
+      COMPILE_FLAGS -Wno-attributes)
+  endif()
 
   # OpenCV
   if(OpenCV_FOUND)
@@ -117,11 +119,15 @@ set(geo_SOURCES
     coordinates.hpp
     srsfactorsfwd.hpp
     verticaladjuster.hpp verticaladjuster.cpp
-    srsfactors.hpp srsfactors.cpp
+    srsfactors.hpp
 
     ${geo_GDAL_SOURCES}
     ${geo_OPENCV_SOURCES}
     )
+
+if (NOT WIN32)
+  list(APPEND geo_SOURCES srsfactors.cpp)
+endif()
 
 add_library(geo STATIC ${geo_SOURCES})
 buildsys_library(geo)
