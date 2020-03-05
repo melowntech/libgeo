@@ -119,15 +119,11 @@ set(geo_SOURCES
     coordinates.hpp
     srsfactorsfwd.hpp
     verticaladjuster.hpp verticaladjuster.cpp
-    srsfactors.hpp
+    srsfactors.hpp srsfactors.cpp
 
     ${geo_GDAL_SOURCES}
     ${geo_OPENCV_SOURCES}
     )
-
-if (NOT WIN32)
-  list(APPEND geo_SOURCES srsfactors.cpp)
-endif()
 
 add_library(geo STATIC ${geo_SOURCES})
 buildsys_library(geo)
