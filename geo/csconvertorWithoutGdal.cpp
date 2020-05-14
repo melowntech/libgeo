@@ -40,7 +40,7 @@ namespace geo {
 class CsConvertor::Impl : boost::noncopyable
 {
 public:
-    typedef std::shared_ptr<Impl> pointer;
+    //typedef std::shared_ptr<Impl> pointer;
     virtual ~Impl() {}
     virtual math::Point2 convert(const math::Point2 &p) const = 0;
     virtual math::Point3 convert(const math::Point3 &p) const = 0;
@@ -51,6 +51,11 @@ namespace {
 class NoOpConvertor : public CsConvertor::Impl
 {
 public:
+    NoOpConvertor()
+    {
+        LOG(info1) << "Coordinate system transformation: no-op.";
+    }
+
     virtual math::Point2 convert(const math::Point2 &p) const { return p; }
     virtual math::Point3 convert(const math::Point3 &p) const { return p; }
 };
@@ -60,9 +65,9 @@ class ProjInst
 public:
     projPJ pj;
 
-    ProjInst(const SrsDefinition &srs) : pj(nullptr)
+    ProjInst(const SrsDefinition &srs, projCtx ctx) : pj(nullptr)
     {
-        pj = pj_init_plus(srs.c_str());
+        pj = pj_init_plus_ctx(ctx, srs.c_str());
         if (!pj)
         {
             LOGTHROW(err1, std::runtime_error)
@@ -80,9 +85,12 @@ public:
 class ProjImpl : public CsConvertor::Impl
 {
 public:
-    ProjImpl(const SrsDefinition &from, const SrsDefinition &to)
+    ProjImpl(const SrsDefinition &from, const SrsDefinition &to, projCtx ctx)
         : preMult(1), postMult(1), gridNotFoundReported(false)
     {
+        LOG(info1) << "Coordinate system transformation ("
+            << from << " -> " << to << ").";
+
         if (!from.is(SrsDefinition::Type::proj4)
                 || !to.is(SrsDefinition::Type::proj4))
         {
@@ -90,8 +98,8 @@ public:
                 << "No GDAL: only proj to proj conversion is available.";
         }
 
-        this->from = std::make_unique<ProjInst>(from);
-        this->to = std::make_unique<ProjInst>(to);
+        this->from = std::make_unique<ProjInst>(from, ctx);
+        this->to = std::make_unique<ProjInst>(to, ctx);
 
         if (pj_is_latlong(this->from->pj))
             preMult = DEG_TO_RAD;
@@ -148,18 +156,19 @@ static volatile struct Initializer {
 
 } // namespace
 
-CsConvertor::CsConvertor(const SrsDefinition &from, const SrsDefinition &to)
-    : trans_(std::make_shared<ProjImpl>(from, to))
-{
-    LOG(info1) << "Coordinate system transformation ("
-               << from << " -> " << to << ").";
-}
+CsConvertor::CsConvertor(const SrsDefinition &from,
+    const SrsDefinition &to)
+    : trans_(std::make_shared<ProjImpl>(from, to, pj_get_default_ctx()))
+{}
+
+CsConvertor::CsConvertor(const SrsDefinition &from,
+    const SrsDefinition &to, projCtx ctx)
+    : trans_(std::make_shared<ProjImpl>(from, to, ctx))
+{}
 
 CsConvertor::CsConvertor()
     : trans_(std::make_shared<NoOpConvertor>())
-{
-    LOG(info1) << "Coordinate system transformation: no-op.";
-}
+{}
 
 CsConvertor::CsConvertor(const std::shared_ptr<Impl> &trans)
     : trans_(trans)

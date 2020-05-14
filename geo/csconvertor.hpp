@@ -37,11 +37,19 @@
 #include "project.hpp"
 #include "srsdef.hpp"
 
+// forward declare projCtx
+typedef void *projCtx;
+
 namespace geo {
 
 class CsConvertor {
 public:
-    CsConvertor(const SrsDefinition &from, const SrsDefinition &to);
+    CsConvertor(const SrsDefinition &from,
+        const SrsDefinition &to);
+
+    // create a converter with specific proj context
+    CsConvertor(const SrsDefinition &from,
+        const SrsDefinition &to, projCtx ctx);
 
 #ifdef GEO_HAS_GDAL
     CsConvertor(const OGRSpatialReference &from
