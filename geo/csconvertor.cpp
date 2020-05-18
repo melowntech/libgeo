@@ -448,6 +448,14 @@ CsConvertor::CsConvertor(const SrsDefinition &from, const SrsDefinition &to)
                << from << " -> " << to << ").";
 }
 
+CsConvertor::CsConvertor(const SrsDefinition &,
+    const SrsDefinition &, projCtx)
+{
+    LOGTHROW(fatal, std::logic_error)
+        << "CsConvertor with explicitly provided"
+        " proj context is not implemented in this variant.";
+}
+
 CsConvertor::CsConvertor(const OGRSpatialReference &from
                          , const OGRSpatialReference &to)
     : trans_(initTrans(from, to))
