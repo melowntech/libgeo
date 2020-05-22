@@ -28,6 +28,7 @@
 
 #include "math/geometry_core.hpp"
 #include "math/transform.hpp"
+#include "math/math.hpp"
 
 namespace geo {
 
@@ -132,6 +133,29 @@ inline math::Matrix4 local2geo(const math::Extents2& extents)
     trafo(1, 3) = midpoint[1];
 
     return trafo;
+}
+
+inline math::Matrix4 raster2geo(const math::Extents2 &extents
+                               , const math::Size2f &pxSize)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    // scale
+    trafo(0, 0) = pxSize.width;
+    trafo(1, 1) = -pxSize.height;
+
+    // translate
+    trafo(0, 3) = extents.ll(0) + pxSize.width / 2.0;
+    trafo(1, 3) = extents.ur(1) - pxSize.height / 2.0;
+
+    return trafo;
+}
+
+inline math::Matrix4 geo2raster(const math::Extents2 &extents
+                                , const math::Size2f &pxSize)
+{
+    // can be constructed directly from input values
+    return math::matrixInvert(raster2geo(extents, pxSize));
 }
 
 } // namespace geo

@@ -27,7 +27,11 @@
  * geotransform.cpp
  */
 
+#include "math/math.hpp"
+
 #include "geotransform.hpp"
+
+namespace ublas = boost::numeric::ublas;
 
 namespace geo {
 
@@ -107,6 +111,40 @@ bool GeoTransform::isUpright() const
 {
     // upright dataset has no rotation/shear
     return !operator[](2) && !operator[](4);
+}
+
+/**
+ * Xgeo = GT(0) + Xpixel*GT(1) + Yline*GT(2)
+ * Ygeo = GT(3) + Xpixel*GT(4) + Yline*GT(5)
+ */
+
+math::Matrix4 GeoTransform::raster2geo(bool pixel) const
+{
+    const auto &d(data());
+
+    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+
+    trafo(0, 0) = d[1];
+    trafo(0, 1) = d[2];
+
+    trafo(1, 0) = d[4];
+    trafo(1, 1) = d[5];
+
+    trafo(0, 3) = d[0];
+    trafo(1, 3) = d[3];
+
+    if (!pixel) { return trafo; }
+
+    // shift pixel coordinate by a half pixel before applying the trafo above
+    math::Matrix4 shift(ublas::identity_matrix<double>(4));
+    shift(0, 3) = 0.5;
+    shift(1, 3) = 0.5;
+    return ublas::prod(trafo, shift);
+}
+
+math::Matrix4 GeoTransform::geo2raster(bool pixel) const
+{
+    return math::matrixInvert(raster2geo(pixel));
 }
 
 } // namespace geo

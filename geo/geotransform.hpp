@@ -35,6 +35,8 @@
 
 #include <array>
 
+#include "math/geometry_core.hpp"
+
 #include "csconvertor.hpp"
 
 namespace geo {
@@ -128,6 +130,21 @@ public :
     }
 
     bool isUpright() const;
+
+    /** Generates 4x4 matrix from undelying geo transformation. Converts raster
+     *  coordinates to world coodinates.
+     *
+     *  Returns matrix converting to pixel registration if pixel is true,
+     *  i.e. (0,0) is in the center of left-top pixel.
+     *
+     *  Otherwise, keeps original transformation that has (0,0) in
+     *  left-top pixel's corner.
+     */
+    math::Matrix4 raster2geo(bool pixel = true) const;
+
+    /** Inverse to raster2geo.
+     */
+    math::Matrix4 geo2raster(bool pixel = true) const;
 
 private :
     math::Point2 applyGeoTransform( double col, double row ) const;
