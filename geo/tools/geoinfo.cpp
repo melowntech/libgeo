@@ -110,6 +110,7 @@ int GeoInfo::run()
         << "\nsize: " << des.size
         << "\nresolution: " << des.resolution(0) << " " << des.resolution(1)
         << "\nsrs: " << des.srs.as(geo::SrsDefinition::Type::proj4)
+        << "\ntrafo: " << utility::join(des.geoTransform, ", ")
         ;
 
     if (des.nodata) {
