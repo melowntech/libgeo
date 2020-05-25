@@ -154,8 +154,15 @@ inline math::Matrix4 raster2geo(const math::Extents2 &extents
 inline math::Matrix4 geo2raster(const math::Extents2 &extents
                                 , const math::Size2f &pxSize)
 {
-    // can be constructed directly from input values
-    return math::matrixInvert(raster2geo(extents, pxSize));
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    trafo(0, 0) = 1 / pxSize.width;
+    trafo(1, 1) = -1 / pxSize.height;
+
+    trafo(0, 3) = (-extents.ll(0) - pxSize.width / 2.0) / pxSize.width;
+    trafo(1, 3) = (extents.ur(1) - pxSize.height / 2.0) / pxSize.height;
+
+    return trafo;
 }
 
 } // namespace geo
