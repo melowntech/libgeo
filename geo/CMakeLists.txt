@@ -130,6 +130,7 @@ buildsys_library(geo)
 
 target_link_libraries(geo ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(geo ${MODULE_DEFINITIONS})
+target_compile_definitions(geo PUBLIC ACCEPT_USE_OF_DEPRECATED_PROJ_API_H)
 
 # test stuff
 if(GDAL_FOUND AND MODULE_service_FOUND)
