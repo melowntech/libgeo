@@ -36,7 +36,7 @@
 
 #if PJ_VERSION < 480
 #  include "detail/pjfactors-4.7.h"
-#elseif PJ_VERSION < 500
+#elif PJ_VERSION < 500
 #  include "detail/pjfactors-4.8.h"
 #else
 #  include <proj.h>
