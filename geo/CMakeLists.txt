@@ -101,6 +101,16 @@ else()
       csconvertorWithoutGdal.cpp)
 endif()
 
+# proj-version related tweaks
+if (PROJ_VERSION VERSION_LESS 6.0.0)
+  set(geo_PROJ_SOURCES
+    detail/project.pre6.cpp
+    )
+else()
+  set(geo_PROJ_SOURCES
+    detail/project.6.cpp
+    )
+endif()
 
 define_module(LIBRARY geo=${geo_VERSION}
   DEPENDS
@@ -113,24 +123,25 @@ define_module(LIBRARY geo=${geo_VERSION}
   )
 
 set(geo_SOURCES
-    srsdef.hpp
-    project.hpp project.cpp
-    csconvertor.hpp
-    coordinates.hpp
-    srsfactorsfwd.hpp
-    verticaladjuster.hpp verticaladjuster.cpp
-    srsfactors.hpp srsfactors.cpp
+  srsdef.hpp
+  project.hpp
+  csconvertor.hpp
+  coordinates.hpp
+  srsfactorsfwd.hpp
+  verticaladjuster.hpp verticaladjuster.cpp
+  srsfactors.hpp srsfactors.cpp
 
-    ${geo_GDAL_SOURCES}
-    ${geo_OPENCV_SOURCES}
-    )
-
+  ${geo_PROJ_SOURCES}
+  ${geo_GDAL_SOURCES}
+  ${geo_OPENCV_SOURCES}
+  )
+ 
 add_library(geo STATIC ${geo_SOURCES})
 buildsys_library(geo)
 
 target_link_libraries(geo ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(geo ${MODULE_DEFINITIONS})
-target_compile_definitions(geo PUBLIC ACCEPT_USE_OF_DEPRECATED_PROJ_API_H)
+#target_compile_definitions(geo PUBLIC ACCEPT_USE_OF_DEPRECATED_PROJ_API_H)
 
 # test stuff
 if(GDAL_FOUND AND MODULE_service_FOUND)

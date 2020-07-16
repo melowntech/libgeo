@@ -25,7 +25,10 @@
  */
 #include <stdexcept>
 
-#include <proj_api.h>
+// find out Proj version
+#define PROJ_API_INCLUDED_FOR_PJ_VERSION_ONLY
+#include "detail/projapi.hpp"
+#undef ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
 
 #include "dbglog/dbglog.hpp"
 
@@ -33,8 +36,10 @@
 
 #if PJ_VERSION < 480
 #  include "detail/pjfactors-4.7.h"
-#else
+#elseif PJ_VERSION < 500
 #  include "detail/pjfactors-4.8.h"
+#else
+#  include <proj.h>
 #endif
 
 namespace geo {
@@ -46,6 +51,8 @@ SrsFactors::SrsFactors(const SrsDefinition &def)
 SrsFactors::SrsFactors(const SrsDefinition &def, const SrsDefinition &src)
     : proj_(def), srcProj_(src, true)
 {}
+
+#if PJ_VERSION < 600
 
 namespace {
 
@@ -94,5 +101,54 @@ SrsFactors::Factors SrsFactors::operator()(const math::Point2 &p) const
 
     return f;
 }
+
+#else // proj 6+
+
+namespace {
+
+int getPjFactors(double x, double y, PJ *pj
+                 , SrsFactors::Factors &factors)
+{
+
+    const auto fac(::proj_factors(pj, { x, y }));
+
+    factors.meridionalScale = fac.meridional_scale;
+    factors.parallelScale = fac.parallel_scale;
+    factors.angularDistortion = fac.angular_distortion;
+    factors.thetaPrime = fac.meridian_parallel_angle;
+    factors.convergence = fac.meridian_convergence;
+    factors.arealScaleFactor = fac.areal_scale;
+    factors.minScaleError = fac.tissot_semimajor;
+    factors.maxScaleError = fac.tissot_semiminor;
+
+    factors.lambdaDx = fac.dx_dlam;
+    factors.phiDx = fac.dx_dphi;
+    factors.lambdaDy = fac.dy_dlam;
+    factors.phiDy = fac.dy_dphi;
+
+    return 0;
+}
+
+} // namespace
+
+SrsFactors::Factors SrsFactors::operator()(const math::Point2 &p) const
+{
+    // obtain lat/lon from p
+    auto pp(srcProj_(p, false));
+
+    Factors f;
+
+    auto *pj(static_cast<PJ*>(proj_.proj_.get()));
+
+    if (getPjFactors(pp(0), pp(1), pj, f)) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to get SRS factors for coordinates " << p << ": "
+            << ::proj_errno_string(::proj_errno(pj));
+    }
+
+    return f;
+}
+
+#endif
 
 } // namespace geo

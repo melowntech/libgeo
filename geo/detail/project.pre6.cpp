@@ -23,46 +23,66 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-#ifndef geo_project_hpp_included_
-#define geo_project_hpp_included_
-
-#include <string>
-#include <memory>
 #include <stdexcept>
 
-#include "math/geometry_core.hpp"
+#include "projapi.hpp"
 
-#include "srsdef.hpp"
-#include "srsfactorsfwd.hpp"
+#include "dbglog/dbglog.hpp"
+
+#include "../project.hpp"
 
 namespace geo {
 
-struct ProjectionError : public std::runtime_error {
-    ProjectionError(const std::string &msg) : std::runtime_error(msg) {}
-};
+namespace {
 
-class Projection {
-public:
-    Projection(const SrsDefinition &def, bool inverse = false);
+std::shared_ptr<void> initProj(const SrsDefinition &def)
+{
+    return { pj_init_plus(def.as(SrsDefinition::Type::proj4).srs.c_str())
+            , [](void *ptr) { if (ptr) pj_free(ptr); } };
+}
 
-    math::Point2 operator()(const math::Point2 &p, bool deg = true) const;
+} // namespace
 
-    math::Point3 operator()(const math::Point3 &p, bool deg = true) const;
+Projection::Projection(const SrsDefinition &def, bool inverse)
+    : proj_(initProj(def)), inverse_(inverse)
+{
+    if (!proj_) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Cannot initialize projection for (" << def.srs << ")";
+    }
 
-    Projection rev() const { return { proj_, !inverse_ }; };
+    LOG(info1) << "Projection(" << def.srs << ")";
+}
 
-    friend class SrsFactors;
+namespace {
+    constexpr double DEG2RAD(M_PI / 180.);
+    constexpr double RAD2DEG(180. / M_PI);
+}
 
-private:
-    Projection(const std::shared_ptr<void> proj, bool inverse)
-        : proj_(proj), inverse_(inverse)
-    {}
+math::Point2 Projection::operator()(const math::Point2 &p, bool deg) const
+{
+    if (inverse_) {
+        auto res(pj_inv({ p(0), p(1) }, proj_.get()));
+        if (deg) {
+            return { res.u * RAD2DEG, res.v * RAD2DEG };
+        }
 
-    std::shared_ptr<void> proj_;
-    bool inverse_;
-};
+        return { res.u, res.v };
+    }
+
+    if (deg) {
+        auto res(pj_fwd({ p(0) * DEG2RAD, p(1) * DEG2RAD}, proj_.get()));
+        return { res.u, res.v };
+    }
+
+    auto res(pj_fwd({ p(0), p(1)}, proj_.get()));
+    return { res.u, res.v };
+}
+
+math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
+{
+    auto xy(operator()(math::Point2(p(0), p(1)), deg));
+    return { xy(0), xy(1), p(2) };
+}
 
 } // namespace geo
-
-#endif // geo_project_hpp_included_

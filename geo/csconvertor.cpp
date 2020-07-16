@@ -27,7 +27,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include <proj_api.h>
+#include "detail/projapi.hpp"
 #include <ogr_spatialref.h>
 #include <cpl_error.h>
 

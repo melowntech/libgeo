@@ -112,9 +112,23 @@ public:
     OverviewDataset(::GDALDataset *main, int level, int thisLevelOnly);
     virtual ~OverviewDataset();
 
+#if GDAL_VERSION_NUM >= 3000000
+    const OGRSpatialReference* GetSpatialRef() const override {
+        return main_->GetSpatialRef();
+    }
+
+    const OGRSpatialReference* GetGCPSpatialRef() const override {
+        return main_->GetGCPSpatialRef();
+    }
+#else
     virtual const char* GetProjectionRef() override {
         return main_->GetProjectionRef();
     }
+
+    virtual const char *GetGCPProjection() override {
+        return main_->GetGCPProjection();
+    }
+#endif
 
     virtual CPLErr GetGeoTransform(double*) override;
 
@@ -122,9 +136,6 @@ public:
         return main_->GetGCPCount();
     }
 
-    virtual const char *GetGCPProjection() override {
-        return main_->GetGCPProjection();
-    }
     virtual const ::GDAL_GCP* GetGCPs() override;
 
     virtual char** GetMetadata(const char *pszDomain = "") override;

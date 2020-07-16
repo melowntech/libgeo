@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2020 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,45 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef geo_project_hpp_included_
-#define geo_project_hpp_included_
+// make sure we use "deprecated proj api"
 
-#include <string>
-#include <memory>
-#include <stdexcept>
-
-#include "math/geometry_core.hpp"
-
-#include "srsdef.hpp"
-#include "srsfactorsfwd.hpp"
-
-namespace geo {
-
-struct ProjectionError : public std::runtime_error {
-    ProjectionError(const std::string &msg) : std::runtime_error(msg) {}
-};
-
-class Projection {
-public:
-    Projection(const SrsDefinition &def, bool inverse = false);
-
-    math::Point2 operator()(const math::Point2 &p, bool deg = true) const;
-
-    math::Point3 operator()(const math::Point3 &p, bool deg = true) const;
-
-    Projection rev() const { return { proj_, !inverse_ }; };
-
-    friend class SrsFactors;
-
-private:
-    Projection(const std::shared_ptr<void> proj, bool inverse)
-        : proj_(proj), inverse_(inverse)
-    {}
-
-    std::shared_ptr<void> proj_;
-    bool inverse_;
-};
-
-} // namespace geo
-
-#endif // geo_project_hpp_included_
+#ifndef ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+#  define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+#endif
+#include <proj_api.h>

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2020 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -23,22 +23,26 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <stdexcept>
 
-#include <proj_api.h>
+#include "proj.h"
 
 #include "dbglog/dbglog.hpp"
 
-#include "project.hpp"
+#include "../project.hpp"
 
 namespace geo {
 
 namespace {
 
+thread_local PJ_CONTEXT *pjctx = ::proj_context_create();
+
 std::shared_ptr<void> initProj(const SrsDefinition &def)
 {
-    return { pj_init_plus(def.as(SrsDefinition::Type::proj4).srs.c_str())
-            , [](void *ptr) { if (ptr) pj_free(ptr); } };
+    return { ::proj_create(pjctx
+                           , def.as(SrsDefinition::Type::proj4).srs.c_str())
+             , [](PJ *ptr) { if (ptr) { ::proj_destroy(ptr); } } };
 }
 
 } // namespace
@@ -61,22 +65,23 @@ namespace {
 
 math::Point2 Projection::operator()(const math::Point2 &p, bool deg) const
 {
+    auto *pj(static_cast<PJ*>(proj_.get()));
     if (inverse_) {
-        auto res(pj_inv({ p(0), p(1) }, proj_.get()));
+        auto res(::proj_trans(pj, PJ_INV, { p(0), p(1) }));
         if (deg) {
-            return { res.u * RAD2DEG, res.v * RAD2DEG };
+            return { res.uv.u * RAD2DEG, res.uv.v * RAD2DEG };
         }
 
-        return { res.u, res.v };
+        return { res.uv.u, res.uv.v };
     }
 
     if (deg) {
-        auto res(pj_fwd({ p(0) * DEG2RAD, p(1) * DEG2RAD}, proj_.get()));
-        return { res.u, res.v };
+        auto res(::proj_trans(pj, PJ_FWD, { p(0) * DEG2RAD, p(1) * DEG2RAD }));
+        return { res.uv.u, res.uv.v };
     }
 
-    auto res(pj_fwd({ p(0), p(1)}, proj_.get()));
-    return { res.u, res.v };
+    auto res(::proj_trans(pj, PJ_FWD, { p(0), p(1)}));
+    return { res.uv.u, res.uv.v };
 }
 
 math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
