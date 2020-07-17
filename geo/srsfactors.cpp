@@ -28,19 +28,23 @@
 // find out Proj version
 #define PROJ_API_INCLUDED_FOR_PJ_VERSION_ONLY
 #include "detail/projapi.hpp"
-#undef ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+#undef PROJ_API_INCLUDED_FOR_PJ_VERSION_ONLY
+
+// handle variaous includes based on version
+#if PJ_VERSION < 600
+#  if PJ_VERSION < 480
+#    include "detail/pjfactors-4.7.h"
+#  else
+#    include "detail/pjfactors-4.8.h"
+#  endif
+#  include "detail/projapi.hpp"
+#else
+#  include <proj.h>
+#endif
 
 #include "dbglog/dbglog.hpp"
 
 #include "srsfactors.hpp"
-
-#if PJ_VERSION < 480
-#  include "detail/pjfactors-4.7.h"
-#elif PJ_VERSION < 500
-#  include "detail/pjfactors-4.8.h"
-#else
-#  include <proj.h>
-#endif
 
 namespace geo {
 
