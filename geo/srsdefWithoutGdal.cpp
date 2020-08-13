@@ -31,12 +31,10 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
-#include <proj_api.h>
 #include <GeographicLib/Geocentric.hpp>
-
 #include "dbglog/dbglog.hpp"
 #include "utility/streams.hpp"
-
+#include "detail/projapi.hpp"
 #include "srsdef.hpp"
 
 namespace geo {

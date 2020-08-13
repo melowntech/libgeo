@@ -23,16 +23,13 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdexcept>
 
+#include <stdexcept>
 #include <boost/lexical_cast.hpp>
 
-#include <proj_api.h>
-
 #include "dbglog/dbglog.hpp"
-
 #include "math/geometry.hpp"
-
+#include "detail/projapi.hpp"
 #include "csconvertor.hpp"
 
 namespace geo {
@@ -40,7 +37,6 @@ namespace geo {
 class CsConvertor::Impl : boost::noncopyable
 {
 public:
-    //typedef std::shared_ptr<Impl> pointer;
     virtual ~Impl() {}
     virtual math::Point2 convert(const math::Point2 &p) const = 0;
     virtual math::Point3 convert(const math::Point3 &p) const = 0;
