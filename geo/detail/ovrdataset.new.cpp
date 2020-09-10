@@ -487,7 +487,7 @@ int OverviewBand::GetOverviewCount()
         }
     }
 
-    return new gdal::OverviewDataset(ds, level, false);
+    return new gdal::OverviewDataset(ds, level, true);
 }
 
 } } // namespace geo::detail

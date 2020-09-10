@@ -30,7 +30,7 @@ namespace geo { namespace detail {
 
 ::GDALDataset* createOverviewDataset(::GDALDataset *ds, int level)
 {
-    return ::GDALCreateOverviewDataset(ds, level, false, false);
+    return ::GDALCreateOverviewDataset(ds, level, true, false);
 }
 
 } } // namespace geo::detail

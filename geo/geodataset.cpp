@@ -1035,23 +1035,24 @@ overviewByScale(GDALDataset *src,
     return useOverview(src, wo, ovr, wri);
 }
 
-std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src,
-  GDALWarpOptions * wo, int & ovr, GeoDataset::WarpResultInfo & wri) {
-
-  auto band(src->GetRasterBand(1));
-  auto count(band->GetOverviewCount());
-
-  bool requirementsMet(false);
-  unsigned long measure(0UL);
+void overviewByMemoryReqs(std::unique_ptr<GDALDataset> &ovrDs
+                          , GDALDataset *src
+                          , GDALWarpOptions * wo, int & ovr
+                          , GeoDataset::WarpResultInfo & wri)
+{
 
   if (wo->dfWarpMemoryLimit == 0.0) {
 
      LOG(warn2) << "Warp memory limit set to internal default, "
        "cannot test for memory requirements.";
-     return {};
+     return;
   }
 
-  std::unique_ptr<GDALDataset> ovrDs;
+  const auto band(src->GetRasterBand(1));
+  const auto count(band->GetOverviewCount());
+
+  bool requirementsMet(false);
+  unsigned long measure(0UL);
 
   for ( ;ovr < count; ovr++) {
 
@@ -1085,8 +1086,6 @@ std::unique_ptr<GDALDataset> overviewByMemoryReqs(GDALDataset *src,
                 , measure, wo->dfWarpMemoryLimit);
      ovr = count - 1;
   }
-
-  return ovrDs;
 }
 
 
@@ -1128,11 +1127,11 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
     // force overview due to memory requirements
     if (options.safeChunks) {
 
-       ovrDs = overviewByMemoryReqs(src, wo, ovr, wri);
+        overviewByMemoryReqs(ovrDs, src, wo, ovr, wri);
 
-       LOG(info1) << "Safe chunks requirement results in usage of "
-           << (( ovr > -1 ) ? boost::format( "overview #%d." ) % ovr
-               : boost::format("original."));
+        LOG(info1) << "Safe chunks requirement results in usage of "
+                   << (( ovr > -1 ) ? boost::format( "overview #%d." ) % ovr
+                       : boost::format("original."));
     }
 
     // -1 -> original dataset
@@ -1197,17 +1196,18 @@ struct CmdlineLogger {
     CmdlineLogger(const GDALWarpOptions *warpOptions
                   , const GeoDataset::WarpOptions &options
                   , const GeoDataset::WarpResultInfo &wri
-                  , const GeoDataset &src
+                  , const GeoDataset &src, const fs::path &srcPath
                   , const GeoDataset &dst
                   , GDALDataType ot)
         : warpOptions(warpOptions), options(options)
-        , wri(wri), src(src), dst(dst), ot(ot)
+        , wri(wri), src(src), srcPath(srcPath), dst(dst), ot(ot)
     {}
 
     const GDALWarpOptions *warpOptions;
     const GeoDataset::WarpOptions &options;
     const GeoDataset::WarpResultInfo &wri;
     const GeoDataset &src;
+    const fs::path srcPath;
     const GeoDataset &dst;
     GDALDataType ot;
 };
@@ -1247,15 +1247,24 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const CmdlineLogger &l)
         }
     }
 
-    switch (l.ot) {
-    case ::GDT_Byte: os << " -ot byte"; break;
-    case ::GDT_UInt16: os << " -ot uint16"; break;
-    case ::GDT_Int16: os << " -ot int16"; break;
-    case ::GDT_UInt32: os << " -ot uint32"; break;
-    case ::GDT_Int32: os << " -ot int32"; break;
-    case ::GDT_Float32: os << " -ot float32"; break;
-    case ::GDT_Float64: os << " -ot float64"; break;
-    default: break;
+    {
+        const auto &asString([&](const std::string &prefix
+                                 , ::GDALDataType type)
+        {
+            switch (type) {
+            case ::GDT_Byte: os << prefix << "byte"; break;
+            case ::GDT_UInt16: os << prefix << "uint16"; break;
+            case ::GDT_Int16: os << prefix << "int16"; break;
+            case ::GDT_UInt32: os << prefix << "uint32"; break;
+            case ::GDT_Int32: os << prefix << "int32"; break;
+            case ::GDT_Float32: os << prefix << "float32"; break;
+            case ::GDT_Float64: os << prefix << "float64"; break;
+            default: break;
+            }
+        });
+
+        asString(" -ot ", l.ot);
+        asString(" -wt ", l.options.workingDataType);
     }
 
     os << " -t_srs \"" << l.dst.srsProj4() << "\"";
@@ -1269,8 +1278,10 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const CmdlineLogger &l)
     }
 
     if (l.warpOptions->dfWarpMemoryLimit) {
-        os << " -wm " << l.warpOptions->dfWarpMemoryLimit / (1024 * 1024);
+        os << " -wm " << l.warpOptions->dfWarpMemoryLimit;
     }
+
+    os << " " << l.srcPath << " dst.tif -overwrite";
 
     return os;
 }
@@ -1325,6 +1336,8 @@ GeoDataset::warpInto(GeoDataset &dst
 
     warpOptions->hSrcDS = dset_.get();
     warpOptions->hDstDS = dst.dset_.get();
+
+    warpOptions->eWorkingDataType = options.workingDataType;
 
     warpOptions->nBandCount = dset_->GetRasterCount();
 
@@ -1408,7 +1421,7 @@ GeoDataset::warpInto(GeoDataset &dst
     if (options.safeChunks) {
        // re-check memory requirements, resampling may change everything
        int ovr( wri.overview ? *wri.overview : -1 );
-       ovrDs = overviewByMemoryReqs(dset_.get(), warpOptions, ovr, wri);
+       overviewByMemoryReqs(ovrDs, dset_.get(), warpOptions, ovr, wri);
     }
 
     // initialize and execute the warp operation.
@@ -1424,7 +1437,7 @@ GeoDataset::warpInto(GeoDataset &dst
     // log before options destruction
     if (GEO_DUMP_GDALWARP) {
         LOG(info4) << CmdlineLogger
-            (warpOptions, options, wri, *this, dst
+            (warpOptions, options, wri, *this, dset_->GetDescription(), dst
              , dst.dset_->GetRasterBand(1)->GetRasterDataType());
         LOG(info4) << "scale: " << wri.scale;
         LOG(info4) << "truescale: " << wri.truescale;

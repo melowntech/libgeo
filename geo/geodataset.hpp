@@ -387,12 +387,12 @@ public:
     /** Warp options. Generic options + special stuff.
      */
     struct WarpOptions : Options {
-    
         WarpOptions()
             : overviewBias(0)
             , warpMemoryLimit(0x10000000) // 256 MB
             , safeChunks(true)
             , noInit(false)
+            , workingDataType(GDT_Unknown) // let decide GDAL WARP machinery
         {}
 
         template <typename T>
@@ -430,6 +430,11 @@ public:
         /** Do not init output with no-data value.
          */
         bool noInit;
+
+        /** Warp operation data type. If set to GDT_Unknown, GDAL uses its own
+         *  machinery to determine the data type.
+         */
+        ::GDALDataType workingDataType;
     };
 
     /** \brief Warp data from this dataset to destination dataset.
@@ -780,7 +785,7 @@ public:
 
     struct BandProperties {
         ::GDALDataType dataType;
-        :: GDALColorInterp colorInterpretation;
+        ::GDALColorInterp colorInterpretation;
         math::Size2 size;
         math::Size2 blockSize;
 
