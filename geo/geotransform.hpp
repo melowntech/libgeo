@@ -36,6 +36,7 @@
 #include <array>
 
 #include "math/geometry_core.hpp"
+#include "math/math.hpp"
 
 #include "csconvertor.hpp"
 
@@ -57,9 +58,7 @@ namespace geo {
  */    
 
 class GeoTransform :  public std::array<double, 6> {
-
     friend class GeoDataset;
-    
 public :
 
     GeoTransform() {};
@@ -146,10 +145,25 @@ public :
      */
     math::Matrix4 geo2raster(bool pixel = true) const;
 
-private :
-    math::Point2 applyGeoTransform( double col, double row ) const;
-    void applyInvGeoTransform( 
-        const math::Point2 & gp, double & col, double & row ) const;
+    bool isOrthogonal() const;
+
+    math::Point2 resolution() const;
+
+    class Private {
+    private:
+        Private() = default;
+        friend class GeoDataset;
+    };
+
+    math::Point2 applyGeoTransform(const Private&, double col, double row)
+        const;
+    void applyInvGeoTransform(const Private&, const math::Point2 & gp
+                              , double & col, double & row ) const;
+
+private:
+    math::Point2 applyGeoTransform(double col, double row ) const;
+    void applyInvGeoTransform(const math::Point2 & gp
+                              , double & col, double & row ) const;
 };
 
 
@@ -234,6 +248,33 @@ private:
     CsConvertor src2dst_;
 };
 
+inline math::Point2
+GeoTransform::applyGeoTransform(const Private&, double col, double row)
+    const
+{
+    return applyGeoTransform(col, row);
+}
+
+inline void
+GeoTransform::applyInvGeoTransform(const Private&, const math::Point2 & gp
+                                   , double & col, double & row ) const
+{
+    return applyInvGeoTransform(gp, col, row);
+}
+
+// inlines
+inline bool GeoTransform::isOrthogonal() const
+{
+    double epsilon( 1.0e-6 );
+    return ( fabs( (*this)[2] ) < epsilon
+             && fabs( (*this)[4] ) < epsilon );
+}
+
+inline math::Point2 GeoTransform::resolution() const
+{
+    return math::Point2(sqrt(math::sqr((*this)[1]) + math::sqr((*this)[4]))
+                        , sqrt(math::sqr((*this)[2]) + math::sqr((*this)[5])));
+}
 
 } // namespace geo
 

@@ -698,27 +698,27 @@ GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
     return GRA_Lanczos;
 }
 
-double sourcePixelSize(const geo::CsConvertor &conv
-                       , const geo::GeoDataset &src
-                       , const geo::GeoDataset &dst
+double sourcePixelSize(const CsConvertor &conv
+                       , const GeoDataset::Descriptor &src
+                       , const GeoDataset::Descriptor &dst
                        , const math::Point2 &srcScale = math::Point2(1.0, 1.0))
 {
     // two points in the center of dst raster one pixel apart:
-    const auto dstSize(dst.size());
+    const auto dstSize(dst.size);
     const math::Point2 dstR1(dstSize.width / 2. - .5, dstSize.height / 2.);
     const math::Point2 dstR2(dstSize.width / 2. + .5, dstSize.height / 2.);
 
     // convert them to geo coordinates
-    const auto dstG1(dst.raster2geo(dstR1, .0));
-    const auto dstG2(dst.raster2geo(dstR2, .0));
+    const auto dstG1(dst.geoTransform.raster2geo(dstR1, .0));
+    const auto dstG2(dst.geoTransform.raster2geo(dstR2, .0));
 
     // now, convert them to source ref system
     const auto srcG1(conv(dstG1));
     const auto srcG2(conv(dstG2));
 
     // and finally convert them to src raster
-    auto srcR1(src.geo2raster<math::Point2>(srcG1));
-    auto srcR2(src.geo2raster<math::Point2>(srcG2));
+    auto srcR1(src.geoTransform.geo2raster<math::Point2>(srcG1));
+    auto srcR2(src.geoTransform.geo2raster<math::Point2>(srcG2));
     srcR2(0) *= srcScale(0); srcR2(1) *= srcScale(1);
     srcR1(0) *= srcScale(0); srcR1(1) *= srcScale(1);
 
@@ -726,11 +726,11 @@ double sourcePixelSize(const geo::CsConvertor &conv
     return boost::numeric::ublas::norm_2(srcR2 - srcR1);
 }
 
-double sourcePixelSize(const geo::GeoDataset &src
-                       , const geo::GeoDataset &dst
+double sourcePixelSize(const GeoDataset::Descriptor &src
+                       , const GeoDataset::Descriptor &dst
                        , const math::Point2 &srcScale = math::Point2(1.0, 1.0))
 {
-    return sourcePixelSize(geo::CsConvertor(dst.srs(), src.srs())
+    return sourcePixelSize(geo::CsConvertor(dst.srs, src.srs)
                            , src, dst, srcScale);
 }
 
@@ -817,11 +817,12 @@ struct Corners {
     }
 };
 
-void sourceExtra(const GeoDataset &src, const GeoDataset &dst
+void sourceExtra(const GeoDataset::Descriptor &src
+                 , const GeoDataset::Descriptor &dst
                  , detail::OptionsWrapper &wo
                  , const GDALWarpOptions *warpOptions)
 {
-    auto size(dst.size());
+    auto size(dst.size);
 
     Corners<4> corners;
 
@@ -848,7 +849,7 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
 
     try {
         auto ps(sourcePixelSize(src, dst));
-        auto s(dst.size());
+        auto s(dst.size);
         ps *= std::max(s.width, s.height);
 
         // TODO: dynamic limit
@@ -863,6 +864,19 @@ void sourceExtra(const GeoDataset &src, const GeoDataset &dst
     } catch (const ProjectionError&) {
         // cannot project point from one SRS to another -> do nothing
     }
+}
+
+inline void sourceExtra(const GeoDataset &src
+                        , const std::unique_ptr<GDALDataset> &ovrDs
+                        , const GeoDataset &dst
+                        , detail::OptionsWrapper &wo
+                        , const GDALWarpOptions *warpOptions)
+{
+    return sourceExtra((ovrDs
+                        ? GeoDataset::descriptor(ovrDs.get())
+                        : src.descriptor())
+                       , dst.descriptor()
+                       , wo, warpOptions);
 }
 
 void createTransformer(GDALWarpOptions *wo)
@@ -1395,10 +1409,6 @@ GeoDataset::warpInto(GeoDataset &dst
     // establish reprojection transformer.
     createTransformer(warpOptions);
 
-    // calculate sourceExtra parameter from datasets (if needed)
-    // TODO: move after overview selection and use overview information
-    sourceExtra(*this, dst, wo, warpOptions);
-
     GeoDataset::WarpResultInfo wri;
 
     // obtain maximum scaling factor source->destination
@@ -1406,6 +1416,9 @@ GeoDataset::warpInto(GeoDataset &dst
 
     // choose overview and hold the dataset
     auto ovrDs(chooseOverview(warpOptions, wri, options));
+
+    // calculate sourceExtra parameter from datasets (if needed)
+    sourceExtra(*this, ovrDs, dst, wo, warpOptions);
 
     // update options and grab options since it is destroyed by
     // GDALDestroyWarpOptions
@@ -2224,27 +2237,35 @@ math::Extents2 GeoDataset::deriveExtents( const SrsDefinition &srs ) const
     return retval;
 }
 
-bool GeoDataset::isOrthogonal() const {
-
-    double epsilon( 1.0e-6 );
-
-    return ( fabs( geoTransform_[2] ) < epsilon
-        && fabs( geoTransform_[4] ) < epsilon );
+bool GeoDataset::isOrthogonal() const
+{
+    return geoTransform_.isOrthogonal();
 }
 
-math::Extents2 GeoDataset::extents() const {
+GeoTransform GeoDataset::geoTransform(GDALDataset *ds)
+{
+    GeoTransform gt;
+    ds->GetGeoTransform(gt.data());
+    return gt;
+}
 
-    if ( ! isOrthogonal() )
+namespace {
+
+math::Extents2 extentsFromRaw(const GeoTransform::Private &gtp
+                              , const GeoTransform &geoTransform
+                              , const math::Size2i &size)
+{
+    if ( ! geoTransform.isOrthogonal() )
         LOGTHROW( err3, std::runtime_error )
-            << "Non orthogonal dataset cannot be goreferenced by extents.";
+            << "Non orthogonal dataset cannot be georeferenced by extents.";
 
     math::Extents2 retval;
     math::Point2 ll, lr, ul, ur;
 
-    ll = geoTransform_.applyGeoTransform( 0, size_.height );
-    lr = geoTransform_.applyGeoTransform( size_.width, size_.height );
-    ul = geoTransform_.applyGeoTransform( 0, 0 );
-    ur = geoTransform_.applyGeoTransform( size_.width, 0 );
+    ll = geoTransform.applyGeoTransform(gtp, 0, size.height);
+    lr = geoTransform.applyGeoTransform(gtp, size.width, size.height);
+    ul = geoTransform.applyGeoTransform(gtp, 0, 0);
+    ur = geoTransform.applyGeoTransform(gtp, size.width, 0);
 
 
     retval.ll[0] = std::min( { ll[0], lr[0], ul[0], ur[0] } );
@@ -2253,6 +2274,20 @@ math::Extents2 GeoDataset::extents() const {
     retval.ur[1] = std::max( { ll[1], lr[1], ul[1], ur[1] } );
 
     return retval;
+}
+
+} // namespace
+
+math::Extents2 GeoDataset::extents() const
+{
+    return extentsFromRaw(GeoTransform::Private(), geoTransform_, size_);
+}
+
+math::Extents2 GeoDataset::extents(GDALDataset *ds)
+{
+    return extentsFromRaw
+        (GeoTransform::Private(), geoTransform(ds)
+         , math::Size2i(ds->GetRasterXSize(), ds->GetRasterYSize()));
 }
 
 bool GeoDataset::valid( int i, int j ) const {
@@ -2949,19 +2984,23 @@ void GeoDataset::copyFiles(const boost::filesystem::path &path) const
     driver->CopyFiles(dset_->GetDescription(), path.string().c_str());
 }
 
-GeoDataset::Descriptor GeoDataset::descriptor() const
-{
-    Descriptor d;
-    d.extents = extents();
-    d.size = size();
-    d.srs = srs();
-    d.geoTransform = geoTransform();
-    d.resolution = resolution();
-    d.driverName = dset_->GetDriverName();
+SrsDefinition GeoDataset::srs(GDALDataset *ds) {
+    return SrsDefinition(ds->GetProjectionRef(), SrsDefinition::Type::wkt);
+}
 
-    d.bands = numChannels_;
+math::Point2 GeoDataset::resolution(GDALDataset *ds)
+{
+    return geoTransform(ds).resolution();
+}
+
+namespace {
+
+void finishDescriptor(GeoDataset::Descriptor &d, GDALDataset *ds)
+{
+    d.driverName = ds->GetDriverName();
+
     if (d.bands) {
-        auto *b(dset_->GetRasterBand(1));
+        auto *b(ds->GetRasterBand(1));
         d.overviews = b->GetOverviewCount();
         d.dataType = b->GetRasterDataType();
         d.maskType = b->GetMaskFlags();
@@ -2971,6 +3010,33 @@ GeoDataset::Descriptor GeoDataset::descriptor() const
         double nd = b->GetNoDataValue(&valid);
         if (valid) { d.nodata = nd; }
     }
+}
+
+} // namespace
+
+GeoDataset::Descriptor GeoDataset::descriptor() const
+{
+    Descriptor d;
+    d.extents = extents();
+    d.size = size();
+    d.srs = srs();
+    d.geoTransform = geoTransform();
+    d.resolution = resolution();
+    d.bands = numChannels_;
+    finishDescriptor(d, dset_.get());
+    return d;
+}
+
+GeoDataset::Descriptor GeoDataset::descriptor(GDALDataset *ds)
+{
+    Descriptor d;
+    d.extents = extents(ds);
+    d.size = math::Size2i(ds->GetRasterXSize(), ds->GetRasterYSize());
+    d.srs = srs(ds);
+    d.geoTransform = geoTransform(ds);
+    d.resolution = resolution(ds);
+    d.bands = ds->GetRasterCount();
+    finishDescriptor(d, ds);
     return d;
 }
 

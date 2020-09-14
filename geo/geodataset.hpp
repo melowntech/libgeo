@@ -517,10 +517,10 @@ public:
      * @brief geoTransform (pixel to geo) transform. Opaque on this level.
      */
     GeoTransform geoTransform() const { return geoTransform_; }
-    
+
     /** Data set resolution ("pixel size").
      */
-    math::Point2 resolution() const;
+    math::Point2 resolution() const { return geoTransform_.resolution(); }
 
     /* start obsolete functions */
     math::Point3 rowcol2geo( int row, int col, double value ) const {
@@ -953,6 +953,18 @@ public:
     // Returns value transformations for all bands
     ValueTransformation::list valueTransformation() const;
 
+    // helpers for naked GDALDataset
+
+    static math::Extents2 extents(GDALDataset *ds);
+
+    static SrsDefinition srs(GDALDataset *ds);
+
+    static GeoTransform geoTransform(GDALDataset *ds);
+
+    static math::Point2 resolution(GDALDataset *ds);
+
+    static Descriptor descriptor(GDALDataset *ds);
+
 private:
     static bool initialized_;
     static void initialize();
@@ -998,13 +1010,6 @@ private:
 };
 
 // inline method implementation
-
-inline math::Point2 GeoDataset::resolution() const
-{
-    return math::Point2(
-        sqrt( math::sqr( geoTransform_[1] ) + math::sqr( geoTransform_[4] ) ),                        
-        sqrt( math::sqr( geoTransform_[2] ) + math::sqr( geoTransform_[5] ) ) );
-}
 
 // enum i/o mapping
 UTILITY_GENERATE_ENUM_IO(GeoDataset::Resampling,
