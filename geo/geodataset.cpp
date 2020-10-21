@@ -45,6 +45,7 @@
 #include "utility/expect.hpp"
 #include "utility/path.hpp"
 #include "math/math.hpp"
+#include "math/geometry.hpp"
 #include "geometry/polygon.hpp"
 
 #include "imgproc/rastermask/transform.hpp"
@@ -896,8 +897,8 @@ void createTransformer(GDALWarpOptions *wo)
 }
 
 
-void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri) {
-
+void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri)
+{
     try {
 
         auto dst(static_cast<GDALDataset*>(wo->hDstDS));
@@ -948,18 +949,21 @@ void obtainScale(GDALWarpOptions *wo, GeoDataset::WarpResultInfo & wri) {
         for ( int i = 0; i < 9; i++ )
             if (samples.successf[i] && samples.successb[i] &&
                 samples.successb[9+i] && samples.successb[18+i] &&
-                samples.successb[27+i] && samples.successb[36+i] ) {
-                 ublas::vector<double> a(4);
-                 a[0] = std::min(fabs(samples.x[9+i] - samples.x[i]), fabs(samples.x[18+i] - samples.x[i]));
-                 a[1] = std::min(fabs(samples.y[9+i] - samples.y[i]),  fabs(samples.y[18+i] - samples.y[i]));
-                 a[2] = std::min(fabs(samples.x[27+i] - samples.x[i]), fabs(samples.x[36+i] - samples.x[i]));
-                 a[3] = std::min(fabs(samples.y[27+i] - samples.y[i]), fabs(samples.y[36+i] - samples.y[i]));
-                 double nscale = norm_2(a);
+                samples.successb[27+i] && samples.successb[36+i] )
+            {
+                math::Point2 a(2);
+                a[0] = std::min(fabs(samples.x[9+i] - samples.x[i]), fabs(samples.x[18+i] - samples.x[i]));
+                a[1] = std::min(fabs(samples.y[9+i] - samples.y[i]),  fabs(samples.y[18+i] - samples.y[i]));
+                math::Point2 b(2);
+                b[0] = std::min(fabs(samples.x[27+i] - samples.x[i]), fabs(samples.x[36+i] - samples.x[i]));
+                b[1] = std::min(fabs(samples.y[27+i] - samples.y[i]), fabs(samples.y[36+i] - samples.y[i]));
 
-                 //LOG( debug ) << a;
-                 //LOG( debug ) << boost::format("Dst scale is %.5f.") % nscale;
+                double nscale = std::sqrt(std::abs(math::crossProduct(a, b)));
 
-                 if ( ! scale || nscale > *scale )
+                //LOG( debug ) << a << ", " << b;
+                //LOG( debug ) << boost::format("Dst scale is %.5f.") % nscale;
+
+                if ( ! scale || nscale > *scale )
                     scale = nscale;
             }
 
@@ -1000,7 +1004,6 @@ std::unique_ptr<GDALDataset> useOverview(
 
     // re-create transformer
     createTransformer(wo);
-
 
     // determine scale
     double overviewScale = double(ovrDs->GetRasterXSize()) / src->GetRasterXSize();
@@ -1110,11 +1113,11 @@ chooseOverview(GDALWarpOptions *wo, GeoDataset::WarpResultInfo &wri
     auto src(static_cast<GDALDataset*>(wo->hSrcDS));
     std::unique_ptr<GDALDataset> ovrDs;
 
-    wri.scale = 1.0; // IMPROVE - fallback value for original dataset
+    // default for full-scale dataset
+    wri.scale = wri.truescale;
 
     // overview set explicitely in options
     if (options.overview) {
-
         // no auto selection
         auto ovr(*options.overview);
 
@@ -1452,8 +1455,6 @@ GeoDataset::warpInto(GeoDataset &dst
         LOG(info4) << CmdlineLogger
             (warpOptions, options, wri, *this, dset_->GetDescription(), dst
              , dst.dset_->GetRasterBand(1)->GetRasterDataType());
-        LOG(info4) << "scale: " << wri.scale;
-        LOG(info4) << "truescale: " << wri.truescale;
     }
 
     GDALDestroyWarpOptions( warpOptions );
