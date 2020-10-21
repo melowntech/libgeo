@@ -110,7 +110,7 @@ struct Options {
     }
 
     template <typename T>
-    Options operator()(const std::string &name, const T &value) {
+    Options& operator()(const std::string &name, const T &value) {
         options.emplace_back
             (name, boost::lexical_cast<std::string>(value));
         return *this;
@@ -118,7 +118,7 @@ struct Options {
 
     /** Special handling for boolean -> YES/NO
      */
-    Options operator()(const std::string &name, bool value) {
+    Options& operator()(const std::string &name, bool value) {
         options.emplace_back(name, value ? "YES" : "NO");
         return *this;
     }
@@ -398,6 +398,12 @@ public:
         template <typename T>
         WarpOptions(const std::string &name, const T &value) {
             operator()(name, value);
+        }
+
+        template <typename T>
+        WarpOptions& operator()(const std::string &name, const T &value) {
+            operator()(name, value);
+            return *this;
         }
 
         /** Src nodata override.
