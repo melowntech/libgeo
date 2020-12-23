@@ -2681,7 +2681,9 @@ void GeoDataset::writeBlock(const math::Point2i &blockOffset
              , 1                      //  int nBandCount,
              , &bandMap               // int * panBandMap,
              , block.elemSize()       // int nPixelSpace,
-             , block.cols * block.elemSize(), 0); // int nLineSpace
+             , block.step             // int nLineSpace
+             , 0)                     // psExtraArg
+             ;
 
         ut::expect(err == CE_None, "Writing of raster data failed.");
     }
@@ -2705,15 +2707,15 @@ void GeoDataset::writeMaskBlock(const math::Point2i &blockOffset
     const auto type(cv2gdal(block.depth()));
 
     auto err = mask->RasterIO
-        (GF_Write // GDALRWFlag  eRWFlag,
-         , blockOffset(0) // int nXOff
-         , blockOffset(1) // int nYOff
-         , block.cols, block.rows // int nXSize, int nYSize,
-         , (void *) block.data  // void * pData,
-         , block.cols, block.rows         // int nBufXSize, int nBufYSize
+        (GF_Write                        // GDALRWFlag  eRWFlag,
+         , blockOffset(0)                // int nXOff
+         , blockOffset(1)                // int nYOff
+         , block.cols, block.rows        // int nXSize, int nYSize,
+         , (void *) block.data           // void * pData,
+         , block.cols, block.rows        // int nBufXSize, int nBufYSize
          , type                          // GDALDataType eBufType
          , block.elemSize()              // int nPixelSpace
-         , block.cols * block.elemSize() // int nLineSpace
+         , block.step                    // int nLineSpace
          , 0)                            // psExtraArg
         ;
 
