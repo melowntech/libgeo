@@ -272,6 +272,10 @@ SrsDefinition geocentric(const SrsDefinition &srs)
     double towgs84[7];
     ref.GetTOWGS84(towgs84, 7);
 
+    // TODO: make a special case for for:
+    // 1) SPHEROID["WGS 84",6378137,298.257223563,
+    // 2) zero towgs84
+
     std::ostringstream os;
     os << std::setprecision(12);
     os << "+proj=geocent +units=m +no_defs +a=" << ref.GetSemiMajor()
