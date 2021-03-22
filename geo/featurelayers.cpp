@@ -745,8 +745,13 @@ void FeatureLayers::dumpLegacyGeodata(std::ostream & os
     }
 
     // write output
-    Json::FastWriter writer;
-    os << writer.write(root);
+    {
+        Json::StreamWriterBuilder wb;
+        wb["indentation"] = "";
+        wb["commentStyle"] = "None";
+        std::unique_ptr<Json::StreamWriter> writer(wb.newStreamWriter());
+        writer->write(root, &os);
+    }
 }
 
 void FeatureLayers::dumpVTSGeodata(std::ostream & os
@@ -918,10 +923,13 @@ void FeatureLayers::dumpVTSGeodata(std::ostream & os
 
     } // end layer
 
-    // write output
-    // Json::StyledWriter writer; // uncomment when debugging
-    Json::FastWriter writer;
-    os << writer.write(root);
+    {
+        Json::StreamWriterBuilder wb;
+        wb["indentation"] = "";
+        wb["commentStyle"] = "None";
+        std::unique_ptr<Json::StreamWriter> writer(wb.newStreamWriter());
+        writer->write(root, &os);
+    }
 }
 
 boost::optional<math::Extents3> FeatureLayers::boundingBox(
