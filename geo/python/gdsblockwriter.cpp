@@ -308,7 +308,9 @@ void registerGdsBlockWriter() {
     from_python_options();
 
     // make sure we have thread support
+#if PY_VERSION_HEX < 0x03090000
     ::PyEval_InitThreads();
+#endif
 
     dbglog::log_thread(true);
 }
