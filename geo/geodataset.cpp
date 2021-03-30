@@ -270,7 +270,7 @@ GeoDataset::~GeoDataset() noexcept
 {
     // valid dataset that has not been flushed and no exception is thrown ->
     // someone forgot to flush :)
-    if (dset_ && changed_ && !std::uncaught_exception()) {
+    if (dset_ && changed_ && !std::uncaught_exceptions()) {
         LOG(warn2) << "GeoDataset was changed but not flushed!";
     }
 }
