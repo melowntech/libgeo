@@ -50,6 +50,13 @@ namespace geo {
 
 namespace {
 
+#if GDAL_VERSION_NUM >= 3000000
+#  define GEO_TRADITIONAL_GIS_ORDER(sr) \
+    sr.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)
+#else
+#  define GEO_TRADITIONAL_GIS_ORDER(sr)
+#endif
+
 inline std::string srs2Wkt(const OGRSpatialReference &sr)
 {
     char *out(nullptr);
@@ -220,7 +227,7 @@ SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
         LOGTHROW(err1, std::runtime_error)
             << "OGRSpatialReference cannot be exported into EPSG "
             "representation.";
-	throw;
+        throw;
 
     case SrsDefinition::Type::enu:
         LOGTHROW(err1, std::runtime_error)
@@ -242,7 +249,9 @@ SrsDefinition SrsDefinition::fromEnu(const Enu &src)
 ::OGRSpatialReference SrsDefinition::reference() const
 {
     ::OGRSpatialReference sr;
+    GEO_TRADITIONAL_GIS_ORDER(sr);
     detail::import(sr, *this);
+
     return sr;
 }
 
@@ -321,6 +330,7 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
 OGRSpatialReference asOgrSr(const SrsDefinition &def)
 {
     OGRSpatialReference sr;
+    GEO_TRADITIONAL_GIS_ORDER(sr);
     detail::import(sr, def);
     return sr;
 }
@@ -362,6 +372,7 @@ OGRSpatialReference merge(const OGRSpatialReference &horiz
                   % v.GetRoot()->GetChild(0)->GetValue()));
 
     OGRSpatialReference out;
+    GEO_TRADITIONAL_GIS_ORDER(out);
     out.SetCompoundCS(name.c_str(), &h, &v);
 
     // done
@@ -402,6 +413,7 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert)
     }
 
     ::OGRSpatialReference out;
+    GEO_TRADITIONAL_GIS_ORDER(out);
     out.SetCompoundCS("", &srs, &vert);
     return out;
 }
