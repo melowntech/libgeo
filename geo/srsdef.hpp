@@ -120,6 +120,10 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert);
  */
 SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoidGrid);
 
+/** ASC file reference to geoidgrids.
+ */
+SrsDefinition asc2gtx(const SrsDefinition &srs);
+
 /** Extracts geographic system from given SRS definition.
  *  Fails if there is no GeogCS node present.
  */

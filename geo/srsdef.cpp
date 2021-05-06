@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2017-2021 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <stdexcept>
 #include <vector>
 #include <sstream>
@@ -31,6 +32,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/utility/in_place_factory.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
@@ -535,6 +537,57 @@ double linearUnit(const SrsDefinition &srs, bool convertAngluar)
 
     // angular unit in radians times semi-major axis
     return ref.GetAngularUnits(nullptr) * ref.GetSemiMajor();
+}
+
+SrsDefinition asc2gtx(const SrsDefinition &srs)
+{
+    namespace fs = boost::filesystem;
+    namespace ba = boost::algorithm;
+    using namespace std::string_literals;
+
+    struct Process {
+        Process(OGR_SRSNode *node) { run(node);  }
+
+        void run(OGR_SRSNode *node) {
+            if (!node) { return; }
+            using namespace std::string_literals;
+
+            const auto *value(node->GetValue());
+            if (value == "VERT_DATUM"s) {
+                vertDatum(node);
+                return;
+            }
+
+            for (int i(0), e(node->GetChildCount()); i != e; ++i) {
+                auto child(node->GetChild(i));
+                run(child);
+            }
+        }
+
+        void vertDatum(OGR_SRSNode *node) {
+            for (int i(0), e(node->GetChildCount()); i != e; ++i) {
+                auto child(node->GetChild(i));
+                const std::string value(child->GetValue());
+                if (ba::iends_with(value, ".asc")) {
+                    const auto grid
+                        (fs::path(value).replace_extension(".gtx")
+                         .filename().string());
+
+                    child->SetValue("EXTENSION");
+                    child->ClearChildren();
+
+                    child->AddChild(OGR_SRSNode("PROJ4_GRIDS").Clone());
+                    child->AddChild(OGR_SRSNode(grid.c_str()).Clone());
+                }
+            }
+        }
+    };
+
+    auto ref(srs.reference());
+    Process(ref.GetRoot());
+
+    return geo::SrsDefinition::fromReference
+        (ref, geo::SrsDefinition::Type::wkt);
 }
 
 } // namespace geo
