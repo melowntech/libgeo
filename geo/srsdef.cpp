@@ -425,6 +425,13 @@ SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoid)
     return SrsDefinition::fromReference(setGeoid(srs.reference(), geoid));
 }
 
+SrsDefinition setGeoid(const SrsDefinition &srs
+                       , const boost::optional<std::string> &geoidGrid)
+{
+    if (geoidGrid) { return setGeoid(srs, *geoidGrid); }
+    return srs;
+}
+
 SrsDefinition SrsDefinition::fromString(std::string value)
 {
     namespace ba = boost::algorithm;
