@@ -47,6 +47,7 @@
 #include "srs.hpp"
 #include "enu.hpp"
 #include "detail/srs.hpp"
+#include "csconvertor.hpp"
 
 namespace geo {
 
@@ -264,38 +265,125 @@ Enu SrsDefinition::enu() const
     return enu;
 }
 
+namespace {
+
+bool wgs84Datum(const ::OGRSpatialReference &ref)
+{
+    return (!strcmp(ref.GetAuthorityName("SPHEROID"), "EPSG")
+            && !strcmp(ref.GetAuthorityCode("SPHEROID"), "7030"));
+}
+
+void outputSpheroid(std::ostream &os, const ::OGRSpatialReference &ref)
+{
+    if (wgs84Datum(ref)) {
+        os << " +datum=WGS84";
+    } else {
+        os << " +a=" << ref.GetSemiMajor()
+           << " +b=" << ref.GetSemiMinor();
+    }
+}
+
+using ToWgs84 = std::array<double, 7>;
+
+boost::optional<ToWgs84> getToWgs84(const ::OGRSpatialReference &ref)
+{
+    ToWgs84 towgs84;
+    ref.GetTOWGS84(towgs84.data(), towgs84.size());
+
+    if (std::count(towgs84.begin(), towgs84.end(), 0.0) == towgs84.size()) {
+        // all zeroes -> no params needed
+        return boost::none;
+    }
+
+    return towgs84;
+}
+
+void outputToWgs84(std::ostream &os, const ToWgs84 &towgs84)
+{
+    os << " +towgs84=" << towgs84[0] << "," << towgs84[1]
+       << "," << towgs84[2] << "," << towgs84[3] << "," << towgs84[4]
+       << "," << towgs84[5] << "," << towgs84[6];
+}
+
+void outputToWgs84(std::ostream &os, const ::OGRSpatialReference &ref)
+{
+    if (const auto towgs84 = getToWgs84(ref)) {
+        outputToWgs84(os, *towgs84);
+    }
+}
+
+} // namespace
+
 SrsDefinition geographic(const SrsDefinition &srs)
 {
-    ::OGRSpatialReference ours(srs.reference());
+    ::OGRSpatialReference ref(srs.reference());
+
+    if (ref.IsGeographic()) { return srs; }
+
     ::OGRSpatialReference ret;
-    if (ret.CopyGeogCSFrom(&ours) != OGRERR_NONE) {
-       LOGTHROW(err1, std::runtime_error)
-           << "Could not extract geographic cs from definition \""
-           << srs << "\".";
+    if (ret.CopyGeogCSFrom(&ref) == OGRERR_NONE) {
+        // we can get geographic system from provided srs
+        return SrsDefinition::fromReference(ret);
     }
-    return SrsDefinition::fromReference(ret);
+
+    if (!ref.IsGeocentric()) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Unsupported SRS type.";
+    }
+
+    std::ostringstream os;
+    os << std::setprecision(12);
+    os << "+proj=longlat +units=m +no_defs";
+
+    outputSpheroid(os, ref);
+    outputToWgs84(os, ref);
+
+    return { os.str() };
 }
 
 SrsDefinition geocentric(const SrsDefinition &srs)
 {
     ::OGRSpatialReference ref(srs.reference());
 
-    double towgs84[7];
-    ref.GetTOWGS84(towgs84, 7);
-
-    // TODO: make a special case for for:
-    // 1) SPHEROID["WGS 84",6378137,298.257223563,
-    // 2) zero towgs84
+    if (ref.IsGeocentric()) { return srs; }
 
     std::ostringstream os;
     os << std::setprecision(12);
-    os << "+proj=geocent +units=m +no_defs +a=" << ref.GetSemiMajor()
-       << " +b=" << ref.GetSemiMinor()
-       << " +towgs84=" << towgs84[0] << "," << towgs84[1] << "," << towgs84[2]
-       << "," << towgs84[3] << "," << towgs84[4] << "," << towgs84[5]
-       << "," << towgs84[6];
+    os << "+proj=geocent +units=m +no_defs";
+
+    outputSpheroid(os, ref);
+    outputToWgs84(os, ref);
 
     return { os.str() };
+}
+
+SrsDefinition tmerc(const SrsDefinition &refSrs
+                    , const math::Point2d &origin
+                    , double scaleFactor, const math::Point2 &falseOrigin)
+{
+    auto gcs(geographic(refSrs));
+
+    const auto gcsOrigin(CsConvertor(refSrs, gcs)(origin));
+
+    const auto gcsRef(gcs.reference());
+
+    // construct tmerc
+    ::OGRSpatialReference tm;
+    if (OGRERR_NONE != tm.CopyGeogCSFrom(&gcsRef)) {
+        LOGTHROW(err3, std::runtime_error)
+            << "Cannot copy GeoCS from SRS.";
+    }
+
+    if (OGRERR_NONE != tm.SetTM(gcsOrigin(1), gcsOrigin(0)
+                                , scaleFactor
+                                , falseOrigin(0)
+                                , falseOrigin(1)))
+    {
+        LOGTHROW(err3, std::runtime_error)
+            << "Cannot set tmerc.";
+    }
+
+    return SrsDefinition::fromReference(tm);
 }
 
 math::Point3 ellipsoid(const SrsDefinition &srs)

@@ -138,6 +138,19 @@ SrsDefinition geographic(const SrsDefinition &srs);
 /** Derives geocentric system from given SRS definition.
  */
 SrsDefinition geocentric(const SrsDefinition &srs);
+
+/** Derives transversal mercator based on reference SRS and origin point
+ *  in given SRS.
+ *
+ * \param refSrs reference SRS to get datum from
+ * \param origin origin in refSrs
+ * \param origin scaleFactor scaling factor
+ * \param origin falseOrigin false eastring/northing
+ */
+SrsDefinition tmerc(const SrsDefinition &refSrs
+                    , const math::Point2d &origin
+                    , double scaleFactor = 1.0
+                    , const math::Point2 &falseOrigin = {});
 #endif // GEO_HAS_GDAL
 
 /** Returns ellipsoid semi-axes.
