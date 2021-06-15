@@ -93,6 +93,10 @@ public:
     bool areSrsEqual() const;
 #endif // GEO_HAS_GDAL
 
+    /** Returns true if convertor is valid.
+     */
+    operator bool() const;
+
     class Impl;
 
 private:
