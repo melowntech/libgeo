@@ -359,7 +359,8 @@ SrsDefinition geocentric(const SrsDefinition &srs)
 
 SrsDefinition tmerc(const SrsDefinition &refSrs
                     , const math::Point2d &origin
-                    , double scaleFactor, const math::Point2 &falseOrigin)
+                    , double scaleFactor, const math::Point2 &falseOrigin
+                    , const boost::optional<std::string> &geoid)
 {
     auto gcs(geographic(refSrs));
 
@@ -383,6 +384,7 @@ SrsDefinition tmerc(const SrsDefinition &refSrs
             << "Cannot set tmerc.";
     }
 
+    if (geoid) { return SrsDefinition::fromReference(setGeoid(tm, *geoid)); }
     return SrsDefinition::fromReference(tm);
 }
 

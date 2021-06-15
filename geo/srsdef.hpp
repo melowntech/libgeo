@@ -150,7 +150,8 @@ SrsDefinition geocentric(const SrsDefinition &srs);
 SrsDefinition tmerc(const SrsDefinition &refSrs
                     , const math::Point2d &origin
                     , double scaleFactor = 1.0
-                    , const math::Point2 &falseOrigin = {});
+                    , const math::Point2 &falseOrigin = {}
+                    , const boost::optional<std::string> &geoid = boost::none);
 #endif // GEO_HAS_GDAL
 
 /** Returns ellipsoid semi-axes.
