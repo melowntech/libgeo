@@ -898,7 +898,8 @@ public:
 
     /** Rasterize single of OGR geometry into this dataset.
      */
-    void rasterize(const ::OGRGeometry *geometry, const BurnColor &color);
+    void rasterize(const ::OGRGeometry *geometry, const BurnColor &color
+                   , const Options &options = {});
 
     /** Fetches mask as single-channel byte matrix.
      *  NB: result is NOT cached.
