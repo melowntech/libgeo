@@ -665,7 +665,9 @@ SrsDefinition asc2gtx(const SrsDefinition &srs)
             for (int i(0), e(node->GetChildCount()); i != e; ++i) {
                 auto child(node->GetChild(i));
                 const std::string value(child->GetValue());
-                if (ba::iends_with(value, ".asc")) {
+                if (ba::iends_with(value, ".asc")
+                    || ba::iends_with(value, ".bin"))
+                {
                     const auto grid
                         (fs::path(value).replace_extension(".gtx")
                          .filename().string());

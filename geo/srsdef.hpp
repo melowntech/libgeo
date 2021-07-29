@@ -126,7 +126,7 @@ SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoidGrid);
 SrsDefinition setGeoid(const SrsDefinition &srs
                        , const boost::optional<std::string> &geoidGrid);
 
-/** ASC file reference to geoidgrids.
+/** ASC (+ BIN) file reference to geoidgrids.
  */
 SrsDefinition asc2gtx(const SrsDefinition &srs);
 
