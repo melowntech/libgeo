@@ -172,20 +172,20 @@ public:
     /** Derive in-memory data set from an existing set, using a generic
      * affine geographic transformation in destination source reference system.
      * Only metadata from source are used.
-     * 
+     *
      *  \param source reference data set
      *  \param srs new dataset spatial reference
-     *  \param trafo affine transformation which determines how the 
-     *      reference system maps to pixel/line coordinates. This is basis 
-     *      for the new dataset's geotransform, but it expresses only 
+     *  \param trafo affine transformation which determines how the
+     *      reference system maps to pixel/line coordinates. This is basis
+     *      for the new dataset's geotransform, but it expresses only
      *      rotation and shear, not scale, hence determinant should always be 1.
      *  \param pixelSize pixel size of the new dataset (pixel and line),
      *      optinally calculated from the input image.
      *  \param extents srs extents to be fully inscribed within the new dataset,
-     *      optionally calculated from the input image. If the trafo is 
+     *      optionally calculated from the input image. If the trafo is
      *      nonorthogonal, resultant extents will differ.
      */
-    
+
     static GeoDataset deriveInMemory(
         const GeoDataset & source, const SrsDefinition & srs,
         boost::optional<math::Point2d> pixelSize,
@@ -193,7 +193,7 @@ public:
         const math::Matrix2 & trafo = ublas::identity_matrix<double>(2),
         boost::optional<GDALDataType> dstDataTypeOverride = boost::none
         , OptionalNodataValue dstNodataValue = boost::none);
-    
+
     /** Creates an invalid placeholder that can be used to hold valid dataset.
      *  Do not call any method on placeholder except:
      *      * move assignent operator
@@ -202,7 +202,7 @@ public:
      */
     static GeoDataset placeholder();
 
-    
+
     /** Format descriptor
      */
     struct Format {
@@ -255,6 +255,12 @@ public:
         static Format gtiffRGBPhoto() {
             return { GDT_Byte, { GCI_RedBand, GCI_GreenBand, GCI_BlueBand }
                 , Format::Storage::gtiff };
+        }
+
+        static Format gtiffRGBNPhoto() {
+            return { GDT_Byte,
+                     { GCI_RedBand, GCI_GreenBand, GCI_BlueBand, GCI_Undefined },
+                     Format::Storage::gtiff };
         }
 
         static Format pngRGBPhoto() {
@@ -429,7 +435,7 @@ public:
         int warpMemoryLimit;
 
         /** Use overviews agressively to restrict memory usage (and prevent overflows).
-          * There is some performance penalty when this option is set, resulting from  
+          * There is some performance penalty when this option is set, resulting from
           * the chunking code being run (at least) twice. */
         bool safeChunks;
 
@@ -479,7 +485,7 @@ public:
 
 
     /**
-    * @brief remove vertices and their faces where the dataset's data are missing  
+    * @brief remove vertices and their faces where the dataset's data are missing
     * @details Input mesh is defined in local coordinates for given extents
     * which may be different from the texture dataset extents.
     * Its texture information, if any, is ignored. The mesh geometry is not altered,
@@ -556,20 +562,20 @@ public:
         double x, y; geo2rowcol({gp(0), gp(1), .0}, y, x); return T(x, y);
     }
     /* end obsolete functions */
-    
+
     double geo2height(double gx, double gy, double gz = .0) const;
 
-    
+
     math::Extents2 deriveExtents( const SrsDefinition &srs ) const;
 
     static std::string wktToProj4( const std::string & op );
     static std::string proj4ToWkt( const std::string & op );
 
-    /** 
-     * @brief obtain a longlat geo converter for dataset. 
+    /**
+     * @brief obtain a longlat geo converter for dataset.
      * @details converter allows conversions from pixel coordinates to
      * WGS84. */
-    GeoConverter2 longlatConverter() const { return GeoConverter2( 
+    GeoConverter2 longlatConverter() const { return GeoConverter2(
         geoTransform_, srs(), SrsDefinition::longlat() ); }
 
     /** Convert other's mask into this grid.
