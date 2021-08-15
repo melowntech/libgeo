@@ -52,6 +52,8 @@ public:
     virtual bool areSrsEqual() const = 0;
 
     virtual pointer inverse() const = 0;
+
+    virtual operator bool() const { return true; };
 };
 
 class NoOpConvertor : public CsConvertor::Impl
@@ -64,6 +66,8 @@ public:
     virtual pointer inverse() const {
         return std::make_shared<NoOpConvertor>();
     }
+
+    virtual operator bool() const { return false; };
 };
 
 namespace {
@@ -533,6 +537,11 @@ bool CsConvertor::isProjected() const
 bool CsConvertor::areSrsEqual() const
 {
     return trans_->areSrsEqual();
+}
+
+CsConvertor::operator bool() const
+{
+    return bool(*trans_);
 }
 
 } // namespace geo

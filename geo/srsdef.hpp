@@ -120,6 +120,16 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert);
  */
 SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoidGrid);
 
+/** Adds/replaces geoid to spatial reference.
+ *  No-op if geoid is invalid.
+ */
+SrsDefinition setGeoid(const SrsDefinition &srs
+                       , const boost::optional<std::string> &geoidGrid);
+
+/** ASC (+ BIN) file reference to geoidgrids.
+ */
+SrsDefinition asc2gtx(const SrsDefinition &srs);
+
 /** Extracts geographic system from given SRS definition.
  *  Fails if there is no GeogCS node present.
  */
@@ -128,6 +138,20 @@ SrsDefinition geographic(const SrsDefinition &srs);
 /** Derives geocentric system from given SRS definition.
  */
 SrsDefinition geocentric(const SrsDefinition &srs);
+
+/** Derives transversal mercator based on reference SRS and origin point
+ *  in given SRS.
+ *
+ * \param refSrs reference SRS to get datum from
+ * \param origin origin in refSrs
+ * \param origin scaleFactor scaling factor
+ * \param origin falseOrigin false eastring/northing
+ */
+SrsDefinition tmerc(const SrsDefinition &refSrs
+                    , const math::Point2d &origin
+                    , double scaleFactor = 1.0
+                    , const math::Point2 &falseOrigin = {}
+                    , const boost::optional<std::string> &geoid = boost::none);
 #endif // GEO_HAS_GDAL
 
 /** Returns ellipsoid semi-axes.

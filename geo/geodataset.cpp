@@ -2818,7 +2818,8 @@ std::vector<double> BurnColor::valueList()
 }
 
 void GeoDataset::rasterize(const ::OGRGeometry *geometry
-                           , const BurnColor &color)
+                           , const BurnColor &color
+                           , const Options &options)
 {
     auto bands(color.bandList());
     auto values(color.valueList());
@@ -2827,7 +2828,8 @@ void GeoDataset::rasterize(const ::OGRGeometry *geometry
     auto err(::GDALRasterizeGeometries(dset_.get(), bands.size(), bands.data()
                                        , 1, &g
                                        , nullptr, nullptr, values.data()
-                                       , nullptr, nullptr, nullptr));
+                                       , detail::OptionsWrapper(options)
+                                       , nullptr, nullptr));
     if (err != CE_None) {
         LOGTHROW(err2, std::runtime_error)
             << "Error rasterizing geometry.";

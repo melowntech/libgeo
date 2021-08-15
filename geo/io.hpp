@@ -69,6 +69,22 @@ inline geo::SrsDefinition readSrs( const boost::filesystem::path &path
 }
 
 /**
+ * @brief Reads srs from file using fromString, i.e. SRS type is deduced from
+ * content itself
+ */
+inline geo::SrsDefinition srsFromFile(const boost::filesystem::path &path)
+{
+    try {
+        SrsDefinition::fromString(utility::read(path));
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, std::runtime_error)
+            << "Unable to read srs file " << path << ": " << e.what()
+            << ".";
+    }
+    throw;
+}
+
+/**
  * @brief Saves transformation from image coordinates to world coordinates.
  * @detail PixelSize is in map units (meters), therefore height
  *         is usually negative.

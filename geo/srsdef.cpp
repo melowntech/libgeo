@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2017-2021 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <stdexcept>
 #include <vector>
 #include <sstream>
@@ -31,6 +32,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/utility/in_place_factory.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include <ogr_spatialref.h>
 #include <cpl_conv.h>
@@ -45,10 +47,18 @@
 #include "srs.hpp"
 #include "enu.hpp"
 #include "detail/srs.hpp"
+#include "csconvertor.hpp"
 
 namespace geo {
 
 namespace {
+
+#if GDAL_VERSION_NUM >= 3000000
+#  define GEO_TRADITIONAL_GIS_ORDER(sr) \
+    sr.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)
+#else
+#  define GEO_TRADITIONAL_GIS_ORDER(sr)
+#endif
 
 inline std::string srs2Wkt(const OGRSpatialReference &sr)
 {
@@ -220,7 +230,7 @@ SrsDefinition SrsDefinition::fromReference(const OGRSpatialReference &src
         LOGTHROW(err1, std::runtime_error)
             << "OGRSpatialReference cannot be exported into EPSG "
             "representation.";
-	throw;
+        throw;
 
     case SrsDefinition::Type::enu:
         LOGTHROW(err1, std::runtime_error)
@@ -242,7 +252,9 @@ SrsDefinition SrsDefinition::fromEnu(const Enu &src)
 ::OGRSpatialReference SrsDefinition::reference() const
 {
     ::OGRSpatialReference sr;
+    GEO_TRADITIONAL_GIS_ORDER(sr);
     detail::import(sr, *this);
+
     return sr;
 }
 
@@ -253,38 +265,127 @@ Enu SrsDefinition::enu() const
     return enu;
 }
 
+namespace {
+
+bool wgs84Datum(const ::OGRSpatialReference &ref)
+{
+    return (!strcmp(ref.GetAuthorityName("SPHEROID"), "EPSG")
+            && !strcmp(ref.GetAuthorityCode("SPHEROID"), "7030"));
+}
+
+void outputSpheroid(std::ostream &os, const ::OGRSpatialReference &ref)
+{
+    if (wgs84Datum(ref)) {
+        os << " +datum=WGS84";
+    } else {
+        os << " +a=" << ref.GetSemiMajor()
+           << " +b=" << ref.GetSemiMinor();
+    }
+}
+
+using ToWgs84 = std::array<double, 7>;
+
+boost::optional<ToWgs84> getToWgs84(const ::OGRSpatialReference &ref)
+{
+    ToWgs84 towgs84;
+    ref.GetTOWGS84(towgs84.data(), towgs84.size());
+
+    if (std::size_t(std::count(towgs84.begin(), towgs84.end(), 0.0)) == towgs84.size()) {
+        // all zeroes -> no params needed
+        return boost::none;
+    }
+
+    return towgs84;
+}
+
+void outputToWgs84(std::ostream &os, const ToWgs84 &towgs84)
+{
+    os << " +towgs84=" << towgs84[0] << "," << towgs84[1]
+       << "," << towgs84[2] << "," << towgs84[3] << "," << towgs84[4]
+       << "," << towgs84[5] << "," << towgs84[6];
+}
+
+void outputToWgs84(std::ostream &os, const ::OGRSpatialReference &ref)
+{
+    if (const auto towgs84 = getToWgs84(ref)) {
+        outputToWgs84(os, *towgs84);
+    }
+}
+
+} // namespace
+
 SrsDefinition geographic(const SrsDefinition &srs)
 {
-    ::OGRSpatialReference ours(srs.reference());
+    ::OGRSpatialReference ref(srs.reference());
+
+    if (ref.IsGeographic()) { return srs; }
+
     ::OGRSpatialReference ret;
-    if (ret.CopyGeogCSFrom(&ours) != OGRERR_NONE) {
-       LOGTHROW(err1, std::runtime_error)
-           << "Could not extract geographic cs from definition \""
-           << srs << "\".";
+    if (ret.CopyGeogCSFrom(&ref) == OGRERR_NONE) {
+        // we can get geographic system from provided srs
+        return SrsDefinition::fromReference(ret);
     }
-    return SrsDefinition::fromReference(ret);
+
+    if (!ref.IsGeocentric()) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Unsupported SRS type.";
+    }
+
+    std::ostringstream os;
+    os << std::setprecision(12);
+    os << "+proj=longlat +units=m +no_defs";
+
+    outputSpheroid(os, ref);
+    outputToWgs84(os, ref);
+
+    return { os.str() };
 }
 
 SrsDefinition geocentric(const SrsDefinition &srs)
 {
     ::OGRSpatialReference ref(srs.reference());
 
-    double towgs84[7];
-    ref.GetTOWGS84(towgs84, 7);
-
-    // TODO: make a special case for for:
-    // 1) SPHEROID["WGS 84",6378137,298.257223563,
-    // 2) zero towgs84
+    if (ref.IsGeocentric()) { return srs; }
 
     std::ostringstream os;
     os << std::setprecision(12);
-    os << "+proj=geocent +units=m +no_defs +a=" << ref.GetSemiMajor()
-       << " +b=" << ref.GetSemiMinor()
-       << " +towgs84=" << towgs84[0] << "," << towgs84[1] << "," << towgs84[2]
-       << "," << towgs84[3] << "," << towgs84[4] << "," << towgs84[5]
-       << "," << towgs84[6];
+    os << "+proj=geocent +units=m +no_defs";
+
+    outputSpheroid(os, ref);
+    outputToWgs84(os, ref);
 
     return { os.str() };
+}
+
+SrsDefinition tmerc(const SrsDefinition &refSrs
+                    , const math::Point2d &origin
+                    , double scaleFactor, const math::Point2 &falseOrigin
+                    , const boost::optional<std::string> &geoid)
+{
+    auto gcs(geographic(refSrs));
+
+    const auto gcsOrigin(CsConvertor(refSrs, gcs)(origin));
+
+    const auto gcsRef(gcs.reference());
+
+    // construct tmerc
+    ::OGRSpatialReference tm;
+    if (OGRERR_NONE != tm.CopyGeogCSFrom(&gcsRef)) {
+        LOGTHROW(err3, std::runtime_error)
+            << "Cannot copy GeoCS from SRS.";
+    }
+
+    if (OGRERR_NONE != tm.SetTM(gcsOrigin(1), gcsOrigin(0)
+                                , scaleFactor
+                                , falseOrigin(0)
+                                , falseOrigin(1)))
+    {
+        LOGTHROW(err3, std::runtime_error)
+            << "Cannot set tmerc.";
+    }
+
+    if (geoid) { return SrsDefinition::fromReference(setGeoid(tm, *geoid)); }
+    return SrsDefinition::fromReference(tm);
 }
 
 math::Point3 ellipsoid(const SrsDefinition &srs)
@@ -321,6 +422,7 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
 OGRSpatialReference asOgrSr(const SrsDefinition &def)
 {
     OGRSpatialReference sr;
+    GEO_TRADITIONAL_GIS_ORDER(sr);
     detail::import(sr, def);
     return sr;
 }
@@ -362,6 +464,7 @@ OGRSpatialReference merge(const OGRSpatialReference &horiz
                   % v.GetRoot()->GetChild(0)->GetValue()));
 
     OGRSpatialReference out;
+    GEO_TRADITIONAL_GIS_ORDER(out);
     out.SetCompoundCS(name.c_str(), &h, &v);
 
     // done
@@ -402,6 +505,7 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert)
     }
 
     ::OGRSpatialReference out;
+    GEO_TRADITIONAL_GIS_ORDER(out);
     out.SetCompoundCS("", &srs, &vert);
     return out;
 }
@@ -409,6 +513,13 @@ SrsDefinition merge(const SrsDefinition &horiz, const SrsDefinition &vert)
 SrsDefinition setGeoid(const SrsDefinition &srs, const std::string &geoid)
 {
     return SrsDefinition::fromReference(setGeoid(srs.reference(), geoid));
+}
+
+SrsDefinition setGeoid(const SrsDefinition &srs
+                       , const boost::optional<std::string> &geoidGrid)
+{
+    if (geoidGrid) { return setGeoid(srs, *geoidGrid); }
+    return srs;
 }
 
 SrsDefinition SrsDefinition::fromString(std::string value)
@@ -523,6 +634,59 @@ double linearUnit(const SrsDefinition &srs, bool convertAngluar)
 
     // angular unit in radians times semi-major axis
     return ref.GetAngularUnits(nullptr) * ref.GetSemiMajor();
+}
+
+SrsDefinition asc2gtx(const SrsDefinition &srs)
+{
+    namespace fs = boost::filesystem;
+    namespace ba = boost::algorithm;
+    using namespace std::string_literals;
+
+    struct Process {
+        Process(OGR_SRSNode *node) { run(node);  }
+
+        void run(OGR_SRSNode *node) {
+            if (!node) { return; }
+            using namespace std::string_literals;
+
+            const auto *value(node->GetValue());
+            if (value == "VERT_DATUM"s) {
+                vertDatum(node);
+                return;
+            }
+
+            for (int i(0), e(node->GetChildCount()); i != e; ++i) {
+                auto child(node->GetChild(i));
+                run(child);
+            }
+        }
+
+        void vertDatum(OGR_SRSNode *node) {
+            for (int i(0), e(node->GetChildCount()); i != e; ++i) {
+                auto child(node->GetChild(i));
+                const std::string value(child->GetValue());
+                if (ba::iends_with(value, ".asc")
+                    || ba::iends_with(value, ".bin"))
+                {
+                    const auto grid
+                        (fs::path(value).replace_extension(".gtx")
+                         .filename().string());
+
+                    child->SetValue("EXTENSION");
+                    child->ClearChildren();
+
+                    child->AddChild(OGR_SRSNode("PROJ4_GRIDS").Clone());
+                    child->AddChild(OGR_SRSNode(grid.c_str()).Clone());
+                }
+            }
+        }
+    };
+
+    auto ref(srs.reference());
+    Process(ref.GetRoot());
+
+    return geo::SrsDefinition::fromReference
+        (ref, geo::SrsDefinition::Type::wkt);
 }
 
 } // namespace geo
