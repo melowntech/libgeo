@@ -162,21 +162,6 @@ bool areIdenticalButForShift( const GeoTransform & trafo1,
 
 bool GeoDataset::initialized_ = false;
 
-
-
-std::string GeoDataset::wktToProj4( const std::string & op )
-{
-    return SrsDefinition(op, SrsDefinition::Type::wkt)
-        .as(SrsDefinition::Type::proj4).srs;
-}
-
-
-std::string GeoDataset::proj4ToWkt( const std::string & op )
-{
-    return SrsDefinition(op, SrsDefinition::Type::proj4)
-        .as(SrsDefinition::Type::wkt).srs;
-}
-
 GeoDataset GeoDataset::placeholder()
 {
     return GeoDataset({}, false);
@@ -204,7 +189,6 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
 
     // srs
     srsWkt_ = std::string( dset_->GetProjectionRef() );
-    if (!srsWkt_.empty()) { srsProj4_ = wktToProj4( srsWkt_ ); }
 
     // noDataValue
     if ( ( numChannels_ = dset_->GetRasterCount() ) > 0 ) {
@@ -1284,7 +1268,8 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const CmdlineLogger &l)
         asString(" -wt ", l.options.workingDataType);
     }
 
-    os << " -t_srs \"" << l.dst.srsProj4() << "\"";
+    os << " -t_srs '" << l.dst.srs().as(geo::SrsDefinition::Type::proj4)
+       << "'";
 
     if (l.warpOptions->papszWarpOptions) {
         for (char **opts(l.warpOptions->papszWarpOptions);

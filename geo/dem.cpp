@@ -49,7 +49,7 @@ DemCloud loadDem(const fs::path &path
     auto source(GeoDataset::createFromFS(path));
 
     if (!dstSrs) {
-        dstSrs = source.srsProj4();
+        dstSrs = source.srs();
     }
 
     if (!extents) {
@@ -70,7 +70,7 @@ DemCloud loadDem(const fs::path &path
     DemCloud dc{gd.exportPointCloud(), *dstSrs};
 
     if (adjustVertical) {
-        geo::SrsFactors sf(gd.srsProj4(), source.srsProj4());
+        geo::SrsFactors sf(gd.srs(), source.srs());
         for (auto &p : dc.pc) {
             // update height
             p(2) *= sf(p).meridionalScale;

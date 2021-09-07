@@ -515,7 +515,7 @@ public:
     math::Size2i size(const Overview &ovr) const;
 
     std::string srsWkt() const { return srsWkt_; }
-    std::string srsProj4() const { return srsProj4_; }
+
     SrsDefinition srs() const {
         return SrsDefinition(srsWkt_, SrsDefinition::Type::wkt);
     }
@@ -567,9 +567,6 @@ public:
 
 
     math::Extents2 deriveExtents( const SrsDefinition &srs ) const;
-
-    static std::string wktToProj4( const std::string & op );
-    static std::string proj4ToWkt( const std::string & op );
 
     /**
      * @brief obtain a longlat geo converter for dataset.
@@ -701,7 +698,7 @@ public:
      */
     GeoDataset(GeoDataset &&other) noexcept
         : size_(other.size_)
-        , srsWkt_(other.srsWkt_), srsProj4_(other.srsProj4_)
+        , srsWkt_(other.srsWkt_)
         , geoTransform_(std::move(other.geoTransform_))
         , dset_(std::move(other.dset_))
         , numChannels_(other.numChannels_)
@@ -721,7 +718,7 @@ public:
     GeoDataset& operator=(GeoDataset &&other) noexcept
     {
         size_ = other.size_;
-        srsWkt_ = other.srsWkt_; srsProj4_ = other.srsProj4_;
+        srsWkt_ = other.srsWkt_;
         geoTransform_ = std::move(other.geoTransform_);
         dset_ = std::move(other.dset_);
         numChannels_ = other.numChannels_;
@@ -1007,7 +1004,7 @@ private:
 
     Type type_;
     math::Size2i size_;
-    std::string srsWkt_, srsProj4_;
+    std::string srsWkt_;
     GeoTransform geoTransform_;
     std::unique_ptr<GDALDataset> dset_;
     int numChannels_;
