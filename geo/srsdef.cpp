@@ -405,6 +405,13 @@ bool areSame(const SrsDefinition &def1, const SrsDefinition &def2
         return (def1.srs == def2.srs);
     }
 
+    if (def1.is(SrsDefinition::Type::enu)
+        || def2.is(SrsDefinition::Type::enu))
+    {
+        // ENU vs anything else
+        return false;
+    }
+
     auto sr1(def1.reference());
     auto sr2(def2.reference());
 
