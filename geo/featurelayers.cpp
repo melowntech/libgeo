@@ -944,7 +944,10 @@ boost::optional<math::Extents3> FeatureLayers::boundingBox(
     FeatureLayers lcopy(*this);
     lcopy.transform(srs_);
 
-    boost::optional<math::Extents3> retval;
+    // to avoid (false) "-Wmaybe-uninitialized" error in GCC 10.2.1
+    boost::optional<math::Extents3> retval {
+        boost::make_optional(false, math::Extents3())
+    };
 
     for (auto & layer: lcopy.layers) {
 
