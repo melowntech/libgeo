@@ -86,6 +86,33 @@ void GDALErrorHandler( CPLErr eErrClass, int err_no, const char *msg)
     }
 }
 
+void GDALErrorHandlerThrowing(CPLErr eErrClass, int err_no, const char* msg)
+{
+    switch (eErrClass)
+    {
+    case CE_Debug:
+        LOG(debug) << "gdal error " << err_no << ": " << msg;
+        break;
+
+    case CE_Warning:
+        LOG(warn2) << "gdal error " << err_no << ": " << msg;
+        break;
+
+    case CE_Failure:
+        LOGTHROW(err2, std::runtime_error)
+            << "gdal error " << err_no << ": " << msg;
+        break;
+
+    case CE_Fatal:
+        LOGTHROW(fatal, std::runtime_error)
+            << "gdal error " << err_no << ": " << msg;
+        break;
+
+    default:
+        break;
+    }
+}
+
 } // extern "C"
 
 namespace geo {
@@ -165,6 +192,17 @@ bool GeoDataset::initialized_ = false;
 GeoDataset GeoDataset::placeholder()
 {
     return GeoDataset({}, false);
+}
+
+void GeoDataset::useThrowingErrorHandler(bool thisThreadOnly)
+{
+    if (thisThreadOnly)
+    {
+        ::CPLPushErrorHandler(GDALErrorHandlerThrowing);
+        return;
+    }
+
+    ::CPLSetErrorHandler(GDALErrorHandlerThrowing);
 }
 
 GeoDataset GeoDataset::use(std::unique_ptr<GDALDataset> &&dset)

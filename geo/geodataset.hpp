@@ -202,6 +202,13 @@ public:
      */
     static GeoDataset placeholder();
 
+    /** Use a throwing error handler for GDAL operations.
+     *  Will throw if CE_Failure or CE_Fatal error occurs.
+     *
+     *  Can be enabled only for the calling thread, or globally for all threads
+     *  of the application.
+     */
+    static void useThrowingErrorHandler(bool thisThreadOnly);
 
     /** Format descriptor
      */
