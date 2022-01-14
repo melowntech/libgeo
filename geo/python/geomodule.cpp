@@ -271,8 +271,10 @@ BOOST_PYTHON_MODULE(melown_geo)
     def<math::Matrix4(const math::Extents3&)>
         ("normalized2geo", &geo::normalized2geo);
     def("local2normalized", &geo::local2normalized);
-    def("local2geo", &geo::local2geo);
-    def("geo2local", &geo::geo2local);
+    def<math::Matrix4(const math::Point2&)>("local2geo", &geo::local2geo);
+    def<math::Matrix4(const math::Extents2&)>("local2geo", &geo::local2geo);
+    def<math::Matrix4(const math::Point2&)>("geo2local", &geo::geo2local);
+    def<math::Matrix4(const math::Extents2&)>("geo2local", &geo::geo2local);
 
     try {
         py::osrModule = import("osgeo.osr");

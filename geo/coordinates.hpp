@@ -165,6 +165,28 @@ inline math::Matrix4 geo2raster(const math::Extents2 &extents
     return trafo;
 }
 
+// Origin-based coordinate systems
+
+inline math::Matrix4 geo2local(const math::Point2 &origin)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    trafo(0, 3) = -origin[0];
+    trafo(1, 3) = -origin[1];
+
+    return trafo;
+}
+
+inline math::Matrix4 local2geo(const math::Point2 &origin)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    trafo(0, 3) = origin[0];
+    trafo(1, 3) = origin[1];
+
+    return trafo;
+}
+
 } // namespace geo
 
 #endif // geo_geo_hpp_included_
