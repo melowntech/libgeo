@@ -44,6 +44,7 @@
 #include "utility/openmp.hpp"
 #include "utility/expect.hpp"
 #include "utility/path.hpp"
+#include "utility/uncaught-exception.hpp"
 #include "math/math.hpp"
 #include "math/geometry.hpp"
 #include "geometry/polygon.hpp"
@@ -292,7 +293,7 @@ GeoDataset::~GeoDataset() noexcept
 {
     // valid dataset that has not been flushed and no exception is thrown ->
     // someone forgot to flush :)
-    if (dset_ && changed_ && !std::uncaught_exception()) {
+    if (dset_ && changed_ && !utility::uncaught_exception()) {
         LOG(warn2) << "GeoDataset was changed but not flushed!";
     }
 }
