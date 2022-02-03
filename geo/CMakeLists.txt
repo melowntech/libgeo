@@ -116,7 +116,7 @@ define_module(LIBRARY geo=${geo_VERSION}
   DEPENDS
   BuildSystem>=1.0
   jsoncpp>=2.1 geometry>=1.7 imgproc>=1.26 math>=1.2
-  utility>=1.11 dbglog>=1.4
+  utility>=1.38 dbglog>=1.4
 
   Boost_FILESYSTEM PROJ GeographicLib ${geo_EXTRA_DEPENDS}
   DEFINITIONS ${geo_EXTRA_DEFINITIONS}
