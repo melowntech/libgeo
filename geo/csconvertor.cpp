@@ -114,6 +114,20 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
     return trans;
 }
 
+std::unique_ptr< ::OGRCoordinateTransformation>
+cloneTrans(const std::unique_ptr< ::OGRCoordinateTransformation> &trans)
+{
+#if GDAL_VERSION_NUM >= 3010000
+    // just clone
+    return std::unique_ptr< ::OGRCoordinateTransformation>
+        (trans->Clone());
+#else
+    // create new from underlying OGRSpatialReference objects
+    return initOgr(*trans->GetSourceCS(), boost::none
+                   , *trans->GetTargetCS(), boost::none);
+#endif
+}
+
 class OgrImpl : public CsConvertor::Impl
 {
 private:
@@ -193,18 +207,12 @@ public:
 
     pointer clone() const {
         LOG(info1) << "Cloning existing OGRSpatialReference.";
-#if GDAL_VERSION_NUM >= 3010000
-        // just clone
-        return std::make_shared<OgrImpl>(Private(), trans_->Clone());
-#else
         // create new from underlying OGRSpatialReference objects
-        return std::make_shared<OgrImpl>
-            (*trans_->GetSourceCS(), *trans_->GetTargetCS());
-#endif
+        return std::make_shared<OgrImpl>(Private{}, cloneTrans(trans_));
     }
 
-    OgrImpl(Private, ::OGRCoordinateTransformation *ct)
-        : trans_(ct)
+    OgrImpl(Private, std::unique_ptr< ::OGRCoordinateTransformation> &&trans)
+        : trans_(std::move(trans))
     {}
 
 private:
@@ -306,6 +314,9 @@ GeographicLib::LocalCartesian initLc(const Enu &enu)
 
 class Ogr2EnuImpl : public CsConvertor::Impl
 {
+private:
+    struct Private {};
+
 public:
     Ogr2EnuImpl(const SrsDefinition &from, const SrsDefinition &to
                 , bool inverse)
@@ -404,10 +415,16 @@ public:
     }
 
     pointer clone() const {
-        LOGTHROW(err4, std::runtime_error)
-            << "Ogr2Enu cannot be cloned, so far.";
-        throw;
+        return std::make_shared<Ogr2EnuImpl>
+            (Private{}, enu_, lc_, cloneTrans(trans_), inverse_);
     }
+
+    Ogr2EnuImpl(Private
+                , const Enu &enu, const GeographicLib::LocalCartesian &lc
+                , std::unique_ptr< ::OGRCoordinateTransformation> &&trans
+                , bool inverse)
+        : enu_(enu), lc_(lc), trans_(std::move(trans)), inverse_(inverse)
+    {}
 
 private:
     Enu enu_;
