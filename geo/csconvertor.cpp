@@ -54,6 +54,8 @@ public:
     virtual pointer inverse() const = 0;
 
     virtual operator bool() const { return true; };
+
+    virtual pointer clone() const = 0;
 };
 
 class NoOpConvertor : public CsConvertor::Impl
@@ -68,6 +70,10 @@ public:
     }
 
     virtual operator bool() const { return false; };
+
+    virtual pointer clone() const {
+        return std::make_shared<NoOpConvertor>();
+    }
 };
 
 namespace {
@@ -110,6 +116,9 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
 
 class OgrImpl : public CsConvertor::Impl
 {
+private:
+    struct Private {};
+
 public:
     OgrImpl(const SrsDefinition &from, const SrsDefinition &to)
         : trans_(initOgr(from.reference(), from.srs
@@ -181,6 +190,22 @@ public:
 
         return !std::strcmp(srcName, dstName);
     }
+
+    pointer clone() const {
+        LOG(info1) << "Cloning existing OGRSpatialReference.";
+#if GDAL_VERSION_NUM >= 3010000
+        // just clone
+        return std::make_shared<OgrImpl>(Private(), trans_->Clone());
+#else
+        // create new from underlying OGRSpatialReference objects
+        return std::make_shared<OgrImpl>
+            (*trans_->GetSourceCS(), *trans_->GetTargetCS());
+#endif
+    }
+
+    OgrImpl(Private, ::OGRCoordinateTransformation *ct)
+        : trans_(ct)
+    {}
 
 private:
     std::unique_ptr< ::OGRCoordinateTransformation> trans_;
@@ -378,6 +403,12 @@ public:
         }
     }
 
+    pointer clone() const {
+        LOGTHROW(err4, std::runtime_error)
+            << "Ogr2Enu cannot be cloned, so far.";
+        throw;
+    }
+
 private:
     Enu enu_;
     GeographicLib::LocalCartesian lc_;
@@ -542,6 +573,11 @@ bool CsConvertor::areSrsEqual() const
 CsConvertor::operator bool() const
 {
     return bool(*trans_);
+}
+
+CsConvertor CsConvertor::clone() const
+{
+    return trans_->clone();
 }
 
 } // namespace geo

@@ -93,6 +93,10 @@ public:
     bool areSrsEqual() const;
 #endif // GEO_HAS_GDAL
 
+    /** Clones this convertor.
+     */
+    CsConvertor clone() const;
+
     /** Returns true if convertor is valid.
      */
     operator bool() const;
@@ -101,6 +105,11 @@ public:
 
 private:
     CsConvertor(const std::shared_ptr<Impl> &trans);
+
+    struct Cloning {};
+
+    CsConvertor(Cloning, const CsConvertor &other);
+
     std::shared_ptr<Impl> trans_;
 };
 
