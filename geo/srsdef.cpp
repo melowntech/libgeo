@@ -287,10 +287,15 @@ using ToWgs84 = std::array<double, 7>;
 
 boost::optional<ToWgs84> getToWgs84(const ::OGRSpatialReference &ref)
 {
-    ToWgs84 towgs84;
-    ref.GetTOWGS84(towgs84.data(), towgs84.size());
+    ToWgs84 towgs84{{0}};
+    if (ref.GetTOWGS84(towgs84.data(), towgs84.size()) != OGRERR_NONE) {
+        // no towgs84 present
+        return boost::none;
+    }
 
-    if (std::size_t(std::count(towgs84.begin(), towgs84.end(), 0.0)) == towgs84.size()) {
+    if (std::size_t(std::count(towgs84.begin(), towgs84.end(), 0.0))
+        == towgs84.size())
+    {
         // all zeroes -> no params needed
         return boost::none;
     }
@@ -320,10 +325,16 @@ SrsDefinition geographic(const SrsDefinition &srs)
 
     if (ref.IsGeographic()) { return srs; }
 
-    ::OGRSpatialReference ret;
-    if (ret.CopyGeogCSFrom(&ref) == OGRERR_NONE) {
-        // we can get geographic system from provided srs
-        return SrsDefinition::fromReference(ret);
+    {
+        ::OGRSpatialReference tmp;
+        if (tmp.CopyGeogCSFrom(&ref) == OGRERR_NONE) {
+            if (tmp.IsGeographic()) {
+                // we can get geographic system from provided srs
+                return SrsDefinition::fromReference(tmp);
+            }
+            // copied something else than geographic system... seems like
+            // a GDAL 3+ bug -> probably geocent
+        }
     }
 
     if (!ref.IsGeocentric()) {
