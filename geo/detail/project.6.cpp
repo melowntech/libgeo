@@ -90,4 +90,10 @@ math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
     return { xy(0), xy(1), p(2) };
 }
 
+std::string Projection::error() const
+{
+    auto *pj(static_cast<PJ*>(proj_.get()));
+    return ::proj_context_errno_string(pjctx, ::proj_errno(pj));
+}
+
 } // namespace geo

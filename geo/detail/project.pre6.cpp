@@ -85,4 +85,9 @@ math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
     return { xy(0), xy(1), p(2) };
 }
 
+std::string Projection::error() const
+{
+    return ::proj_errno_string(::proj_errno(pj));
+}
+
 } // namespace geo

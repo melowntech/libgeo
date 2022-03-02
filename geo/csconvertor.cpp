@@ -27,7 +27,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "detail/projapi.hpp"
+#include <proj.h>
 #include <ogr_spatialref.h>
 #include <cpl_error.h>
 
@@ -219,16 +219,16 @@ private:
     std::unique_ptr< ::OGRCoordinateTransformation> trans_;
 };
 
+#if PROJ_VERSION_NUMBER < 80000
 namespace {
-
 static volatile struct Initializer {
     Initializer() {
         // initializes locks and default context
         ::pj_get_default_ctx();
     }
 } initializer;
-
 } // namespace
+#endif
 
 std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr2Enu(const OGRSpatialReference &from, const OptName &fromName
