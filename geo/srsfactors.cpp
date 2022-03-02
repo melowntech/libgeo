@@ -27,6 +27,10 @@
 
 #include <proj.h>
 
+#if PROJ_VERSION_NUMBER < 60000
+#  include "detail/pjfactors-4.8.h"
+#endif
+
 #include "dbglog/dbglog.hpp"
 
 #include "srsfactors.hpp"
@@ -51,7 +55,7 @@ int getPjFactors(double x, double y, void *pj
 
     struct FACTORS fac;
     memset(&fac, 0, sizeof(fac));
-    if (pj_factors(lp, pj, .0, &fac)) {
+    if (pj_factors(lp, static_cast<projPJ>(pj), .0, &fac)) {
         return 1;
     }
 
@@ -84,8 +88,7 @@ SrsFactors::Factors SrsFactors::operator()(const math::Point2 &p) const
     if (getPjFactors(pp(0), pp(1), proj_.proj_.get(), f)) {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to get SRS factors for coordinates " << p << ": "
-            << proj_context_errno_string
-            (PJ_DEFAULT_CTX, proj_errno(PJ_DEFAULT_CTX));
+            << proj_.error();
     }
 
     return f;

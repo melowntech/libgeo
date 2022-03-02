@@ -28,6 +28,10 @@
 #include <boost/lexical_cast.hpp>
 
 #include <proj.h>
+#if PROJ_VERSION_NUMBER < 60000
+#  include <proj_api.h>
+#endif
+
 #include <ogr_spatialref.h>
 #include <cpl_error.h>
 

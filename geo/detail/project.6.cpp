@@ -26,7 +26,7 @@
 
 #include <stdexcept>
 
-#include "proj.h"
+#include <proj.h>
 
 #include "dbglog/dbglog.hpp"
 

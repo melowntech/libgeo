@@ -38,7 +38,7 @@
 #include "srsdef.hpp"
 
 // forward declare projCtx
-typedef void *projCtx;
+typedef struct projCtx_t *projCtx;
 
 namespace geo {
 
