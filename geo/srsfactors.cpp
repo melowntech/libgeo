@@ -25,21 +25,10 @@
  */
 #include <stdexcept>
 
-// find out Proj version
-#define PROJ_API_INCLUDED_FOR_PJ_VERSION_ONLY
-#include "detail/projapi.hpp"
-#undef PROJ_API_INCLUDED_FOR_PJ_VERSION_ONLY
+#include <proj.h>
 
-// handle variaous includes based on version
-#if PJ_VERSION < 600
-#  if PJ_VERSION < 480
-#    include "detail/pjfactors-4.7.h"
-#  else
-#    include "detail/pjfactors-4.8.h"
-#  endif
-#  include "detail/projapi.hpp"
-#else
-#  include <proj.h>
+#if PROJ_VERSION_NUMBER < 60000
+#  include "detail/pjfactors-4.8.h"
 #endif
 
 #include "dbglog/dbglog.hpp"
@@ -56,10 +45,9 @@ SrsFactors::SrsFactors(const SrsDefinition &def, const SrsDefinition &src)
     : proj_(def), srcProj_(src, true)
 {}
 
-#if PJ_VERSION < 600
+#if PROJ_VERSION_NUMBER < 60000
 
 namespace {
-
 int getPjFactors(double x, double y, void *pj
                  , SrsFactors::Factors &factors)
 {
@@ -67,7 +55,7 @@ int getPjFactors(double x, double y, void *pj
 
     struct FACTORS fac;
     memset(&fac, 0, sizeof(fac));
-    if (pj_factors(lp, pj, .0, &fac)) {
+    if (pj_factors(lp, static_cast<projPJ>(pj), .0, &fac)) {
         return 1;
     }
 
@@ -100,7 +88,7 @@ SrsFactors::Factors SrsFactors::operator()(const math::Point2 &p) const
     if (getPjFactors(pp(0), pp(1), proj_.proj_.get(), f)) {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to get SRS factors for coordinates " << p << ": "
-            << ::pj_strerrno(::pj_errno);
+            << proj_.error();
     }
 
     return f;
@@ -147,7 +135,7 @@ SrsFactors::Factors SrsFactors::operator()(const math::Point2 &p) const
     if (getPjFactors(pp(0), pp(1), pj, f)) {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to get SRS factors for coordinates " << p << ": "
-            << ::proj_errno_string(::proj_errno(pj));
+            << proj_.error();
     }
 
     return f;

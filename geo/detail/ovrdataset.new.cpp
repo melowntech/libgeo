@@ -160,7 +160,12 @@ protected:
 public:
     OverviewBand(OverviewDataset *ds, int band);
     virtual ~OverviewBand() { FlushCache(); }
+
+#if GDAL_VERSION_NUM < 3040000
     virtual CPLErr FlushCache() override;
+#else
+    virtual CPLErr FlushCache(bool bAtClosing = false) override;
+#endif
 
     virtual int GetOverviewCount() override;
     virtual GDALRasterBand* GetOverview(int) override;
@@ -433,6 +438,8 @@ OverviewBand::OverviewBand(OverviewDataset *ds, int band)
     underlyingBand_->GetBlockSize(&nBlockXSize, &nBlockYSize);
 }
 
+#if GDAL_VERSION_NUM < 3040000
+
 CPLErr OverviewBand::FlushCache()
 {
     if (underlyingBand_) {
@@ -440,6 +447,17 @@ CPLErr OverviewBand::FlushCache()
     }
     return CE_None;
 }
+
+#else
+
+CPLErr OverviewBand::FlushCache(bool bAtClosing)
+{
+    if (underlyingBand_) {
+        return underlyingBand_->FlushCache(bAtClosing);
+    }
+    return CE_None;
+}
+#endif
 
 int OverviewBand::GetOverviewCount()
 {

@@ -25,7 +25,8 @@
  */
 #include <stdexcept>
 
-#include "projapi.hpp"
+#include <proj.h>
+#include <proj_api.h>
 
 #include "dbglog/dbglog.hpp"
 
@@ -38,7 +39,7 @@ namespace {
 std::shared_ptr<void> initProj(const SrsDefinition &def)
 {
     return { pj_init_plus(def.as(SrsDefinition::Type::proj4).srs.c_str())
-            , [](void *ptr) { if (ptr) pj_free(ptr); } };
+            , [](projPJ ptr) { if (ptr) pj_free(ptr); } };
 }
 
 } // namespace
@@ -61,28 +62,35 @@ namespace {
 
 math::Point2 Projection::operator()(const math::Point2 &p, bool deg) const
 {
+    auto pj(static_cast<projPJ>(proj_.get()));
     if (inverse_) {
-        auto res(pj_inv({ p(0), p(1) }, proj_.get()));
+        auto res(pj_inv({ p(0), p(1) }, pj));
         if (deg) {
-            return { res.u * RAD2DEG, res.v * RAD2DEG };
+            return { res.lam * RAD2DEG, res.phi * RAD2DEG };
         }
 
-        return { res.u, res.v };
+        return { res.lam, res.phi };
     }
 
     if (deg) {
-        auto res(pj_fwd({ p(0) * DEG2RAD, p(1) * DEG2RAD}, proj_.get()));
-        return { res.u, res.v };
+        auto res(pj_fwd({ p(0) * DEG2RAD, p(1) * DEG2RAD}, pj));
+        return { res.x, res.y };
     }
 
-    auto res(pj_fwd({ p(0), p(1)}, proj_.get()));
-    return { res.u, res.v };
+    auto res(pj_fwd({ p(0), p(1)}, pj));
+    return { res.x, res.y };
 }
 
 math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
 {
     auto xy(operator()(math::Point2(p(0), p(1)), deg));
     return { xy(0), xy(1), p(2) };
+}
+
+std::string Projection::error() const
+{
+    auto pj(static_cast<projPJ>(proj_.get()));
+    return ::proj_errno_string(::proj_errno(pj));
 }
 
 } // namespace geo
