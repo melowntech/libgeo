@@ -93,7 +93,11 @@ math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
 std::string Projection::error() const
 {
     auto *pj(static_cast<PJ*>(proj_.get()));
+#if PROJ_VERSION_MAJOR < 8
+    return ::proj_errno_string(::proj_errno(pj));
+#else
     return ::proj_context_errno_string(pjctx, ::proj_errno(pj));
+#endif
 }
 
 } // namespace geo

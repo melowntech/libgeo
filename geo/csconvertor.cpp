@@ -28,7 +28,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <proj.h>
-#if PROJ_VERSION_NUMBER < 60000
+#if PROJ_VERSION_MAJOR < 6
 #  include <proj_api.h>
 #endif
 
@@ -223,7 +223,7 @@ private:
     std::unique_ptr< ::OGRCoordinateTransformation> trans_;
 };
 
-#if PROJ_VERSION_NUMBER < 80000
+#if PROJ_VERSION_MAJOR < 7
 namespace {
 static volatile struct Initializer {
     Initializer() {

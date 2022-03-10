@@ -27,7 +27,7 @@
 
 #include <proj.h>
 
-#if PROJ_VERSION_NUMBER < 60000
+#if PROJ_VERSION_MAJOR < 6
 #  include "detail/pjfactors-4.8.h"
 #endif
 
@@ -45,7 +45,7 @@ SrsFactors::SrsFactors(const SrsDefinition &def, const SrsDefinition &src)
     : proj_(def), srcProj_(src, true)
 {}
 
-#if PROJ_VERSION_NUMBER < 60000
+#if PROJ_VERSION_MAJOR < 6
 
 namespace {
 int getPjFactors(double x, double y, void *pj
