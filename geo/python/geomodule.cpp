@@ -43,7 +43,11 @@
 
 #include "geo/srsdef.hpp"
 
+#undef PYSUPPORT_MODULE_IMPORT_API
+#define PYSUPPORT_MODULE_IMPORT_API 2
 #include "pysupport/package.hpp"
+#undef PYSUPPORT_MODULE_IMPORT_API
+
 #include "pysupport/class.hpp"
 #include "pysupport/enum.hpp"
 #include "pysupport/converters.hpp"
