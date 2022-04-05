@@ -103,10 +103,34 @@ std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr(const OGRSpatialReference &from, const OptName &fromName
         , const OGRSpatialReference &to, const OptName &toName)
 {
-    std::unique_ptr< ::OGRCoordinateTransformation>
-        trans(::OGRCreateCoordinateTransformation
-              (const_cast<OGRSpatialReference*>(&from)
-               , const_cast<OGRSpatialReference*>(&to)));
+    std::unique_ptr<::OGRCoordinateTransformation> trans;
+#if PROJ_VERSION_MAJOR > 6
+    const auto deleter = [](::OGRSpatialReference *srs) { srs->Release(); };
+    std::unique_ptr<::OGRSpatialReference, decltype(deleter)> 
+        fromClone(from.Clone(), deleter);
+    std::unique_ptr<::OGRSpatialReference, decltype(deleter)> 
+        toClone(to.Clone(), deleter);
+        
+    if(fromClone->PromoteTo3D(nullptr) != OGRERR_NONE)
+    {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to promote to 3D the source SRS ("
+            << asName(from, fromName) <<  " ->"
+            << asName(to, toName) << "): <"
+            << ::CPLGetLastErrorMsg() << ">.";
+    }
+    if(toClone->PromoteTo3D(nullptr) != OGRERR_NONE)
+    {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to promote to 3D the target SRS ("
+            << asName(from, fromName) <<  " ->"
+            << asName(to, toName) << "): <"
+            << ::CPLGetLastErrorMsg() << ">.";
+    }
+    trans.reset(::OGRCreateCoordinateTransformation(fromClone.get(), toClone.get()));
+#else
+    trans.reset(::OGRCreateCoordinateTransformation(&from, &to));
+#endif
 
     if (!trans) {
         LOGTHROW(err1, std::runtime_error)
