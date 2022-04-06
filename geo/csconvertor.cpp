@@ -129,7 +129,9 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
     }
     trans.reset(::OGRCreateCoordinateTransformation(fromClone.get(), toClone.get()));
 #else
-    trans.reset(::OGRCreateCoordinateTransformation(&from, &to));
+    trans.reset(::OGRCreateCoordinateTransformation
+                (const_cast<OGRSpatialReference*>(&from),
+                 const_cast<OGRSpatialReference*>(&to)));
 #endif
 
     if (!trans) {
