@@ -104,7 +104,7 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
         , const OGRSpatialReference &to, const OptName &toName)
 {
     std::unique_ptr<::OGRCoordinateTransformation> trans;
-#if PROJ_VERSION_MAJOR > 6
+#if PROJ_VERSION_MAJOR > 6 && GDAL_VERSION_NUM >= 3000000
     const auto deleter = [](::OGRSpatialReference *srs) { srs->Release(); };
     std::unique_ptr<::OGRSpatialReference, decltype(deleter)> 
         fromClone(from.Clone(), deleter);
