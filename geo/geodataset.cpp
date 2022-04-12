@@ -2841,6 +2841,18 @@ std::vector<double> BurnColor::valueList()
     return out;
 }
 
+std::vector<double> BurnColor::valueList(std::size_t count) const
+{
+    const auto single(valueList());
+
+    std::vector<double> out;
+    out.reserve(count * single.size());
+    for (; count; --count) {
+        out.insert(out.end(), single.begin(), single.end());
+    }
+    return out;
+}
+
 void GeoDataset::rasterize(const ::OGRGeometry *geometry
                            , const BurnColor &color
                            , const Options &options)
@@ -2851,6 +2863,31 @@ void GeoDataset::rasterize(const ::OGRGeometry *geometry
     void *g(const_cast< ::OGRGeometry*>(geometry));
     auto err(::GDALRasterizeGeometries(dset_.get(), bands.size(), bands.data()
                                        , 1, &g
+                                       , nullptr, nullptr, values.data()
+                                       , detail::OptionsWrapper(options)
+                                       , nullptr, nullptr));
+    if (err != CE_None) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Error rasterizing geometry.";
+    }
+
+    // invalidate
+    data_ = boost::none;
+    mask_ = boost::none;
+    fresh_ = false;
+}
+
+void GeoDataset::rasterize(const std::vector< ::OGRGeometry*> &geometries
+                           , const BurnColor &color
+                           , const Options &options)
+{
+    auto bands(color.bandList());
+    auto values(color.valueList(geometries.size()));
+
+    void **g(reinterpret_cast<void**>
+             (const_cast< ::OGRGeometry**>(geometries.data())));
+    auto err(::GDALRasterizeGeometries(dset_.get(), bands.size(), bands.data()
+                                       , geometries.size(), g
                                        , nullptr, nullptr, values.data()
                                        , detail::OptionsWrapper(options)
                                        , nullptr, nullptr));
