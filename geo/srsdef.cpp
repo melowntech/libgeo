@@ -287,7 +287,7 @@ using ToWgs84 = std::array<double, 7>;
 
 boost::optional<ToWgs84> getToWgs84(const ::OGRSpatialReference &ref)
 {
-    ToWgs84 towgs84;
+    ToWgs84 towgs84 = {};
     ref.GetTOWGS84(towgs84.data(), towgs84.size());
 
     if (std::size_t(std::count(towgs84.begin(), towgs84.end(), 0.0)) == towgs84.size()) {
