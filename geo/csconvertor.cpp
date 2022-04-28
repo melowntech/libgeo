@@ -115,25 +115,25 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
     {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to promote to 3D the source SRS ("
-            << asName(from, fromName) <<  " ->"
-            << asName(to, toName) << "): <"
+            << asName(from) <<  " ->"
+            << asName(to) << "): <"
             << ::CPLGetLastErrorMsg() << ">.";
     }
     if(toClone->PromoteTo3D(nullptr) != OGRERR_NONE)
     {
         LOGTHROW(err1, std::runtime_error)
             << "Failed to promote to 3D the target SRS ("
-            << asName(from, fromName) <<  " ->"
-            << asName(to, toName) << "): <"
+            << asName(from) <<  " ->"
+            << asName(to) << "): <"
             << ::CPLGetLastErrorMsg() << ">.";
     }
     trans.reset(::OGRCreateCoordinateTransformation(fromClone.get(), toClone.get()));
     LOG(info2) << "Successfully created conversion from:"
-            << "\n\t source SRS  (" << asName(from, fromName) << ")"
-            << "\n\t promoted to (" << asName(*fromClone.get(), fromName) << ")"
+            << "\n\t source SRS  (" << asName(from) << ")"
+            << "\n\t promoted to (" << asName(*fromClone.get()) << ")"
             << "\n\t to"
-            << "\n\t target SRS  (" << asName(to, toName) << ")"
-            << "\n\t promoted to (" << asName(*toClone.get(), toName) << ")"
+            << "\n\t target SRS  (" << asName(to) << ")"
+            << "\n\t promoted to (" << asName(*toClone.get()) << ")"
             << "\n";
 #else
     trans.reset(::OGRCreateCoordinateTransformation
