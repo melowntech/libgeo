@@ -129,10 +129,12 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
     }
     trans.reset(::OGRCreateCoordinateTransformation(fromClone.get(), toClone.get()));
     LOG(info2) << "Successfully created conversion from:"
-            << "\n\t- source SRS (" << asName(from, fromName) << ")"
-            << "\n\t- promoted to (" << asName(*fromClone.get(), fromName) << ")"
-            << "\n\t- target SRS (" << asName(to, toName) << ")"
-            << "\n\t- promoted to (" << asName(*toClone.get(), toName) << ")";
+            << "\n\t source SRS  (" << asName(from, fromName) << ")"
+            << "\n\t promoted to (" << asName(*fromClone.get(), fromName) << ")"
+            << "\n\t to"
+            << "\n\t target SRS  (" << asName(to, toName) << ")"
+            << "\n\t promoted to (" << asName(*toClone.get(), toName) << ")"
+            << "\n";
 #else
     trans.reset(::OGRCreateCoordinateTransformation
                 (const_cast<OGRSpatialReference*>(&from),
