@@ -76,6 +76,10 @@ public:
      */
     std::vector<double> valueList() const;
 
+    /** Returns list of value times count.
+     */
+    std::vector<double> valueList(std::size_t count) const;
+
 private:
     typedef boost::optional<double> Color;
     std::vector<Color> color_;
@@ -906,9 +910,15 @@ public:
      */
     bool allValid() const;
 
-    /** Rasterize single of OGR geometry into this dataset.
+    /** Rasterize single OGR geometry into this dataset.
      */
     void rasterize(const ::OGRGeometry *geometry, const BurnColor &color
+                   , const Options &options = {});
+
+    /** Rasterize multiple OGR geometries into this dataset.
+     */
+    void rasterize(const std::vector< ::OGRGeometry*> &geometries
+                   , const BurnColor &color
                    , const Options &options = {});
 
     /** Fetches mask as single-channel byte matrix.

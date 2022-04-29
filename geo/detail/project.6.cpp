@@ -26,7 +26,7 @@
 
 #include <stdexcept>
 
-#include "proj.h"
+#include <proj.h>
 
 #include "dbglog/dbglog.hpp"
 
@@ -88,6 +88,16 @@ math::Point3 Projection::operator()(const math::Point3 &p, bool deg) const
 {
     auto xy(operator()(math::Point2(p(0), p(1)), deg));
     return { xy(0), xy(1), p(2) };
+}
+
+std::string Projection::error() const
+{
+    auto *pj(static_cast<PJ*>(proj_.get()));
+#if PROJ_VERSION_MAJOR < 8
+    return ::proj_errno_string(::proj_errno(pj));
+#else
+    return ::proj_context_errno_string(pjctx, ::proj_errno(pj));
+#endif
 }
 
 } // namespace geo

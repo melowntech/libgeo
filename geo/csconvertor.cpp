@@ -27,7 +27,11 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "detail/projapi.hpp"
+#include <proj.h>
+#if PROJ_VERSION_MAJOR < 6
+#  include <proj_api.h>
+#endif
+
 #include <ogr_spatialref.h>
 #include <cpl_error.h>
 
@@ -99,10 +103,36 @@ std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr(const OGRSpatialReference &from, const OptName &fromName
         , const OGRSpatialReference &to, const OptName &toName)
 {
-    std::unique_ptr< ::OGRCoordinateTransformation>
-        trans(::OGRCreateCoordinateTransformation
-              (const_cast<OGRSpatialReference*>(&from)
-               , const_cast<OGRSpatialReference*>(&to)));
+    std::unique_ptr<::OGRCoordinateTransformation> trans;
+#if PROJ_VERSION_MAJOR > 6 && GDAL_VERSION_NUM >= 3010000
+    const auto deleter = [](::OGRSpatialReference *srs) { srs->Release(); };
+    std::unique_ptr<::OGRSpatialReference, decltype(deleter)> 
+        fromClone(from.Clone(), deleter);
+    std::unique_ptr<::OGRSpatialReference, decltype(deleter)> 
+        toClone(to.Clone(), deleter);
+        
+    if(fromClone->PromoteTo3D(nullptr) != OGRERR_NONE)
+    {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to promote to 3D the source SRS ("
+            << asName(from, fromName) <<  " ->"
+            << asName(to, toName) << "): <"
+            << ::CPLGetLastErrorMsg() << ">.";
+    }
+    if(toClone->PromoteTo3D(nullptr) != OGRERR_NONE)
+    {
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to promote to 3D the target SRS ("
+            << asName(from, fromName) <<  " ->"
+            << asName(to, toName) << "): <"
+            << ::CPLGetLastErrorMsg() << ">.";
+    }
+    trans.reset(::OGRCreateCoordinateTransformation(fromClone.get(), toClone.get()));
+#else
+    trans.reset(::OGRCreateCoordinateTransformation
+                (const_cast<OGRSpatialReference*>(&from),
+                 const_cast<OGRSpatialReference*>(&to)));
+#endif
 
     if (!trans) {
         LOGTHROW(err1, std::runtime_error)
@@ -219,16 +249,16 @@ private:
     std::unique_ptr< ::OGRCoordinateTransformation> trans_;
 };
 
+#if PROJ_VERSION_MAJOR < 7
 namespace {
-
 static volatile struct Initializer {
     Initializer() {
         // initializes locks and default context
         ::pj_get_default_ctx();
     }
 } initializer;
-
 } // namespace
+#endif
 
 std::unique_ptr< ::OGRCoordinateTransformation>
 initOgr2Enu(const OGRSpatialReference &from, const OptName &fromName

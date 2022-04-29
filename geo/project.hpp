@@ -54,6 +54,8 @@ public:
 
     friend class SrsFactors;
 
+    std::string error() const;
+
 private:
     Projection(const std::shared_ptr<void> proj, bool inverse)
         : proj_(proj), inverse_(inverse)

@@ -43,7 +43,11 @@
 
 #include "geo/srsdef.hpp"
 
+#undef PYSUPPORT_MODULE_IMPORT_API
+#define PYSUPPORT_MODULE_IMPORT_API 2
 #include "pysupport/package.hpp"
+#undef PYSUPPORT_MODULE_IMPORT_API
+
 #include "pysupport/class.hpp"
 #include "pysupport/enum.hpp"
 #include "pysupport/converters.hpp"
@@ -54,14 +58,13 @@
 #include "../geodataset.hpp"
 #include "../gdal.hpp"
 
+#include "geomodule.hpp"
 #include "gdsblockwriter.hpp"
 
 namespace bp = boost::python;
 namespace bpc = boost::python::converter;
 
 namespace geo { namespace py {
-
-bp::object osrModule;
 
 bp::object SrsDefinition_repr(const geo::SrsDefinition &srs)
 {
@@ -84,10 +87,7 @@ bp::object Enu_Spheroid_repr(const geo::Enu::Spheroid &s)
 
 bp::object SrsDefinition_reference(const geo::SrsDefinition &srs)
 {
-    if (!osrModule) {
-        LOGTHROW(err1, std::runtime_error)
-            << "osgeo.osr module not found";
-    }
+    auto osrModule(bp::import("osgeo.osr"));
 
     auto self(osrModule.attr("SpatialReference")());
     int status(0);
@@ -140,10 +140,7 @@ geo::SrsDefinition
 SrsDefinition_fromReference_type(const bp::object &ref
                                  , geo::SrsDefinition::Type type)
 {
-    if (!osrModule) {
-        LOGTHROW(err1, std::runtime_error)
-            << "osgeo.osr module not found";
-    }
+    auto osrModule(bp::import("osgeo.osr"));
 
     bp::object SpatialReference(osrModule.attr("SpatialReference"));
     if (!::PyObject_IsInstance(ref.ptr(), SpatialReference.ptr())) {
@@ -275,12 +272,6 @@ BOOST_PYTHON_MODULE(melown_geo)
     def<math::Matrix4(const math::Extents2&)>("local2geo", &geo::local2geo);
     def<math::Matrix4(const math::Point2&)>("geo2local", &geo::geo2local);
     def<math::Matrix4(const math::Extents2&)>("geo2local", &geo::geo2local);
-
-    try {
-        py::osrModule = import("osgeo.osr");
-        // pull in gds stuff, needs OpenCV and NumPy AND osgeo.osr
-        // py::registerGdsBlockWriter();
-    } catch (const error_already_set&) {}
 }
 
 namespace geo { namespace py {
