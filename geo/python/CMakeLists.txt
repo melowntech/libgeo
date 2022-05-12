@@ -1,7 +1,7 @@
 define_module(LIBRARY pygeo=${MODULE_geo_VERSION}
   DEPENDS
   geo=${MODULE_geo_VERSION}
-  pysupport>=1.4
+  pysupport>=1.5
   Boost_THREAD Boost_SYSTEM)
 
 set(pygeo_SOURCES
