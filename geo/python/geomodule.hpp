@@ -27,6 +27,7 @@
 #ifndef geo_python_geomodule_hpp_included_
 #define geo_python_geomodule_hpp_included_
 
+#include <pysupport/boost-python-definitions.hpp>
 #include <boost/python.hpp>
 
 namespace geo { namespace py {

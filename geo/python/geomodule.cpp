@@ -24,6 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "geomodule.hpp"
+
 #include <ogr_core.h>
 #include <gdal_priv.h>
 
@@ -58,7 +60,6 @@
 #include "../geodataset.hpp"
 #include "../gdal.hpp"
 
-#include "geomodule.hpp"
 #include "gdsblockwriter.hpp"
 
 namespace bp = boost::python;
