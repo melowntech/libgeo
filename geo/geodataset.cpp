@@ -722,6 +722,35 @@ GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
     return GRA_Lanczos;
 }
 
+const std::string algoToGdalString(GeoDataset::Resampling alg)
+{
+    switch (alg) {
+    case GeoDataset::Resampling::nearest: return "NEAREST";
+    case GeoDataset::Resampling::bilinear: return "BILINEAR";
+    case GeoDataset::Resampling::cubic: return "CUBIC";
+    case GeoDataset::Resampling::cubicspline: return "CubicSpline";
+    case GeoDataset::Resampling::lanczos: return "Lanczos";
+    case GeoDataset::Resampling::average: return "Average";
+    case GeoDataset::Resampling::mode: return "Mode";
+
+    case GeoDataset::Resampling::minimum:
+    case GeoDataset::Resampling::maximum:
+    case GeoDataset::Resampling::median:
+    case GeoDataset::Resampling::q1:
+    case GeoDataset::Resampling::q3:
+        LOGTHROW( err2, std::runtime_error )
+            << "Resampling method " << alg
+            << " has no GDAL string equivalent.";
+        break;
+
+    case GeoDataset::Resampling::texture: return "AVERAGE";
+    case GeoDataset::Resampling::dem: return "AVERAGE";
+    }
+
+    // falback
+    return "NONE";
+}
+
 double sourcePixelSize(const CsConvertor &conv
                        , const GeoDataset::Descriptor &src
                        , const GeoDataset::Descriptor &dst
@@ -3146,6 +3175,60 @@ ValueTransformation::list GeoDataset::valueTransformation() const
     }
 
     return list;
+}
+
+DecimationFactors binaryDecimation(std::size_t count)
+{
+    DecimationFactors factors;
+    for (std::size_t i(1); i <= count; ++i) {
+        factors.push_back(1 << i);
+    }
+    return factors;
+}
+
+DecimationFactors GeoDataset::binaryDecimation(const math::Size2 &minSize)
+{
+    DecimationFactors factors;
+
+    auto s(size());
+    const auto &halve([&]()
+    {
+        s.width = int(std::round(s.width / 2.0));
+        s.height = int(std::round(s.height / 2.0));
+    });
+
+    halve();
+    int factor(2);
+
+    while ((s.width >= minSize.width) || (s.height >= minSize.height)) {
+        factors.push_back(factor);
+
+        if ((s.width == minSize.width) || (s.height == minSize.height)) {
+            // special case
+            break;
+        }
+
+        halve();
+        factor <<= 1;
+    }
+
+    return factors;
+}
+
+void GeoDataset::buildOverviews(Resampling resampling
+                                , const DecimationFactors &factors)
+{
+    // we do need a copy due to stupid function iface
+    auto f(factors);
+    auto res(dset_->BuildOverviews(algoToGdalString(resampling).c_str()
+                                   , f.size(), f.data()
+                                   , 0, nullptr
+                                   , ::GDALDummyProgress, nullptr));
+
+    if (res != CE_None) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Unable to generate overviews.";
+    }
 }
 
 } // namespace geo
