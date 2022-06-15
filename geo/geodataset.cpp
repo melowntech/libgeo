@@ -2154,6 +2154,9 @@ void GeoDataset::textureMesh(
     const geometry::Mesh & imesh, const math::Extents2 & extents,
     geometry::Mesh & omesh ) const {
 
+    // make mask available
+    assertData(DataFlag::mask);
+
     std::map<  math::Points3::size_type
              , math::Points3::size_type> iord2oord; // i,j -> vertex ordinal
     int ord(0);
