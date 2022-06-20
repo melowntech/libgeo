@@ -2150,6 +2150,27 @@ math::Points3 GeoDataset::exportPointCloud() const
     return pc;
 }
 
+namespace {
+
+inline math::Matrix4 geo2tx(const math::Extents2 &extents)
+{
+    auto esize(math::size(extents));
+    const auto &origin(extents.ll);
+
+    const math::Point2 scale(1.0 / esize.width, 1.0 / esize.height);
+
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+    trafo(0, 0) = scale(0);
+    trafo(1, 1) = scale(1);
+    // keep Z untouched
+    trafo(0, 3) = -origin(0) * scale(0);
+    trafo(1, 3) = -origin(1) * scale(1);
+
+    return trafo;
+}
+
+} // namespace
+
 void GeoDataset::textureMesh(
     const geometry::Mesh & imesh, const math::Extents2 & extents,
     geometry::Mesh & omesh ) const {
@@ -2166,12 +2187,9 @@ void GeoDataset::textureMesh(
         omesh.faces.size() == 0, "Output mesh expected to be empty." );
 
     // establish input local -> dset normalized
-    math::Matrix4 il2dn = prod(
-        geo2normalized( this->extents() ), local2geo( extents ) );
-    math::Matrix4 il2geo
-        = local2geo( extents );
-    math::Matrix4 igeo2l
-        = geo2local( extents );
+    const math::Matrix4 il2tx
+        (prod(geo2tx(this->extents()), local2geo(extents)));
+    const math::Matrix4 igeo2l(geo2local(extents));
 
 
     // to find out if the triangle is texturable
@@ -2224,8 +2242,7 @@ void GeoDataset::textureMesh(
                 if ( indices[i] >= omesh.vertices.size() ) {
                     const math::Point3 & vertex( imesh.vertices[srcVid] );
                     // normalized coords are in (-1.0,1.0) range -> transform to (0.0,1.0)
-                    math::Point3 tcoord3 = transform( il2dn, vertex ) * 0.5
-                        + math::Point3( 0.5, 0.5, 0.0 );
+                    math::Point3 tcoord3 = transform(il2tx, vertex);
 
                     math::Point2 tcoord( tcoord3[0], tcoord3[1] );
 
