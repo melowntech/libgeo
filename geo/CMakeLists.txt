@@ -1,5 +1,5 @@
 # bump version here
-set(geo_VERSION 1.36)
+set(geo_VERSION 1.37)
 
 set(geo_EXTRA_DEPENDS)
 set(geo_EXTRA_DEFINITIONS)
@@ -115,8 +115,8 @@ endif()
 define_module(LIBRARY geo=${geo_VERSION}
   DEPENDS
   BuildSystem>=1.0
-  jsoncpp>=2.1 geometry>=1.7 imgproc>=1.26 math>=1.2
-  utility>=1.38 dbglog>=1.4
+  jsoncpp>=2.4 geometry>=1.7 imgproc>=1.34 math>=1.2
+  utility>=1.41 dbglog>=1.7
 
   Boost_FILESYSTEM PROJ GeographicLib ${geo_EXTRA_DEPENDS}
   DEFINITIONS ${geo_EXTRA_DEFINITIONS}
@@ -140,7 +140,7 @@ add_library(geo STATIC ${geo_SOURCES})
 buildsys_library(geo)
 
 target_link_libraries(geo ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(geo ${MODULE_DEFINITIONS})
+target_compile_definitions(geo PRIVATE ${MODULE_DEFINITIONS})
 #target_compile_definitions(geo PUBLIC ACCEPT_USE_OF_DEPRECATED_PROJ_API_H)
 
 # test stuff
