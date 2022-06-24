@@ -5,5 +5,5 @@ define_module(BINARY geo-factors
 set(geo-factors_SOURCES main.cpp)
 add_executable(geo-factors EXCLUDE_FROM_ALL ${geo-factors_SOURCES})
 target_link_libraries(geo-factors ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(geo-factors PRIVATE ${MODULE_DEFINITIONS})
+target_compile_definitions(geo-factors PRIVATE ${MODULE_DEFINITIONS})
 buildsys_binary(geo-factors)
