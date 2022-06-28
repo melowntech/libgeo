@@ -722,6 +722,35 @@ GDALResampleAlg algoToGdal(GeoDataset::Resampling alg)
     return GRA_Lanczos;
 }
 
+const std::string algoToGdalString(GeoDataset::Resampling alg)
+{
+    switch (alg) {
+    case GeoDataset::Resampling::nearest: return "NEAREST";
+    case GeoDataset::Resampling::bilinear: return "BILINEAR";
+    case GeoDataset::Resampling::cubic: return "CUBIC";
+    case GeoDataset::Resampling::cubicspline: return "CUBICSPLINE";
+    case GeoDataset::Resampling::lanczos: return "LANCZOS";
+    case GeoDataset::Resampling::average: return "AVERAGE";
+    case GeoDataset::Resampling::mode: return "MODE";
+
+    case GeoDataset::Resampling::minimum:
+    case GeoDataset::Resampling::maximum:
+    case GeoDataset::Resampling::median:
+    case GeoDataset::Resampling::q1:
+    case GeoDataset::Resampling::q3:
+        LOGTHROW( err2, std::runtime_error )
+            << "Resampling method " << alg
+            << " has no GDAL string equivalent.";
+        break;
+
+    case GeoDataset::Resampling::texture: return "AVERAGE";
+    case GeoDataset::Resampling::dem: return "AVERAGE";
+    }
+
+    // falback
+    return "NONE";
+}
+
 double sourcePixelSize(const CsConvertor &conv
                        , const GeoDataset::Descriptor &src
                        , const GeoDataset::Descriptor &dst
@@ -2121,9 +2150,33 @@ math::Points3 GeoDataset::exportPointCloud() const
     return pc;
 }
 
+namespace {
+
+inline math::Matrix4 geo2tx(const math::Extents2 &extents)
+{
+    auto esize(math::size(extents));
+    const auto &origin(extents.ll);
+
+    const math::Point2 scale(1.0 / esize.width, 1.0 / esize.height);
+
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+    trafo(0, 0) = scale(0);
+    trafo(1, 1) = scale(1);
+    // keep Z untouched
+    trafo(0, 3) = -origin(0) * scale(0);
+    trafo(1, 3) = -origin(1) * scale(1);
+
+    return trafo;
+}
+
+} // namespace
+
 void GeoDataset::textureMesh(
     const geometry::Mesh & imesh, const math::Extents2 & extents,
     geometry::Mesh & omesh ) const {
+
+    // make mask available
+    assertData(DataFlag::mask);
 
     std::map<  math::Points3::size_type
              , math::Points3::size_type> iord2oord; // i,j -> vertex ordinal
@@ -2134,12 +2187,9 @@ void GeoDataset::textureMesh(
         omesh.faces.size() == 0, "Output mesh expected to be empty." );
 
     // establish input local -> dset normalized
-    math::Matrix4 il2dn = prod(
-        geo2normalized( this->extents() ), local2geo( extents ) );
-    math::Matrix4 il2geo
-        = local2geo( extents );
-    math::Matrix4 igeo2l
-        = geo2local( extents );
+    const math::Matrix4 il2tx
+        (prod(geo2tx(this->extents()), local2geo(extents)));
+    const math::Matrix4 igeo2l(geo2local(extents));
 
 
     // to find out if the triangle is texturable
@@ -2192,8 +2242,7 @@ void GeoDataset::textureMesh(
                 if ( indices[i] >= omesh.vertices.size() ) {
                     const math::Point3 & vertex( imesh.vertices[srcVid] );
                     // normalized coords are in (-1.0,1.0) range -> transform to (0.0,1.0)
-                    math::Point3 tcoord3 = transform( il2dn, vertex ) * 0.5
-                        + math::Point3( 0.5, 0.5, 0.0 );
+                    math::Point3 tcoord3 = transform(il2tx, vertex);
 
                     math::Point2 tcoord( tcoord3[0], tcoord3[1] );
 
@@ -3146,6 +3195,60 @@ ValueTransformation::list GeoDataset::valueTransformation() const
     }
 
     return list;
+}
+
+DecimationFactors binaryDecimation(std::size_t count)
+{
+    DecimationFactors factors;
+    for (std::size_t i(1); i <= count; ++i) {
+        factors.push_back(1 << i);
+    }
+    return factors;
+}
+
+DecimationFactors GeoDataset::binaryDecimation(const math::Size2 &minSize)
+{
+    DecimationFactors factors;
+
+    auto s(size());
+    const auto &halve([&]()
+    {
+        s.width = int(std::round(s.width / 2.0));
+        s.height = int(std::round(s.height / 2.0));
+    });
+
+    halve();
+    int factor(2);
+
+    while ((s.width >= minSize.width) || (s.height >= minSize.height)) {
+        factors.push_back(factor);
+
+        if ((s.width == minSize.width) || (s.height == minSize.height)) {
+            // special case
+            break;
+        }
+
+        halve();
+        factor <<= 1;
+    }
+
+    return factors;
+}
+
+void GeoDataset::buildOverviews(Resampling resampling
+                                , const DecimationFactors &factors)
+{
+    // we do need a copy due to stupid function iface
+    auto f(factors);
+    auto res(dset_->BuildOverviews(algoToGdalString(resampling).c_str()
+                                   , f.size(), f.data()
+                                   , 0, nullptr
+                                   , ::GDALDummyProgress, nullptr));
+
+    if (res != CE_None) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Unable to generate overviews.";
+    }
 }
 
 } // namespace geo

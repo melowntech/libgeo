@@ -137,6 +137,15 @@ struct ValueTransformation {
     typedef std::vector<ValueTransformation> list;
 };
 
+
+/** List of overview decimation factors.
+ */
+using DecimationFactors = std::vector<int>;
+
+/** Builds list of standard binary decimation factors (2, 4, 8, ...)
+ */
+DecimationFactors binaryDecimation(std::size_t count);
+
 class GeoDataset {
 public:
     typedef imgproc::quadtree::RasterMask Mask;
@@ -979,6 +988,23 @@ public:
 
     // Returns value transformations for all bands
     ValueTransformation::list valueTransformation() const;
+
+    /** Build overviews.
+     *
+     * Only the following resampling methods are supported:
+     *
+     * nearest, bilinear, cubic, cubicspline, lanczos, average, mode
+     *
+     * \param resampling downsampling method
+     * \param factors decimation factors, empty to clear all overviews
+     */
+    void buildOverviews(Resampling resampling
+                        , const DecimationFactors &factors);
+
+    /** Computes list of binary decimation factors to generate overviews down to
+     *  given image size.
+     */
+    DecimationFactors binaryDecimation(const math::Size2 &minSize);
 
     // helpers for naked GDALDataset
 
