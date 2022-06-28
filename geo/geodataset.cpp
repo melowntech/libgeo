@@ -728,10 +728,10 @@ const std::string algoToGdalString(GeoDataset::Resampling alg)
     case GeoDataset::Resampling::nearest: return "NEAREST";
     case GeoDataset::Resampling::bilinear: return "BILINEAR";
     case GeoDataset::Resampling::cubic: return "CUBIC";
-    case GeoDataset::Resampling::cubicspline: return "CubicSpline";
-    case GeoDataset::Resampling::lanczos: return "Lanczos";
-    case GeoDataset::Resampling::average: return "Average";
-    case GeoDataset::Resampling::mode: return "Mode";
+    case GeoDataset::Resampling::cubicspline: return "CUBICSPLINE";
+    case GeoDataset::Resampling::lanczos: return "LANCZOS";
+    case GeoDataset::Resampling::average: return "AVERAGE";
+    case GeoDataset::Resampling::mode: return "MODE";
 
     case GeoDataset::Resampling::minimum:
     case GeoDataset::Resampling::maximum:
