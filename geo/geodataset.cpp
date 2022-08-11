@@ -2203,8 +2203,13 @@ void GeoDataset::textureMesh(
                 }
             }
 
-            omesh.faces.emplace_back( indices[0], indices[1], indices[2]
-                                    , indices[0], indices[1], indices[2] );
+            omesh.faces.emplace_back(
+                static_cast<geometry::Face::index_type>(indices[0])
+                , static_cast<geometry::Face::index_type>(indices[1])
+                , static_cast<geometry::Face::index_type>(indices[2])
+                , static_cast<geometry::Face::index_type>(indices[0])
+                , static_cast<geometry::Face::index_type>(indices[1])
+                , static_cast<geometry::Face::index_type>(indices[2]));
         }
     }
 }
