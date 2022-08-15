@@ -2228,7 +2228,7 @@ void GeoDataset::textureMesh(
     // iterate though faces
     for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
         if ( maskFull || faceValid[fid] ) {
-            std::size_t indices[3] = {
+            geometry::Face::index_type indices[3] = {
                   imesh.faces[fid].a
                 , imesh.faces[fid].b
                 , imesh.faces[fid].c
