@@ -2179,7 +2179,7 @@ void GeoDataset::textureMesh(
     for ( std::size_t fid = 0; fid < imesh.faces.size(); ++fid ) {
         if ( maskFull || faceValid[fid] ) {
             geometry::Face::index_type indices[3] = {
-                imesh.faces[fid].a
+                  imesh.faces[fid].a
                 , imesh.faces[fid].b
                 , imesh.faces[fid].c
              };
@@ -2204,7 +2204,7 @@ void GeoDataset::textureMesh(
             }
 
             omesh.faces.emplace_back( indices[0], indices[1], indices[2]
-                                    , indices[0], indices[1], indices[2]);
+                                    , indices[0], indices[1], indices[2] );
         }
     }
 }
