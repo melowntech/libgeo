@@ -948,6 +948,9 @@ void createTransformer(GDALWarpOptions *wo)
 
     // create new
     wo->pfnTransformer = ::GDALGenImgProjTransform;
+    LOG(info2) << "Creating GDALGenImgProjTransform from source SRS:\n"
+               << ::GDALGetProjectionRef(wo->hSrcDS) << "\nand destination SRS:\n"
+               << ::GDALGetProjectionRef(wo->hDstDS);
     wo->pTransformerArg =
         ::GDALCreateGenImgProjTransformer
         (wo->hSrcDS, ::GDALGetProjectionRef(wo->hSrcDS)
