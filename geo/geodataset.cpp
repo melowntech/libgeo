@@ -228,7 +228,6 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
 
     // srs
     srsWkt_ = std::string( dset_->GetProjectionRef() );
-    LOG(info2) << "Loaded dataset with SRS: " << srsWkt_;
 
     // noDataValue
     if ( ( numChannels_ = dset_->GetRasterCount() ) > 0 ) {
@@ -625,17 +624,11 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
     ut::expect(ds.get(), "Failed to create new dataset.");
 
     // set projection
-    if (srs)
+    if (srs && ds->SetProjection(srs->as(SrsDefinition::Type::wkt).c_str())
+        != CE_None)
     {
-        const auto wktProjection = srs->as(SrsDefinition::Type::wkt);
-        LOG(info2) << "Setting dataset SRS:\n" << srs.value().toString() 
-                << "\nin WKT format:\n" << wktProjection.toString();
-        if (ds->SetProjection(wktProjection.c_str())
-            != CE_None)
-        {
-            LOGTHROW(err1, std::runtime_error)
-                << "Failed to set projection to newly created GDAL data set.";
-        }
+        LOGTHROW(err1, std::runtime_error)
+            << "Failed to set projection to newly created GDAL data set.";
     }
 
     // set geo trafo
@@ -948,9 +941,6 @@ void createTransformer(GDALWarpOptions *wo)
 
     // create new
     wo->pfnTransformer = ::GDALGenImgProjTransform;
-    LOG(info2) << "Creating GDALGenImgProjTransform from source SRS:\n"
-               << ::GDALGetProjectionRef(wo->hSrcDS) << "\nand destination SRS:\n"
-               << ::GDALGetProjectionRef(wo->hDstDS);
     wo->pTransformerArg =
         ::GDALCreateGenImgProjTransformer
         (wo->hSrcDS, ::GDALGetProjectionRef(wo->hSrcDS)
