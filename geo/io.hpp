@@ -75,7 +75,7 @@ inline geo::SrsDefinition readSrs( const boost::filesystem::path &path
 inline geo::SrsDefinition srsFromFile(const boost::filesystem::path &path)
 {
     try {
-        SrsDefinition::fromString(utility::read(path));
+        return SrsDefinition::fromString(utility::read(path));
     } catch (const std::exception &e) {
         LOGTHROW(err1, std::runtime_error)
             << "Unable to read srs file " << path << ": " << e.what()
@@ -136,4 +136,3 @@ inline void writeTfwFromGdal(const boost::filesystem::path &path
 } // namespace geo
 
 #endif // geo_io_hpp_included_
-
