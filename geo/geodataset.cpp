@@ -656,13 +656,21 @@ GeoDataset GeoDataset::create(const boost::filesystem::path &path
         }
     }
 
-    if (srs && !wfExt.empty()) {
-        // write .prj file
-        geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), *srs);
+    if (srs) {
+        if (!wfExt.empty())
+        {
+            // write .prj file
+            geo::writeSrs(utility::replaceOrAddExtension(path, "prj"), *srs);
 
-        // write world file
-        geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
-                              , geoTrafo);
+            // write world file
+            geo::writeTfwFromGdal(utility::replaceOrAddExtension(path, wfExt)
+                                , geoTrafo);
+        }
+        if (format.storageType == Format::Storage::gtiff)
+        {
+            geo::writeSrsToGdalPam(utility::replaceOrAddExtension(path, "tif.aux.xml")
+                                  , *srs);
+        }
     }
 
     // OK, tell ctor that dset was freshly created
