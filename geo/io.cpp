@@ -30,7 +30,7 @@ void writeSrsToGdalPam( const boost::filesystem::path &path
     if (!ba::ends_with(path.native(), ".aux.xml"))
     {
         LOGTHROW(err3, std::runtime_error) << "Invalid GDAL PAM file path: " 
-                                           << path.native();
+                                           << path;
     }
     std::ofstream f( path.native() );
     f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
