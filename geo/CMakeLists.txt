@@ -19,7 +19,7 @@ if(GDAL_FOUND)
   set(geo_GDAL_SOURCES
     enu.hpp enu.cpp
     heightconvertor.hpp heightconvertor.cpp
-    io.hpp
+    io.hpp io.cpp
     srs.hpp
     srsdef.cpp
     csconvertor.cpp

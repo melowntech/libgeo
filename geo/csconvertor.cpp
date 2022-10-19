@@ -119,6 +119,11 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
             << asName(to, toName) << "): <"
             << ::CPLGetLastErrorMsg() << ">.";
     }
+    if(from.IsSame(fromClone.get()) == FALSE)
+    {
+        LOG(warn3) << "Dangerous promotion to 3D was necessary for: "
+                   << asName(from, fromName);
+    }
     if(toClone->PromoteTo3D(nullptr) != OGRERR_NONE)
     {
         LOGTHROW(err1, std::runtime_error)
@@ -126,6 +131,11 @@ initOgr(const OGRSpatialReference &from, const OptName &fromName
             << asName(from, fromName) <<  " ->"
             << asName(to, toName) << "): <"
             << ::CPLGetLastErrorMsg() << ">.";
+    }
+    if(to.IsSame(toClone.get()) == FALSE)
+    {
+        LOG(warn3) << "Dangerous promotion to 3D was necessary for: "
+                   << asName(to, toName);
     }
     trans.reset(::OGRCreateCoordinateTransformation(fromClone.get(), toClone.get()));
 #else
