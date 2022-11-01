@@ -212,6 +212,14 @@ GeoDataset GeoDataset::use(std::unique_ptr<GDALDataset> &&dset)
     return GeoDataset(std::move(dset));
 }
 
+// Expands to critical section around ligbeotiff2 stuff user in GDAL version
+// before GDAL 3.0
+#if GDAL_VERSION_NUM >= 3000000
+#  define GEOTIFF2_LOCK
+#else
+#  define GEOTIFF2_LOCK UTILITY_OMP(critical(mlwn_geotiff2_lock))
+#endif
+
 GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
                        , bool freshlyCreated)
     : type_(Type::custom), dset_(std::move(dset))
@@ -227,6 +235,7 @@ GeoDataset::GeoDataset(std::unique_ptr<GDALDataset> &&dset
     size_ = math::Size2i( dset_->GetRasterXSize(), dset_->GetRasterYSize() );
 
     // srs
+    GEOTIFF2_LOCK
     srsWkt_ = std::string( dset_->GetProjectionRef() );
 
     // noDataValue
