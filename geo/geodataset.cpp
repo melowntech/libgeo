@@ -1981,15 +1981,15 @@ void GeoDataset::expectMask() const
 
 double GeoDataset::geo2height(double gx, double gy, double gz) const
 {
-        double x, y;
-        geoTransform_.geo2rowcol({gx,gy,gz},y,x);
-        if(!validf(y,x)){
+        double row, col;
+        geoTransform_.geo2rowcol({gx,gy,gz},row,col);
+        if(!validf(row,col)){
             LOGTHROW( err3, std::runtime_error )
                 << "Invalid coordinates (" << gx << ", "<< gy
                 << ") in geodataset (extents: "
                 << extents() << ")." ;
         }
-        return data_->at<double>(y, x);
+        return data_->at<double>(col, row);
 }
 
 void GeoDataset::exportMesh( geometry::Mesh & mesh) const {
