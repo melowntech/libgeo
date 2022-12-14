@@ -167,6 +167,10 @@ bool isProjected(const SrsDefinition &srs);
  */
 bool isGeographic(const SrsDefinition &srs);
 
+/** Returns true if SRS contains a verical component in the reference system.
+ */
+bool isVertical(const SrsDefinition &srs);
+
 /** Sets angular unit to given SRS.
  */
 SrsDefinition setAngularUnit(const SrsDefinition &srs, AngularUnit unit);

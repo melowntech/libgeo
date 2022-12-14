@@ -577,6 +577,12 @@ bool isGeographic(const SrsDefinition &srs)
     return srs.reference().IsGeographic();
 }
 
+bool isVertical(const SrsDefinition &srs)
+{
+    if (srs.type == SrsDefinition::Type::enu) { return false; }
+    return srs.reference().IsVertical();
+}
+
 boost::optional<Periodicity> isPeriodic(const SrsDefinition &srs)
 {
     if (srs.type == SrsDefinition::Type::enu) { return boost::none; }
