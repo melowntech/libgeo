@@ -115,7 +115,7 @@ endif()
 define_module(LIBRARY geo=${geo_VERSION}
   DEPENDS
   BuildSystem>=1.13
-  jsoncpp>=2.4 geometry>=1.7 imgproc>=1.34 math>=1.2
+  jsoncppwrapper>=2.4 geometry>=1.7 imgproc>=1.34 math>=1.2
   utility>=1.41 dbglog>=1.7
 
   Boost_FILESYSTEM PROJ GeographicLib ${geo_EXTRA_DEPENDS}
