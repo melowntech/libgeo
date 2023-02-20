@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(geo_generate_dataset)
              , { 1024, 1536 }
              , geo::GeoDataset::Format::gtiffRGBPhoto()
              , 0
-             , geo::GeoDataset::CreateOptions
+             , geo::GeoDataset::Options
              ("COMPRESS", "LZW")("BIGTIFF", "IF_NEEDED")
              ));
 
