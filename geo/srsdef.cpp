@@ -143,9 +143,12 @@ SrsDefinition::SrsDefinition(int epsg1, int epsg2)
 {}
 
 SrsDefinition SrsDefinition::longlat() {
-
     return SrsDefinition(
-        "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs", Type::proj4 );
+        "GEOGCS[\"WGS_1984_3D\", DATUM[\"D_WGS_1984\", "
+        "SPHEROID[\"WGS_1984\",6378137.0,298.257223563]], "
+        "PRIMEM[\"Greenwich\",0.0], UNIT[\"Degree\",0.0174532925199433], "
+        "LINUNIT[\"Meter\",1.0]]",
+        Type::wkt);
 }
 
 SrsDefinition SrsDefinition::utm(unsigned int zone, bool isNorth) {
