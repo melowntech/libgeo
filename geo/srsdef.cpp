@@ -144,20 +144,7 @@ SrsDefinition::SrsDefinition(int epsg1, int epsg2)
 
 SrsDefinition SrsDefinition::longlat()
 {
-    return SrsDefinition(
-        R"(GEOGCS["WGS 84",
-            DATUM["World Geodetic System 1984",
-                SPHEROID["WGS 84",6378137.0,298.257223563,
-                    AUTHORITY["EPSG","7030"]],
-                AUTHORITY["EPSG","6326"]],
-            PRIMEM["Greenwich",0.0,
-                AUTHORITY["EPSG","8901"]],
-            UNIT["degree",0.017453292519943295],
-            AXIS["Geodetic latitude",NORTH],
-            AXIS["Geodetic longitude",EAST],
-            AXIS["Ellipsoidal height",UP],
-            AUTHORITY["EPSG","4979"]])",
-        Type::wkt);
+    return SrsDefinition(4979);
 }
 
 SrsDefinition SrsDefinition::utm(unsigned int zone, bool isNorth) {
