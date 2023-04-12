@@ -142,12 +142,21 @@ SrsDefinition::SrsDefinition(int epsg1, int epsg2)
     , type(Type::epsg)
 {}
 
-SrsDefinition SrsDefinition::longlat() {
+SrsDefinition SrsDefinition::longlat()
+{
     return SrsDefinition(
-        "GEOGCS[\"WGS_1984_3D\", DATUM[\"D_WGS_1984\", "
-        "SPHEROID[\"WGS_1984\",6378137.0,298.257223563]], "
-        "PRIMEM[\"Greenwich\",0.0], UNIT[\"Degree\",0.0174532925199433], "
-        "LINUNIT[\"Meter\",1.0]]",
+        R"(GEOGCS["WGS 84",
+            DATUM["World Geodetic System 1984",
+                SPHEROID["WGS 84",6378137.0,298.257223563,
+                    AUTHORITY["EPSG","7030"]],
+                AUTHORITY["EPSG","6326"]],
+            PRIMEM["Greenwich",0.0,
+                AUTHORITY["EPSG","8901"]],
+            UNIT["degree",0.017453292519943295],
+            AXIS["Geodetic latitude",NORTH],
+            AXIS["Geodetic longitude",EAST],
+            AXIS["Ellipsoidal height",UP],
+            AUTHORITY["EPSG","4979"]])",
         Type::wkt);
 }
 
