@@ -142,10 +142,9 @@ SrsDefinition::SrsDefinition(int epsg1, int epsg2)
     , type(Type::epsg)
 {}
 
-SrsDefinition SrsDefinition::longlat() {
-
-    return SrsDefinition(
-        "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs", Type::proj4 );
+SrsDefinition SrsDefinition::longlat()
+{
+    return SrsDefinition(4979);
 }
 
 SrsDefinition SrsDefinition::utm(unsigned int zone, bool isNorth) {
