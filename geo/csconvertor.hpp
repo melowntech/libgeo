@@ -37,6 +37,10 @@
 #include "project.hpp"
 #include "srsdef.hpp"
 
+#ifdef GEO_HAS_GDAL
+#include "ogr_geometry.h"
+#endif // GEO_HAS_GDAL
+
 // forward declare projCtx
 typedef struct projCtx_t *projCtx;
 
@@ -82,6 +86,8 @@ public:
     math::Extents3 operator()(const math::Extents3 &p) const;
 
 #ifdef GEO_HAS_GDAL
+    OGRPoint operator()(const OGRPoint &p) const;
+
     CsConvertor inverse() const;
 
     /** Is destination SRS projected?
@@ -161,6 +167,14 @@ inline math::Points3 CsConvertor::operator()(const math::Points3 &p) const
     std::transform(p.begin(), p.end(), std::back_inserter(out), *this);
     return out;
 }
+
+#ifdef GEO_HAS_GDAL
+inline OGRPoint CsConvertor::operator()(const OGRPoint& p) const
+{
+    math::Point2 convPoint = operator()(math::Point2 { p.getX(), p.getY() });
+    return { convPoint[0], convPoint[1] };
+}
+#endif // GEO_HAS_GDAL
 
 } // namespace geo
 

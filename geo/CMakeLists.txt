@@ -130,6 +130,7 @@ set(geo_SOURCES
   srsfactorsfwd.hpp
   verticaladjuster.hpp verticaladjuster.cpp
   srsfactors.hpp srsfactors.cpp
+  ogrpolygon.hpp ogrpolygon.cpp
 
   ${geo_PROJ_SOURCES}
   ${geo_GDAL_SOURCES}
