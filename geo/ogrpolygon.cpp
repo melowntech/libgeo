@@ -74,7 +74,9 @@ void convert(const CsConvertor& conv, OGRPolygon& polygon)
     {
         for (OGRPoint& p : ring)
         {
-            p = conv(p);
+            math::Point2 p_conv = conv(math::Point2 { p.getX(), p.getY() } );
+            p.setX(p_conv[0]);
+            p.setY(p_conv[1]);
         }
     }
 }
@@ -146,7 +148,7 @@ MultiPolygon loadPolygons(const fs::path& path,
         OGRSpatialReference* layerSrsPtr = layerPtr->GetSpatialRef();
         if (sourceSrs == nullptr && layerSrsPtr != nullptr)
         {
-            LOG(info3) << "Using layer SRS: " << layerSrsPtr->GetName();
+            LOG(info1) << "Using layer SRS: " << layerSrsPtr->GetName();
             sourceSrs = layerSrsPtr;
             if (targetSrs)
             {
@@ -174,8 +176,6 @@ MultiPolygon loadPolygons(const fs::path& path,
                 if (geometryType == wkbMultiPolygon
                     || geometryType == wkbMultiPolygon25D)
                 {
-                    LOG(info1)
-                        << "Found MultiPolygon, skipping every other geometry.";
                     OGRMultiPolygon* multiPolygonPtr
                         = geometryPtr->toMultiPolygon();
                     if (multiPolygonPtr == nullptr)

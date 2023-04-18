@@ -75,7 +75,7 @@ GDALDatasetUniquePtr openDataset(const fs::path& path);
  * wkbMultiPolygon25D.
  * @param path to OGR readable file
  * @param targetSrs optionally convert geometries to target SRS. Layers need to
- * contain SRS definition.
+ * contain SRS definition. Only 2D is supported.
  * @return all supported geometries found in input file merged into
  * MultiPolygon.
  */
