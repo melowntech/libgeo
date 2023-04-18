@@ -1,6 +1,7 @@
 #ifndef VADSTENA_OGRPOLYGON_HPP
 #define VADSTENA_OGRPOLYGON_HPP
 
+#include <optional>
 #include <boost/filesystem.hpp>
 
 #include "ogrsf_frmts.h"
@@ -80,7 +81,7 @@ GDALDatasetUniquePtr openDataset(const fs::path& path);
  * MultiPolygon.
  */
 MultiPolygon loadPolygons(const fs::path& path,
-                          boost::optional<SrsDefinition> targetSrs);
+                          std::optional<SrsDefinition> targetSrs = std::nullopt);
 
 void convert(const CsConvertor& conv, OGRPolygon& polygon);
 

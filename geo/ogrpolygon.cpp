@@ -134,7 +134,7 @@ GDALDatasetUniquePtr openDataset(const fs::path& path)
 }
 
 MultiPolygon loadPolygons(const fs::path& path,
-                          boost::optional<SrsDefinition> targetSrs)
+                          std::optional<SrsDefinition> targetSrs)
 {
     LOG(info3) << "Loading polygons from: " << path;
     GDALDatasetUniquePtr dataset { openDataset(path) };
