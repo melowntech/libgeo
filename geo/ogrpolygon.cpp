@@ -117,7 +117,7 @@ MultiPolygon toPolygons(const math::Extents2& extents)
 GDALDatasetUniquePtr openDataset(const fs::path& path)
 {
     GDALDatasetUniquePtr dataset {
-        GDALDataset::Open(reinterpret_cast<const char*>(path.c_str()), GDAL_OF_VECTOR | GDAL_OF_READONLY)
+        GDALDataset::Open(path.generic_string().c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY)
     };
     if (dataset == nullptr)
     {
