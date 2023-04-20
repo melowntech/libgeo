@@ -26,7 +26,7 @@ class MultiPolygon
 public:
     MultiPolygon(const OGRMultiPolygon& polygons);
 
-    MultiPolygon(MultiPolygon&& polygons);
+    MultiPolygon(MultiPolygon&& polygons) noexcept;
 
     const OGRMultiPolygon& polygons() const;
 

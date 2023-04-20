@@ -10,7 +10,7 @@ MultiPolygon::MultiPolygon(const OGRMultiPolygon& polygons)
     : polygons_(polygons)
 { }
 
-MultiPolygon::MultiPolygon(MultiPolygon&& other)
+MultiPolygon::MultiPolygon(MultiPolygon&& other) noexcept
     : polygons_(std::move(other.polygons_))
 { }
 
@@ -53,9 +53,12 @@ bool MultiPolygon::overlaps(const math::Points2& other) const
 {
     if (other.size() < 3) return false;
     OGRLinearRing ring;
-    ring.addPoint(other[0][0], other[0][1]);
-    ring.addPoint(other[1][0], other[1][1]);
-    ring.addPoint(other[2][0], other[2][1]);
+    for (const auto& p : other)
+    {
+        ring.addPoint(p[0], p[1]);
+
+    }
+    // close the ring
     ring.addPoint(other[0][0], other[0][1]);
 
     OGRPolygon polygon;
