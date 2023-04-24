@@ -32,20 +32,23 @@ public:
 
     /**
      * Checks if 2 multipolygons overlap.
-     * Utilizes OGRGeometry::Overlaps.
+     * @return true if this multipolygon OGRGeometry::Intersects or
+     * OGRGeometry::Contains the other geometry.
      */
     bool overlaps(const MultiPolygon& other) const;
 
     /**
      * Checks if 2 multipolygons overlap.
-     * Utilizes OGRGeometry::Overlaps.
+     * @return true if this multipolygon OGRGeometry::Intersects or
+     * OGRGeometry::Contains the other geometry.
      */
     bool overlaps(const OGRMultiPolygon& other) const;
 
     /**
      * Checks if multipolygon overlaps with extents.
-     * Converts extents to OGRGeometry::OGRPolygon and utilizes
-     * OGRGeometry::Overlaps.
+     * Converts extents to OGRGeometry::OGRPolygon.
+     * @return true if this multipolygon OGRGeometry::Intersects or
+     * OGRGeometry::Contains the other geometry.
      */
     bool overlaps(const math::Extents2& other) const;
 
@@ -53,7 +56,8 @@ public:
      * Checks if multipolygon overlaps with given polygon (is closed here).
      * Converts points to OGRGeometry::OGRPolygon. The first point is added
      * to the end to close the ring.
-     * Utilizes OGRGeometry::Overlaps.
+     * @return true if this multipolygon OGRGeometry::Intersects or
+     * OGRGeometry::Contains the other geometry.
      */
     bool overlaps(const math::Points2& other) const;
 

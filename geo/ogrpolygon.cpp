@@ -21,7 +21,7 @@ const OGRMultiPolygon& MultiPolygon::polygons() const
 
 bool MultiPolygon::overlaps(const OGRMultiPolygon& other) const
 {
-    return polygons_.Overlaps(&other);
+    return polygons_.Intersects(&other) || polygons_.Contains(&other);
 }
 
 bool MultiPolygon::overlaps(const MultiPolygon& other) const
@@ -46,7 +46,7 @@ bool MultiPolygon::overlaps(const math::Extents2& other) const
 
     OGRPolygon polygon;
     polygon.addRing(&ring);
-    return polygons_.Overlaps(&polygon);
+    return polygons_.Intersects(&polygon) || polygons_.Contains(&polygon);
 }
 
 bool MultiPolygon::overlaps(const math::Points2& other) const
@@ -56,14 +56,13 @@ bool MultiPolygon::overlaps(const math::Points2& other) const
     for (const auto& p : other)
     {
         ring.addPoint(p[0], p[1]);
-
     }
     // close the ring
     ring.addPoint(other[0][0], other[0][1]);
 
     OGRPolygon polygon;
     polygon.addRing(&ring);
-    return polygons_.Overlaps(&polygon);
+    return polygons_.Intersects(&polygon) || polygons_.Contains(&polygon);
 }
 
 MultiPolygon MultiPolygon::from(const math::Extents2& extents)
