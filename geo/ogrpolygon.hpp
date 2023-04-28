@@ -85,7 +85,7 @@ GDALDatasetUniquePtr openDataset(const fs::path& path);
  * MultiPolygon.
  */
 MultiPolygon loadPolygons(const fs::path& path,
-                          std::optional<SrsDefinition> targetSrs = std::nullopt);
+                          const std::optional<SrsDefinition>& targetSrs = std::nullopt);
 
 void convert(const CsConvertor& conv, OGRPolygon& polygon);
 

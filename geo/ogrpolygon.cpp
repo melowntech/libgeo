@@ -136,7 +136,7 @@ GDALDatasetUniquePtr openDataset(const fs::path& path)
 }
 
 MultiPolygon loadPolygons(const fs::path& path,
-                          std::optional<SrsDefinition> targetSrs)
+                          const std::optional<SrsDefinition>& targetSrs)
 {
     LOG(info3) << "Loading polygons from: " << path;
     GDALDatasetUniquePtr dataset { openDataset(path) };
@@ -147,22 +147,35 @@ MultiPolygon loadPolygons(const fs::path& path,
     for (OGRLayer* layerPtr : dataset->GetLayers())
     {
         LOG(info1) << "Found layer: " << layerPtr->GetName();
-        OGRSpatialReference* layerSrsPtr = layerPtr->GetSpatialRef();
-        if (sourceSrs == nullptr && layerSrsPtr != nullptr)
+        // If target srs is set, find first non-empty SRS and create convertor.
+        // If multiple SRS definitions are found among layers, throw exception.
+        if (targetSrs)
         {
-            LOG(info1) << "Using layer SRS: " << layerSrsPtr->GetName();
-            sourceSrs = layerSrsPtr;
-            if (targetSrs)
+            OGRSpatialReference* layerSrsPtr = layerPtr->GetSpatialRef();
+            if (sourceSrs == nullptr && layerSrsPtr != nullptr)
             {
-                LOG(info3) << "Points will be converted to target SRS from: "
-                           << layerSrsPtr->GetName();
-                conv = CsConvertor { *layerSrsPtr, targetSrs.value() };
+                if (!layerSrsPtr->IsEmpty())
+                {
+                    LOG(info1) << "Using layer SRS: " << layerSrsPtr->GetName();
+                    sourceSrs = layerSrsPtr;
+                    if (targetSrs)
+                    {
+                        LOG(info3) << "Points will be converted to target SRS from: "
+                                   << layerSrsPtr->GetName();
+                        conv = CsConvertor { *layerSrsPtr, targetSrs.value() };
+                    }
+                }
+                else
+                {
+                    LOG(warn3) << "Layer (" << layerPtr->GetName()
+                               << ") has empty SRS.";
+                }
             }
-        }
-        else if (layerSrsPtr != nullptr && !sourceSrs->IsSame(layerSrsPtr))
-        {
-            LOGTHROW(err3, std::runtime_error)
-                << "SRS discrepancy between layers.";
+            else if (layerSrsPtr != nullptr && !sourceSrs->IsSame(layerSrsPtr))
+            {
+                LOGTHROW(err3, std::runtime_error)
+                    << "SRS discrepancy between layers.";
+            }
         }
         for (const auto& featurePtr : *layerPtr)
         {
