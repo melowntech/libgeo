@@ -61,6 +61,13 @@ public:
      */
     bool overlaps(const math::Points2& other) const;
 
+    /**
+     * Checks if multipolygon contains given point.
+     * Converts points to OGRGeometry::OGRPoint
+     * @return true if this multipolygon OGRGeometry::Contains given point.
+     */
+    bool contains(const math::Point2& other) const;
+
     static MultiPolygon from(const math::Extents2& extents);
 
 private:

@@ -65,6 +65,12 @@ bool MultiPolygon::overlaps(const math::Points2& other) const
     return polygons_.Intersects(&polygon) || polygons_.Contains(&polygon);
 }
 
+bool MultiPolygon::contains(const math::Point2& other) const
+{
+    OGRPoint point { other[0], other[1] };
+    return polygons_.Contains(&point);
+}
+
 MultiPolygon MultiPolygon::from(const math::Extents2& extents)
 {
     return toPolygons(extents);
