@@ -37,6 +37,10 @@
 #include "project.hpp"
 #include "srsdef.hpp"
 
+#ifdef GEO_HAS_GDAL
+#include "ogr_geometry.h"
+#endif // GEO_HAS_GDAL
+
 // forward declare projCtx
 typedef struct projCtx_t *projCtx;
 
