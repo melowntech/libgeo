@@ -153,9 +153,15 @@ protected:
     friend class OverviewDataset;
 
     ::GDALRasterBand *underlyingBand_;
+#if GDAL_VERSION_NUM < 3050000
     virtual ::GDALRasterBand* RefUnderlyingRasterBand() override {
         return underlyingBand_;
     }
+#else
+    virtual ::GDALRasterBand* RefUnderlyingRasterBand() const override {
+        return underlyingBand_;
+    }
+#endif
 
 public:
     OverviewBand(OverviewDataset *ds, int band);
