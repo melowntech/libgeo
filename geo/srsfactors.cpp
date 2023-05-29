@@ -101,8 +101,7 @@ namespace {
 int getPjFactors(double x, double y, PJ *pj
                  , SrsFactors::Factors &factors)
 {
-
-    const auto fac(::proj_factors(pj, { x, y }));
+    const auto fac(::proj_factors(pj, { { x, y } }));
 
     factors.meridionalScale = fac.meridional_scale;
     factors.parallelScale = fac.parallel_scale;

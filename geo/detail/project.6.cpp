@@ -67,7 +67,7 @@ math::Point2 Projection::operator()(const math::Point2 &p, bool deg) const
 {
     auto *pj(static_cast<PJ*>(proj_.get()));
     if (inverse_) {
-        auto res(::proj_trans(pj, PJ_INV, { p(0), p(1) }));
+        auto res(::proj_trans(pj, PJ_INV, { { p(0), p(1) } }));
         if (deg) {
             return { res.uv.u * RAD2DEG, res.uv.v * RAD2DEG };
         }
@@ -76,11 +76,12 @@ math::Point2 Projection::operator()(const math::Point2 &p, bool deg) const
     }
 
     if (deg) {
-        auto res(::proj_trans(pj, PJ_FWD, { p(0) * DEG2RAD, p(1) * DEG2RAD }));
+        auto res(
+            ::proj_trans(pj, PJ_FWD, { { p(0) * DEG2RAD, p(1) * DEG2RAD } }));
         return { res.uv.u, res.uv.v };
     }
 
-    auto res(::proj_trans(pj, PJ_FWD, { p(0), p(1)}));
+    auto res(::proj_trans(pj, PJ_FWD, { { p(0), p(1) } }));
     return { res.uv.u, res.uv.v };
 }
 

@@ -94,7 +94,7 @@ public:
      */
     void finish();
 
-    struct Detail;
+    class Detail;
 
 private:
     std::unique_ptr<Detail> detail_;
