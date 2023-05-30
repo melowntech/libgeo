@@ -77,6 +77,10 @@ UTILITY_GENERATE_ENUM_IO_CI(::GDALDataType,
                             ((GDT_Int16)("Int16"))
                             ((GDT_UInt32)("UInt32"))
                             ((GDT_Int32)("Int32"))
+#if GDAL_VERSION_NUM >= 3050000
+                            ((GDT_UInt64)("UInt64"))
+                            ((GDT_Int64)("Int64"))
+#endif
                             ((GDT_Float32)("Float32"))
                             ((GDT_Float64)("Float64"))
                             ((GDT_CInt16)("CInt16"))
