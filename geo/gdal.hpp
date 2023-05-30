@@ -71,16 +71,15 @@ inline void Gdal::setOption(const std::string &name, const T &value
 
 } // namespace geo
 
+#if GDAL_VERSION_NUM >= 3050000
 UTILITY_GENERATE_ENUM_IO_CI(::GDALDataType,
                             ((GDT_Byte)("Byte"))
                             ((GDT_UInt16)("UInt16"))
                             ((GDT_Int16)("Int16"))
                             ((GDT_UInt32)("UInt32"))
                             ((GDT_Int32)("Int32"))
-#if GDAL_VERSION_NUM >= 3050000
                             ((GDT_UInt64)("UInt64"))
                             ((GDT_Int64)("Int64"))
-#endif
                             ((GDT_Float32)("Float32"))
                             ((GDT_Float64)("Float64"))
                             ((GDT_CInt16)("CInt16"))
@@ -90,6 +89,23 @@ UTILITY_GENERATE_ENUM_IO_CI(::GDALDataType,
                             ((GDT_Unknown)("Unknown"))
                             ((GDT_TypeCount)("TypeCount"))
                             )
+#else
+UTILITY_GENERATE_ENUM_IO_CI(::GDALDataType,
+                            ((GDT_Byte)("Byte"))
+                            ((GDT_UInt16)("UInt16"))
+                            ((GDT_Int16)("Int16"))
+                            ((GDT_UInt32)("UInt32"))
+                            ((GDT_Int32)("Int32"))
+                            ((GDT_Float32)("Float32"))
+                            ((GDT_Float64)("Float64"))
+                            ((GDT_CInt16)("CInt16"))
+                            ((GDT_CInt32)("CInt32"))
+                            ((GDT_CFloat32)("CFloat32"))
+                            ((GDT_CFloat64)("CFloat64"))
+                            ((GDT_Unknown)("Unknown"))
+                            ((GDT_TypeCount)("TypeCount"))
+                            )
+#endif // GDAL_VERSION_NUM
 
 /*! Types of color interpretation for raster bands. */
 UTILITY_GENERATE_ENUM_IO_CI(::GDALColorInterp,
