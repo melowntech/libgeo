@@ -34,6 +34,8 @@
 
 #include "utility/enum-io.hpp"
 
+#include "options.hpp"
+
 #ifdef GEO_HAS_GDAL
 // forward declaration
 class OGRSpatialReference;
@@ -62,7 +64,9 @@ struct SrsDefinition {
     SrsDefinition(int epsg1, int epsg2);
 #endif // GEO_HAS_GDAL
 
-    SrsDefinition as(Type type) const;
+    /** Converts this SRS into SRS of another type.
+     */
+    SrsDefinition as(Type type, const Options &options = {}) const;
 
     bool convertibleTo(Type type) const;
 

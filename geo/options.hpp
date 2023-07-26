@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Melown Technologies SE
+ * Copyright (c) 2023 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,53 +24,60 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef geo_detail_options_hpp_included
-#define geo_detail_options_hpp_included
+/**
+  * @file options.hpp
+  * @author Vaclav Blazek <vaclav.blazek@melowntech.com>
+  */
 
-#include "../options.hpp"
+#ifndef geo_options_hpp_included
+#define geo_options_hpp_included
 
-namespace geo { namespace detail {
+#include <utility>
+#include <string>
+#include <vector>
 
-class OptionsWrapper : boost::noncopyable {
-public:
-    OptionsWrapper(const Options &options)
-        : opts_(nullptr)
-    {
-        for (const auto &opt : options.options) {
-            opts_ = ::CSLSetNameValue(opts_, opt.first.c_str()
-                                      , opt.second.c_str());
-        }
-    }
+#include <boost/lexical_cast.hpp>
 
-    ~OptionsWrapper() { ::CSLDestroy(opts_); }
+namespace geo {
 
-    operator char**() const { return opts_; }
+/** Various options. Thin wrapper around vector of string pairs.
+ *
+ *  For create-options see:
+ *    * http://www.gdal.org/frmt_gtiff.html for gtiff options
+ *    * http://www.gdal.org/frmt_various.html#PNG for png options
+ *    * http://www.gdal.org/frmt_jpeg.html for jpeg options
+ *
+ */
+struct Options {
+    typedef std::pair<std::string, std::string> Option;
+    typedef std::vector<Option> OptionList;
+    OptionList options;
 
-    char** release() {
-        char** opts(opts_);
-        opts_ = nullptr;
-        return opts;
-    }
+    Options() = default;
 
-    OptionsWrapper& operator()(const char *name, const char *value) {
-        opts_ = ::CSLSetNameValue(opts_, name, value);
-        return *this;
+    template <typename T>
+    Options(const std::string &name, const T &value) {
+        operator()(name, value);
     }
 
     template <typename T>
-    OptionsWrapper& operator()(const char *name, const T &value) {
-        return operator()
-            (name, boost::lexical_cast<std::string>(value).c_str());
+    Options& operator()(const std::string &name, const T &value) {
+        options.emplace_back
+            (name, boost::lexical_cast<std::string>(value));
+        return *this;
     }
 
-    OptionsWrapper& operator()(const char *name, bool value) {
-        return operator()(name, value ? "YES" : "NO");
+    /** Special handling for boolean -> YES/NO
+     */
+    Options& operator()(const std::string &name, bool value) {
+        options.emplace_back(name, value ? "YES" : "NO");
+        return *this;
     }
 
-private:
-    char **opts_;
+    bool empty() const { return options.empty(); }
 };
 
-} } // namespace geo::detail
 
-#endif // geo_detail_options_hpp_included
+} // namespace geo
+
+#endif // geo_options_hpp_included

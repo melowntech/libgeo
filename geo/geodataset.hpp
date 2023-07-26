@@ -53,6 +53,7 @@
 #include <cpl_conv.h>
 
 #include "srsdef.hpp"
+#include "options.hpp"
 #include "geotransform.hpp"
 
 namespace ublas = boost::numeric::ublas;
@@ -93,40 +94,6 @@ typedef boost::optional<double> NodataValue;
 typedef boost::optional<NodataValue> OptionalNodataValue;
 typedef boost::optional<int> Overview;
 typedef boost::optional<Overview> OptionalOverview;
-
-/** Various options. Thin wrapper around vector of string pairs.
- *
- *  For create-options see:
- *    * http://www.gdal.org/frmt_gtiff.html for gtiff options
- *    * http://www.gdal.org/frmt_various.html#PNG for png options
- *    * http://www.gdal.org/frmt_jpeg.html for jpeg options
- */
-struct Options {
-    typedef std::pair<std::string, std::string> Option;
-    typedef std::vector<Option> OptionList;
-    OptionList options;
-
-    Options() = default;
-
-    template <typename T>
-    Options(const std::string &name, const T &value) {
-        operator()(name, value);
-    }
-
-    template <typename T>
-    Options& operator()(const std::string &name, const T &value) {
-        options.emplace_back
-            (name, boost::lexical_cast<std::string>(value));
-        return *this;
-    }
-
-    /** Special handling for boolean -> YES/NO
-     */
-    Options& operator()(const std::string &name, bool value) {
-        options.emplace_back(name, value ? "YES" : "NO");
-        return *this;
-    }
-};
 
 /** Pixel value linear transformation
  * dst_value = (raw_value * scale) + offset
