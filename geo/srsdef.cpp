@@ -47,6 +47,7 @@
 #include "srs.hpp"
 #include "enu.hpp"
 #include "detail/srs.hpp"
+#include "detail/options.hpp"
 #include "csconvertor.hpp"
 
 namespace geo {
@@ -92,7 +93,7 @@ inline std::string srs2Proj(const OGRSpatialReference &sr)
     return projDef;
 }
 
-inline std::string def2Proj(const SrsDefinition &def)
+inline std::string def2Proj(const SrsDefinition &def, const Options&)
 {
     OGRSpatialReference sr;
     detail::import(sr, def);
@@ -111,13 +112,13 @@ inline std::string def2Proj(const SrsDefinition &def)
     return projDef;
 }
 
-inline std::string def2Wkt(const SrsDefinition &def)
+inline std::string def2Wkt(const SrsDefinition &def, const Options &options)
 {
     OGRSpatialReference sr;
     detail::import(sr, def);
 
     char *out(nullptr);
-    auto err(sr.exportToWkt(&out));
+    auto err(sr.exportToWkt(&out, detail::OptionsWrapper(options)));
     if (err != OGRERR_NONE) {
         ::CPLFree(out);
         LOGTHROW(err1, std::runtime_error)
@@ -168,18 +169,30 @@ SrsDefinition SrsDefinition::utmFromLonglat(const math::Point2 & longlat ) {
 }
 
 
-SrsDefinition SrsDefinition::as(Type dstType) const
+SrsDefinition SrsDefinition::as(Type dstType, const Options &options) const
 {
-    if (type == dstType) {
-        return *this;
+    switch (dstType) {
+    case SrsDefinition::Type::wkt:
+        if (type == dstType) {
+            if (options.empty()) {
+                // wkt -> wkt and not options specified -> no change
+                return *this;
+            }
+            // may contain format changing options
+        }
+        break;
+
+    default:
+        // no change if the same type
+        if (type == dstType) { return *this; }
     }
 
     switch (dstType) {
     case SrsDefinition::Type::proj4:
-        return { def2Proj(*this), dstType };
+        return { def2Proj(*this, options), dstType };
 
     case SrsDefinition::Type::wkt:
-        return { def2Wkt(*this), dstType };
+        return { def2Wkt(*this, options), dstType };
 
     case SrsDefinition::Type::epsg:
         LOGTHROW(err1, std::runtime_error)
