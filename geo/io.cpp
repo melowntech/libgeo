@@ -19,7 +19,7 @@ void writeSrs( const boost::filesystem::path &path
     std::ofstream f( path.native() );
     f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
-    f << srs.as(type).srs;
+    f << srs.as(type);
 
     f.close();
 }
